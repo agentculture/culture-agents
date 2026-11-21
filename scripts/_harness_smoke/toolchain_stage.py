@@ -1,4 +1,4 @@
-"""Stage ``toolchain`` — ``steward doctor`` plus four ``guild create`` dry-runs."""
+"""Stage ``toolchain`` — ``steward doctor`` plus per-harness ``guild create`` dry-runs."""
 
 from __future__ import annotations
 
@@ -115,7 +115,7 @@ def check_steward_doctor(repo: Path, timeout: int) -> Result:
             "toolchain",
             "steward-doctor",
             WAIVED,
-            "0 unexpected findings while carrying all four harness prompt files; "
+            "0 unexpected findings while carrying every harness prompt file; "
             f"{len(waived)} known-accepted finding(s) waived: {'; '.join(waived)} "
             "(pre-existing, byte-verbatim vendored skills — upstream's to fix)",
         )
@@ -123,7 +123,7 @@ def check_steward_doctor(repo: Path, timeout: int) -> Result:
         "toolchain",
         "steward-doctor",
         PASS,
-        "0 findings while carrying all four harness prompt files",
+        "0 findings while carrying every harness prompt file",
     )
 
 
@@ -135,13 +135,23 @@ def check_guild_create(repo: Path, harnesses: dict[str, Any], timeout: int) -> l
                 "toolchain",
                 "guild-create",
                 SKIP,
-                "neither `guild` nor `uvx`/`uv` is available — the four `guild "
+                "neither `guild` nor `uvx`/`uv` is available — the `guild "
                 "create` dry-runs were NOT run",
             )
         ]
 
     results: list[Result] = []
     for name in HARNESSES:
+        if name not in GUILD_HARNESS:
+            results.append(
+                Result(
+                    "toolchain",
+                    f"guild-create/{name}",
+                    SKIP,
+                    f"guild create has no harness for {name!r} — NOT verified by a dry-run",
+                )
+            )
+            continue
         guild_name, expected = GUILD_HARNESS[name]
         resolves = [str(p) for p in harnesses[name].get("resolves") or []]
         if expected not in resolves:

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-11-21
+
+### Added
+
+- `AGENTS.md`, giving project guidance to **OpenCode**, which reads a directory's `AGENTS.md` in preference to its `CLAUDE.md` and discovers `.claude/skills` natively. colleague (cascade layer 1) and Qwen Code (alongside `QWEN.md`) load it too, so it is written as harness-neutral project context. Pi is still shielded from it by `AGENTS.override.md`.
+- OpenCode is the fifth harness in `scripts/harness-smoke.py`: `opencode` on the `acp` backend in `HARNESSES`/`HARNESS_BACKEND`, an `opencode run --agent plan --archived` probe in `docs/harness-invocations.yaml`, and native `.claude/skills` discovery in the config stage. `guild create` has no OpenCode harness, so the toolchain stage reports its dry-run as SKIP, never as a pass. The live probe's evidence is recorded as weaker than the other harnesses' (see `docs/automation-contract.md`).
+- Tests: OpenCode fails the config stage when `AGENTS.md` is missing or empty, and a harness without a guild mapping is skipped, never passed.
+
+### Removed
+
+- The `no-bare-agents-md` config check, which failed on any root `AGENTS.md`.
+
+### Changed
+
+- `CLAUDE.md` initialized from the guildmaster seed into a full runtime prompt: the control-plane mission and honest scaffold-only status, the product boundaries, non-negotiables, proposed contract and D0–D6 gates from #1/#2, commands (including single-test and every CI lint gate), the CLI architecture, harness files, conventions, worktrees, and memory.
+- `README.md` rewritten around the control-plane mission, with a Status section linking #1/#2, a planned "Where it fits" section, and a Contributing section that replaces the template-cloning steps.
+- `AGENTS.override.md`, `AGENTS.colleague.md` and `QWEN.md` now describe the control-plane mission and current status instead of "a clonable template". `QWEN.md` swaps its template-cloning section for a Roadmap.
+
+### Fixed
+
+- Docs referenced the CLI as `culture-agents`, but the installed console script is `agents` (`uv run agents whoami`).
+- Memory docs now match the vendored `remember` wrapper: records default to a private `$HOME` scope, and only `--visibility public` writes to the committed in-repo store.
+
 ## [0.11.0] - 2026-11-21
 
 ### Added

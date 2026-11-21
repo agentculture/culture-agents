@@ -16,7 +16,7 @@ template, and they care about it for different reasons:
 
 1. **The provisioning operator** running `guild create` (or hand-editing a
    fresh clone) — decides the *initial* `backend` a new sibling declares in
-   `culture.yaml`, and which of the four prompt files gets written with
+   `culture.yaml`, and which of the prompt files gets written with
    real content versus left as a template stub.
 2. **The clone's own resident agent** — the process the Culture daemon
    starts for this clone, which reads exactly one prompt file (the one
@@ -43,19 +43,20 @@ This document exists so that never happens silently. They are stated here
 ### Selection 1 — the interactive harness
 
 Chosen by **which binary you run**. `cd` into a clone of this template and
-run `claude`, `pi`, `colleague`, or `qwen`. Each reads its own prompt file:
+run `claude`, `pi`, `colleague`, `qwen`, or `opencode`. Each reads its own prompt file(s):
 
 | Binary | Prompt file(s) it reads |
 |---|---|
 | `claude` | `CLAUDE.md` |
 | `pi` | `AGENTS.override.md` (context) + `.pi/SYSTEM.md` (system prompt) |
-| `colleague` | `AGENTS.colleague.md` |
-| `qwen` | `QWEN.md` |
+| `colleague` | `AGENTS.md` (shared base) → `AGENTS.colleague.md` |
+| `qwen` | `QWEN.md` + `AGENTS.md` |
+| `opencode` | `AGENTS.md` (preferred over `CLAUDE.md`) |
 
-**All four are live simultaneously** against the same working tree. There is
+**All five are live simultaneously** against the same working tree. There is
 no config file that "activates" one of them and no file that must be edited
 before you can run a given binary — running the binary *is* the selection.
-Any of the four can also be **force-chosen** by a human or by automation
+Any of the five can also be **force-chosen** by a human or by automation
 (for example, a CI smoke check) regardless of what `culture.yaml` declares.
 Forcing a harness this way is strictly **invocation-level** — flags passed
 to that one process — and must never mutate `culture.yaml` or any other

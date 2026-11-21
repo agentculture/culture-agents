@@ -36,6 +36,7 @@ smoke = load_smoke()
 FIXTURE_FILES = (
     "docs/harness-invocations.yaml",
     "CLAUDE.md",
+    "AGENTS.md",
     "AGENTS.override.md",
     "AGENTS.colleague.md",
     "QWEN.md",

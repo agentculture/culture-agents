@@ -1,7 +1,7 @@
 """The per-harness smoke check must fail when ANY ONE harness config breaks.
 
 This is the load-bearing property of ``scripts/harness-smoke.py`` (t12
-criterion 4). All four harnesses are live for interactive use over the same
+criterion 4). All five harnesses are live for interactive use over the same
 clone at all times, so a check that only exercises the harness ``culture.yaml``
 declares would let three-quarters of a clone's configs rot unnoticed.
 
@@ -36,8 +36,8 @@ def test_smoke_passes_on_an_intact_clone(clone: Path) -> None:
         "pi",
         "qwen",
         "colleague",
+        "opencode",
         "fingerprint-registry",
-        "no-bare-agents-md",
     }
     assert all(status == "PASS" for status in statuses.values()), out
 
@@ -120,19 +120,28 @@ def test_smoke_fails_when_the_canonical_skill_tree_is_gone(clone: Path) -> None:
     shutil.rmtree(clone / ".claude" / "skills")
     rc, statuses, out = run_smoke(clone)
     assert rc != 0
-    assert [statuses[n] for n in ("claude", "pi", "qwen", "colleague")] == ["FAIL"] * 4, out
+    names = ("claude", "pi", "qwen", "colleague", "opencode")
+    assert [statuses[n] for n in names] == ["FAIL"] * 5, out
     assert statuses["fingerprint-registry"] == "FAIL", out
 
 
 # --- global invariants ----------------------------------------------------
 
 
-def test_smoke_fails_when_a_bare_agents_md_appears(clone: Path) -> None:
-    """A bare AGENTS.md would shadow the Pi/colleague prompt cascade."""
-    (clone / "AGENTS.md").write_text("# stray\n", encoding="utf-8")
+def test_smoke_fails_when_agents_md_is_missing(clone: Path) -> None:
+    """Without AGENTS.md, OpenCode silently falls back to CLAUDE.md."""
+    (clone / "AGENTS.md").unlink()
     rc, statuses, out = run_smoke(clone)
     assert rc != 0, out
-    assert statuses["no-bare-agents-md"] == "FAIL", out
+    assert statuses["opencode"] == "FAIL", out
+    assert "AGENTS.md is missing" in out, out
+
+
+def test_smoke_fails_when_agents_md_is_empty(clone: Path) -> None:
+    (clone / "AGENTS.md").write_text("\n", encoding="utf-8")
+    rc, statuses, out = run_smoke(clone)
+    assert rc != 0, out
+    assert statuses["opencode"] == "FAIL", out
 
 
 def test_smoke_fails_when_a_prompt_file_is_unregistered(clone: Path) -> None:

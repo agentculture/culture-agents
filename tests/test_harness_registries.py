@@ -1,6 +1,6 @@
-"""The harness registries must agree on all four harnesses (t12 criterion 1).
+"""The harness registries must agree on every harness (t12 criterion 1).
 
-Three registries describe the same four harnesses, and a clone whose configs
+Three registries describe the same five harnesses, and a clone whose configs
 are right but whose registries disagree is still broken — tooling reads the
 registries, not the files:
 
@@ -16,7 +16,7 @@ registries, not the files:
    report-only: a foreign repo's disagreement is reported, never silently
    asserted away and never faked into agreement.
 
-``docs/harness-invocations.yaml`` is the source of truth for which four
+``docs/harness-invocations.yaml`` is the source of truth for which
 harnesses exist and which files each resolves; every assertion here is
 anchored to it.
 """
@@ -59,12 +59,12 @@ def _resolves(harness: str) -> list[str]:
     return [str(p) for p in INVOCATIONS["harnesses"][harness]["resolves"]]
 
 
-# --- the four harnesses are the same four everywhere ----------------------
+# --- the harnesses are the same five everywhere --------------------------
 
 
-def test_the_yaml_and_the_smoke_check_list_the_same_four_harnesses() -> None:
+def test_the_yaml_and_the_smoke_check_list_the_same_five_harnesses() -> None:
     assert set(INVOCATIONS["harnesses"]) == set(HARNESSES)
-    assert len(HARNESSES) == 4
+    assert len(HARNESSES) == 5
     assert set(HARNESS_BACKEND) == set(HARNESSES)
 
 
@@ -84,7 +84,11 @@ def test_fingerprints_register_every_harness_config_under_its_own_backend(harnes
 
 
 def test_fingerprints_do_not_claim_a_bare_agents_md_for_the_colleague_backend() -> None:
-    """This template ships no AGENTS.md; the colleague row must not imply one."""
+    """AGENTS.md is OpenCode's file (acp backend), never a colleague resident prompt.
+
+    colleague loads AGENTS.md as layer 1 of its cascade, but the file the
+    Culture daemon reads for a colleague resident is AGENTS.colleague.md.
+    """
     assert "AGENTS.md" not in FINGERPRINTS["colleague"]
 
 

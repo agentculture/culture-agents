@@ -56,6 +56,9 @@ SKILLS_WIRING: dict[str, Callable[[Path], list[str]]] = {
     "pi": lambda repo: _check_relative_skills_symlink(repo, ".pi/skills"),
     "qwen": lambda repo: _check_relative_skills_symlink(repo, ".qwen/skills"),
     "colleague": lambda repo: _check_relative_skills_symlink(repo, ".colleague/skills"),
+    # OpenCode discovers `.claude/skills` natively (a documented
+    # Claude Code compatibility source), so no symlink is needed.
+    "opencode": _check_canonical_skill_tree,
 }
 
 
@@ -115,23 +118,6 @@ def stage_config(repo: Path, harnesses: dict[str, Any]) -> list[Result]:
                 FAIL,
                 f"{FINGERPRINTS_REL} is missing, unreadable, or registers no prompt paths",
             )
-        )
-
-    bare = repo / "AGENTS.md"
-    if bare.exists():
-        results.append(
-            Result(
-                "config",
-                "no-bare-agents-md",
-                FAIL,
-                "AGENTS.md exists; this template ships none on purpose — it would "
-                "shadow AGENTS.override.md / AGENTS.colleague.md in the Pi and "
-                "colleague prompt cascades",
-            )
-        )
-    else:
-        results.append(
-            Result("config", "no-bare-agents-md", PASS, "no bare AGENTS.md, as intended")
         )
 
     return results
