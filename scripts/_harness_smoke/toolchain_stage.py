@@ -161,7 +161,7 @@ def check_guild_create(repo: Path, harnesses: dict[str, Any], timeout: int) -> l
             "--agent",
             "agentculture/harness-smoke-probe",
             "--desc",
-            "dry-run probe for the culture-agent-template harness smoke check",
+            "dry-run probe for the culture-agents harness smoke check",
             "--harness",
             guild_name,
             "--json",

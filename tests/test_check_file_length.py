@@ -82,7 +82,7 @@ def test_an_unterminated_last_line_counts(tmp_path: Path) -> None:
 
 
 def test_vendored_skills_and_non_python_files_are_not_checked() -> None:
-    assert cfl.is_checked("culture_agent_template/cli/__init__.py")
+    assert cfl.is_checked("culture_agents/cli/__init__.py")
     assert cfl.is_checked("scripts/harness-smoke.py")
     assert cfl.is_checked("tests/test_cli.py")
     assert not cfl.is_checked(".claude/skills/version-bump/scripts/bump.py")
