@@ -20,14 +20,24 @@ what the repo is and how it is laid out, not who is reading it.
 
 ## What this project is
 
-`culture-agents` is a clonable template for AgentCulture mesh agents —
-a working, minimal example of the sibling pattern every Culture agent follows:
-an agent-first CLI, a mesh identity, the canonical skill kit, and a
-buildable/deployable package baseline. It is a sibling to
-[`guildmaster`](https://github.com/agentculture/guildmaster) (the skills
-supplier), [`steward`](https://github.com/agentculture/steward) (alignment),
-and [`teken`](https://github.com/agentculture/teken) (the CLI scaffolder this
-package is cited from).
+`culture-agents` is the **agent control plane** for AgentCulture: direct
+dispatch, sessions and runs, and lifecycle control (dispatch, attach, steer,
+delegate, cancel, resume, supervise) over harness adapters, independent of
+chat. The CLI ships as `agents`, the package is `culture_agents`, and the
+PyPI dist is `culture-agents`.
+
+**Status:** scaffold only. guildmaster provisioned the repo from
+`culture-agent-template`, and it currently holds the agent-first CLI
+baseline, the mesh identity, the harness prompt files, the vendored skill kit,
+and CI. The control-plane surface is **planned**. When asked what the repo
+does, separate what exists on disk from the plan in
+[#1](https://github.com/agentculture/culture-agents/issues/1) (founding brief)
+and [#2](https://github.com/agentculture/culture-agents/issues/2)
+(design/migration). That plan has culture-agents own agent execution and
+control, culture-chat own communication, culture-rules own workflows, and
+embodiment stay an independent app on top. It also merges `agent-lifecycle`
+and `cultureagent` into this repo. Agents must be able to run without joining
+chat.
 
 ## Four harnesses, four files, no shared base
 
@@ -85,9 +95,11 @@ culture.yaml              mesh identity (suffix + backend)
 - The vendored skills under `.claude/skills/` are cited **verbatim** from
   guildmaster — never propose editing their scripts; the fix belongs upstream
   (`docs/skill-sources.md` has the re-sync procedure).
-- The package/CLI name (`culture_agents` / `culture-agents`)
-  is hard-coded in roughly a hundred places; a rename is a `git grep` sweep,
-  not a hand edit (see `CLAUDE.md`'s "Cloning this template" section).
+- The console script is `agents` (`uv run agents whoami`), even though the
+  parser's `prog` still prints `culture-agents`. That is scaffold drift, noted
+  in `CLAUDE.md`.
+- Proposed control-plane verbs (`agents runs submit|attach|steer|cancel|…`)
+  are **not implemented**. Don't describe them as available.
 - Every PR bumps the version (`version-bump` skill); CI's `version-check` job
   blocks merge otherwise.
 - This file describes the repo **as it exists on disk today**. If you are

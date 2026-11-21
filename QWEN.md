@@ -9,11 +9,16 @@ Qwen Code session.
 
 ## What this project is
 
-`culture-agents` is a **clonable template for AgentCulture mesh agents**.
-It is a working, minimal example of the sibling pattern every Culture agent
-follows: an agent-first CLI, a mesh identity, the canonical skill kit, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent that `steward doctor` recognizes.
+`culture-agents` is the **agent control plane** for AgentCulture: direct
+dispatch, sessions and runs, and lifecycle control (dispatch, attach, steer,
+delegate, cancel, resume, supervise) over harness adapters, independent of
+chat. The CLI ships as `agents`, the package is `culture_agents`, and the
+PyPI dist is `culture-agents`.
+
+**Status:** scaffold only. guildmaster provisioned the repo from
+`culture-agent-template`, so today it carries the agent-first CLI baseline,
+the mesh identity, the harness prompt files, the vendored skill kit, and CI.
+The control-plane surface is planned. See [Roadmap](#roadmap).
 
 It is a sibling to [`guildmaster`](https://github.com/agentculture/guildmaster)
 (the **skills supplier**), [`steward`](https://github.com/agentculture/steward)
@@ -52,27 +57,25 @@ requires nor changes that declaration. The declaration and the resident prompt
 together satisfy the two invariants `steward doctor` verifies:
 **prompt-file-present** and **backend-consistency** (`claude` ↔ `CLAUDE.md`).
 
-## Cloning this template (re-initialization)
+## Roadmap
 
-When you start a new agent from this template:
+Planned, not built. Sourced from
+[#1](https://github.com/agentculture/culture-agents/issues/1) (founding brief)
+and [#2](https://github.com/agentculture/culture-agents/issues/2)
+(design/migration):
 
-1. Rename the package directory `culture_agents/` → `<your_module>/`
-   and replace `culture_agents` (module) / `culture-agents`
-   (CLI and dist name) throughout `pyproject.toml`, the package, `tests/`,
-   `sonar-project.properties`, and `README.md`. The name is hard-coded in
-   ~100 places, so list every occurrence first rather than renaming by hand
-   (`git grep` is portable and skips `.git` / untracked `__pycache__`):
-
-   ```bash
-   git grep -nF -e 'culture-agents' -e 'culture_agents'
-   ```
-
-2. Set your `suffix` (and `backend`) in `culture.yaml`. `whoami` and `doctor`
-   then reflect the new identity with no further code change.
-3. Rewrite `CLAUDE.md` (and this file, and the other two harness files) to
-   describe your agent.
-4. Re-vendor the skill kit you need from guildmaster (see
-   `docs/skill-sources.md`) — keep only the skills your agent uses.
+- **Boundaries:** culture-agents owns agent execution and direct control.
+  culture-chat owns rooms and messages, culture-rules owns workflows, and
+  embodiment stays an independent app built on culture-agents.
+- **Agents exist without chat.** Agents dispatch other agents directly
+  through this repo's control API.
+- **Harness adapters:** Vercel AI SDK 7 `HarnessAgent` sits behind an adapter
+  boundary and is used only where it proves equivalent on the real fleet.
+- **Consolidation:** `agent-lifecycle` and `cultureagent` merge in here.
+- **Proposed verbs:** `agents runs submit | list | show | attach | steer |
+  pause | resume | cancel | answer | logs | artifacts | result`.
+- **Gates:** D0 (contract, plus the open TypeScript-vs-Python decision)
+  through D6 (migration and deprecation).
 
 ## The CLI
 
@@ -80,12 +83,12 @@ The CLI is cited (cite-don't-import) from teken's `python-cli` reference
 (`teken cli cite`), so the runtime package has **no third-party dependencies**;
 `teken` (a.k.a. `afi-cli`) is a dev dependency only. Agent-first verbs:
 
-- `culture-agents whoami` — identity from `culture.yaml`.
-- `culture-agents learn` — structured self-teaching prompt.
-- `culture-agents explain <path>` — markdown docs for any noun/verb.
-- `culture-agents overview` — descriptive snapshot of the agent.
-- `culture-agents doctor` — check the agent-identity invariants.
-- `culture-agents cli overview` — describe the CLI surface itself.
+- `agents whoami` — identity from `culture.yaml`.
+- `agents learn` — structured self-teaching prompt.
+- `agents explain <path>` — markdown docs for any noun/verb.
+- `agents overview` — descriptive snapshot of the agent.
+- `agents doctor` — check the agent-identity invariants.
+- `agents cli overview` — describe the CLI surface itself.
 
 Conventions: every command supports `--json`; results go to stdout, errors and
 diagnostics to stderr (never mixed); exit codes are `0` success, `1` user

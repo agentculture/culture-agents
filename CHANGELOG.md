@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.1] - 2026-11-21
+
+### Changed
+
+- `CLAUDE.md` initialized from the guildmaster seed into a full runtime prompt: the control-plane mission and honest scaffold-only status, the product boundaries, non-negotiables, proposed contract and D0–D6 gates from #1/#2, commands (including single-test and every CI lint gate), the CLI architecture, harness files, conventions, worktrees, and memory.
+- `README.md` rewritten around the control-plane mission, with a Status section linking #1/#2, a planned "Where it fits" section, and a Contributing section that replaces the template-cloning steps.
+- `AGENTS.override.md`, `AGENTS.colleague.md` and `QWEN.md` now describe the control-plane mission and current status instead of "a clonable template". `QWEN.md` swaps its template-cloning section for a Roadmap.
+
+### Fixed
+
+- Docs referenced the CLI as `culture-agents`, but the installed console script is `agents` (`uv run agents whoami`).
+- Memory docs now match the vendored `remember` wrapper: records default to a private `$HOME` scope, and only `--visibility public` writes to the committed in-repo store.
+
 ## [0.11.0] - 2026-11-21
 
 ### Added
