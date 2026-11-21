@@ -1,11 +1,10 @@
 # QWEN.md
 
 This file provides guidance to Qwen Code when working with code in this
-repository. Qwen Code's context loader reads exactly `QWEN.md` and `AGENTS.md`
-in a directory; this repo deliberately ships only `QWEN.md` — there is no
-`AGENTS.md` here (each harness gets its own file; see "Prompt files by
-harness" below), so this file is the sole source of project guidance for a
-Qwen Code session.
+repository. Qwen Code's context loader reads both `QWEN.md` and `AGENTS.md`
+in a directory, and this repo ships both. `AGENTS.md` is mainly OpenCode's
+file and holds harness-neutral project context. This file adds what is
+specific to Qwen Code, and where the two differ, this file wins.
 
 ## What this project is
 
@@ -29,15 +28,16 @@ framework.
 
 ## Prompt files by harness
 
-This repo's root carries one prompt file per agent harness, each read by
-exactly one of them — there is no shared base file for them to inherit from:
+Which root files each agent harness reads:
 
 - **Claude Code** → [`CLAUDE.md`](CLAUDE.md) (the fullest write-up; read it
   first if you are new to the repo).
 - **Pi / associate** → [`AGENTS.override.md`](AGENTS.override.md) for context,
   plus [`.pi/SYSTEM.md`](.pi/SYSTEM.md) for its system prompt.
-- **colleague** → [`AGENTS.colleague.md`](AGENTS.colleague.md).
-- **Qwen Code** → this file.
+- **colleague** → [`AGENTS.md`](AGENTS.md), then
+  [`AGENTS.colleague.md`](AGENTS.colleague.md).
+- **Qwen Code** → this file plus [`AGENTS.md`](AGENTS.md).
+- **OpenCode** → [`AGENTS.md`](AGENTS.md), which it prefers over `CLAUDE.md`.
 
 ## Identity
 

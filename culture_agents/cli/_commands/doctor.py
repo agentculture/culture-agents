@@ -11,7 +11,7 @@ Mirrors the two invariants ``steward doctor`` verifies for a mesh agent:
 
 Additionally a **harness-prompts** info check reports which *other* recognized
 harness prompt files are present. Those files (``AGENTS.override.md``,
-``.pi/SYSTEM.md``, ``QWEN.md``) belong to interactively available harnesses
+``.pi/SYSTEM.md``, ``QWEN.md``, ``AGENTS.md``) belong to interactively available harnesses
 that ride the same backend name; they are never accepted as substitutes for
 the resident prompt, because the Culture daemon does not read them.
 
@@ -36,8 +36,8 @@ _AGENTS_MD = "AGENTS.md"
 
 # backend → every prompt file RECOGNIZED under that backend name.
 #
-# Values are tuples because four harnesses occupy only three backend names in
-# this template: Qwen Code runs on ``acp`` (QWEN.md), and associate/Pi runs on
+# Values are tuples because five harnesses occupy only three backend names in
+# this repo: Qwen Code (QWEN.md) and OpenCode (AGENTS.md) run on ``acp``, and associate/Pi runs on
 # ``colleague`` (AGENTS.override.md as context plus .pi/SYSTEM.md as the system
 # prompt). This is a *recognition* table — it answers "does some harness on
 # this backend read this file?", which is what tooling needs when it walks a

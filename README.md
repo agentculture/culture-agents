@@ -88,7 +88,7 @@ dependencies. The CLI was cited from
 
 - **A mesh identity**: `culture.yaml` (`suffix: culture-agents`,
   `backend: claude`) plus the matching resident prompt, `CLAUDE.md`.
-- **Four harness prompt files**, each read by exactly one harness (see below).
+- **Prompt files for five agent harnesses** (see below).
 - **The guildmaster skill kit** under `.claude/skills/`, vendored
   cite-don't-import. See [`docs/skill-sources.md`](docs/skill-sources.md).
 - **A build and deploy baseline**: pytest, lint, a per-harness smoke check,
@@ -96,24 +96,27 @@ dependencies. The CLI was cited from
 
 ## Prompt files by harness
 
-Four harnesses read four root files. There is no shared base:
-
 | Harness | File(s) |
 |---------|---------|
 | Claude Code | [`CLAUDE.md`](CLAUDE.md) |
+| OpenCode | [`AGENTS.md`](AGENTS.md) |
 | Pi / associate | [`AGENTS.override.md`](AGENTS.override.md) + [`.pi/SYSTEM.md`](.pi/SYSTEM.md) |
-| colleague | [`AGENTS.colleague.md`](AGENTS.colleague.md) |
-| Qwen Code | [`QWEN.md`](QWEN.md) |
+| colleague | [`AGENTS.md`](AGENTS.md) → [`AGENTS.colleague.md`](AGENTS.colleague.md) |
+| Qwen Code | [`QWEN.md`](QWEN.md) + [`AGENTS.md`](AGENTS.md) |
 
 `CLAUDE.md` is the fullest write-up of the repo's conventions, so read it
-first. There is intentionally **no `AGENTS.md`** at the root. One would shadow
-Pi's and colleague's prompt cascades, and the harness smoke check fails if it
-appears.
+first.
+
+`AGENTS.md` is OpenCode's file. OpenCode prefers it over `CLAUDE.md` and reads
+`.claude/skills` natively. colleague and Qwen Code load it too, so it holds
+harness-neutral project context. Pi never sees it, because
+`AGENTS.override.md` replaces it for this directory.
 
 ## Two selections, not one
 
 1. **The interactive harness** is whichever binary you run (`claude`, `pi`,
-   `colleague`, `qwen`). All four work over the same clone at once. Automation
+   `colleague`, `qwen`, `opencode`). All five work over the same clone at
+   once. Automation
    can force one per invocation without touching `culture.yaml`; see
    [`docs/automation-contract.md`](docs/automation-contract.md).
 2. **The mesh resident** is the single `backend` that `culture.yaml` declares.

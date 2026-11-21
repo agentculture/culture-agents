@@ -46,7 +46,7 @@ markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken
 uv run teken cli doctor . --strict        # agent-first rubric gate
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost endpoints
 python3 scripts/check-file-length.py      # 400-line cap per tracked Python file
-uv run python scripts/harness-smoke.py --stage all --require config  # all four harness configs
+uv run python scripts/harness-smoke.py --stage all --require config  # all five harness configs
 ```
 
 Coverage floor is 60% (`[tool.coverage.report] fail_under`). Line length is 100
@@ -146,9 +146,14 @@ change; that choice is D0's to make.
   `tests/test_harness_registries.py` fails if they drift.
 - **Harness smoke** — `scripts/harness-smoke.py` is the entry point. The
   stages live in `scripts/_harness_smoke/`: `config` (always runs; fails if
-  any of the four harness configs is broken, e.g. an empty prompt file, a
-  broken skills symlink, or a stray bare `AGENTS.md`), `toolchain`, and `live`
-  (skipped on stock runners and reported as NOT VERIFIED, never as a pass).
+  any of the five harness configs is broken, e.g. a missing or empty prompt
+  file, an unregistered prompt path, or a broken skills symlink), `toolchain`
+  (a `guild create` dry-run per harness; OpenCode has no guild harness, so it
+  is reported as SKIP), and `live` (skipped on stock runners and reported as
+  NOT VERIFIED, never as a pass). The harness list and invocations come from
+  `docs/harness-invocations.yaml`. Adding a harness means updating that file,
+  `HARNESSES`/`HARNESS_BACKEND` in `scripts/_harness_smoke/common.py`, and
+  the config stage's `SKILLS_WIRING`; the tests fail if these disagree.
 
 ### Known drift from the scaffold
 
@@ -161,24 +166,30 @@ in an unrelated PR.
 ## Prompt files by harness and identity
 
 `culture.yaml` declares `suffix: culture-agents`, `backend: claude`, so
-**this file is the mesh resident's prompt**. The other three harnesses are
-still usable interactively over the same clone. Each harness reads exactly one
-root file, and there is deliberately **no `AGENTS.md`** (the harness-smoke
-config stage fails if one appears, because it would shadow the Pi and
-colleague cascades):
+**this file is the mesh resident's prompt**. The other four harnesses are
+still usable interactively over the same clone:
 
 - **Claude Code** → `CLAUDE.md`
+- **OpenCode** → `AGENTS.md`. OpenCode reads a directory's `AGENTS.md` in
+  preference to its `CLAUDE.md` and falls back to `CLAUDE.md` only when
+  `AGENTS.md` is absent. It discovers `.claude/skills` natively.
 - **Pi / associate** → `AGENTS.override.md` (context) + `.pi/SYSTEM.md`
-  (replaces Pi's system prompt with the read-only `associate` identity)
-- **colleague** → `AGENTS.colleague.md`
-- **Qwen Code** → `QWEN.md`
+  (replaces Pi's system prompt with the read-only `associate` identity).
+  `AGENTS.override.md` also keeps Pi from loading `AGENTS.md` or `CLAUDE.md`.
+- **colleague** → `AGENTS.md` → `AGENTS.colleague.md` (its cascade)
+- **Qwen Code** → `QWEN.md` + `AGENTS.md`
+
+Because colleague and Qwen Code also load `AGENTS.md`, keep it
+harness-neutral project context. Put OpenCode-only or Claude-only instructions
+in that harness's own file. OpenCode rides the `acp` backend, under which the
+fingerprint registry already lists `AGENTS.md`.
 
 `.qwen/skills`, `.colleague/skills` and `.pi/skills` are symlinks onto
 `.claude/skills`. "Which harness I run" and "which backend `culture.yaml`
 declares" are two separate selections (`docs/harness-selection.md`). Forcing
 a harness for automation is invocation-level only and must never rewrite
 `culture.yaml` (`docs/automation-contract.md`). When you change what this repo
-is or how it works, update all four prompt files so they don't drift.
+is or how it works, update all five prompt files so they don't drift.
 
 ## Conventions
 

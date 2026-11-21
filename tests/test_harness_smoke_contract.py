@@ -192,8 +192,29 @@ def test_guild_exiting_nonzero_with_a_valid_plan_is_a_failure(on_path: Path, clo
     fake_tool(on_path, "guild", payload, "guild: backend unavailable", 1)
     results = smoke.check_guild_create(clone, smoke.load_invocations(clone), 30)
     assert results, "expected one result per harness"
-    assert all(r.status == "FAIL" for r in results), [r.detail for r in results]
-    assert all("exited 1" in r.detail for r in results)
+    ran = [r for r in results if r.name.split("/")[-1] in smoke.GUILD_HARNESS]
+    assert ran, "expected a dry-run for every harness guild can create"
+    assert all(r.status == "FAIL" for r in ran), [r.detail for r in ran]
+    assert all("exited 1" in r.detail for r in ran)
+
+
+def test_harness_without_a_guild_mapping_is_skipped_never_passed(
+    on_path: Path, clone: Path
+) -> None:
+    """OpenCode has no `guild create` harness; its dry-run must read as SKIP."""
+    payload = json.dumps(
+        {
+            "applied": False,
+            "prompt_file": "CLAUDE.md",
+            "plan": {"steps": ["write CLAUDE.md"]},
+        }
+    )
+    fake_tool(on_path, "guild", payload, "", 0)
+    results = smoke.check_guild_create(clone, smoke.load_invocations(clone), 30)
+    by_name = {r.name: r for r in results}
+    assert "opencode" not in smoke.GUILD_HARNESS
+    assert by_name["guild-create/opencode"].status == "SKIP", by_name
+    assert "NOT verified" in by_name["guild-create/opencode"].detail
 
 
 def test_guild_exiting_nonzero_with_no_output_skips_loudly(on_path: Path, clone: Path) -> None:

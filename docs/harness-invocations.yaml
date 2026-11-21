@@ -1,7 +1,7 @@
 # Machine-readable automation contract (t11).
 #
 # Selecting a harness in a clone of this template is cd-into-the-repo-and-
-# run-the-binary: all four harnesses below are live simultaneously over the
+# run-the-binary: all five harnesses below are live simultaneously over the
 # SAME clone, independent of what `culture.yaml` declares as the mesh
 # resident. This file is the single source of truth for the invocation that
 # force-selects each one and proves it resolved THIS clone's config file(s).
@@ -23,8 +23,9 @@
 #   notes:       why these exact flags, including any surprising resolution
 #                behavior discovered while writing this contract.
 #
-# All four invocations were verified empirically (2026-09-06) to leave
-# `git status --porcelain` empty in this worktree. See
+# The first four invocations were verified empirically (2026-09-06) to leave
+# `git status --porcelain` empty in this worktree; opencode was added and
+# verified 2026-11-21 (see its notes for the weaker evidence it carries). See
 # docs/automation-contract.md for the literal transcripts.
 
 harnesses:
@@ -107,6 +108,34 @@ harnesses:
       Deterministic, no-model-call CLI introspection: it prints the
       resolved AGENTS instruction layer(s) for this clone rather than
       taking a chat turn, so it is the cheapest and most direct proof that
-      AGENTS.colleague.md (not a bare AGENTS.md, which this template does
-      not ship) is what colleague's prompt cascade resolves here. Verified
-      output: "colleague\tAGENTS.colleague.md".
+      AGENTS.colleague.md is what colleague's prompt cascade resolves here. Verified
+      output: "colleague\tAGENTS.colleague.md". Since AGENTS.md was added for
+      OpenCode (2026-11-21), the output also lists "base\tAGENTS.md" first;
+      the check still asserts on the colleague-specific layer.
+
+  opencode:
+    binary: opencode
+    args:
+      - "run"
+      - "--agent"
+      - "plan"
+      - "--archived"
+      - "Your instructions include a project file whose top heading is either '# AGENTS.md' or '# CLAUDE.md'. Reply with only that file name (AGENTS.md or CLAUDE.md), nothing else. Do not use tools."
+    resolves:
+      - AGENTS.md
+    read_only: true
+    notes: >-
+      `opencode run` takes one non-interactive turn and exits. `--agent plan`
+      selects OpenCode's built-in read-only planning agent, and `--archived`
+      keeps the scripted session out of session lists. OpenCode reads a
+      directory's AGENTS.md in preference to its CLAUDE.md (it falls back to
+      CLAUDE.md only when AGENTS.md is absent), and both files open with their
+      own name as the top heading, so the expected answer is the file name.
+      A yes/no probe was tried first and rejected: it answered "Yes" both with
+      and without AGENTS.md. Verified 2026-11-21 (opencode v2.3.2): "AGENTS.md"
+      twice with AGENTS.md present, tree unchanged. WEAKER EVIDENCE than the
+      other entries: on the verifying host, the negative control (AGENTS.md
+      moved aside) answered "AGENTS.md" once and "CLAUDE.md" once. That host
+      also loads a global ~/.config/opencode/AGENTS.md, which confounds the
+      question, so the probe is not yet proven to discriminate on a host
+      without one.

@@ -6,11 +6,11 @@ Pi's CONTEXT loader concatenates `AGENTS.md` or `CLAUDE.md` from its user-level
 config directory (see Pi's own docs), each parent directory, and the working
 directory — but an `AGENTS.override.md`
 present in a directory replaces that directory's `AGENTS.md`/`CLAUDE.md` entry
-outright rather than adding to it. That is why this repo ships this file
-instead of an `AGENTS.md`: Pi must **not** inherit `CLAUDE.md` (the Claude Code
-guidance file) — the two harnesses read the same repository very differently,
-and `CLAUDE.md` assumes a coding session with full repo-write authority that
-Pi's non-coding lane does not have.
+outright rather than adding to it. That is why this repo ships this file:
+Pi must inherit neither `CLAUDE.md` (the Claude Code guidance file) nor
+`AGENTS.md` (OpenCode's file, also loaded by colleague and Qwen Code). Both
+assume a coding session with repo-write authority that Pi's non-coding lane
+does not have.
 
 The identity and behavioral bounds for that lane — who Pi is here, what it may
 and may not do — live one layer up, in Pi's **system prompt** file,
@@ -39,23 +39,21 @@ embodiment stay an independent app on top. It also merges `agent-lifecycle`
 and `cultureagent` into this repo. Agents must be able to run without joining
 chat.
 
-## Four harnesses, four files, no shared base
-
-This repo's root carries one prompt file per harness, each read by exactly
-one of them — there is deliberately no shared `AGENTS.md` base for them to
-cascade from:
+## Five harnesses and their files
 
 - **Claude Code** reads [`CLAUDE.md`](CLAUDE.md).
+- **OpenCode** reads [`AGENTS.md`](AGENTS.md), which it prefers over
+  `CLAUDE.md`.
 - **Pi / associate** reads this file (`AGENTS.override.md`) for context, plus
-  [`.pi/SYSTEM.md`](.pi/SYSTEM.md) for its system prompt.
-- **colleague** reads [`AGENTS.colleague.md`](AGENTS.colleague.md) (the start
-  of colleague's own cascade — see that file).
-- **Qwen Code** reads [`QWEN.md`](QWEN.md).
+  [`.pi/SYSTEM.md`](.pi/SYSTEM.md) for its system prompt. It never sees
+  `AGENTS.md`.
+- **colleague** reads `AGENTS.md` and then
+  [`AGENTS.colleague.md`](AGENTS.colleague.md) (its cascade; see that file).
+- **Qwen Code** reads [`QWEN.md`](QWEN.md) and `AGENTS.md`.
 
 If you are reading this as a human, `CLAUDE.md` is the fullest write-up of the
-repo's conventions and is the one to read first; the other three exist to keep
-each non-Claude harness from silently inheriting Claude-specific instructions
-it cannot act on the same way.
+repo's conventions and is the one to read first. The other files exist so
+that no harness silently inherits instructions written for a different one.
 
 ## Identity
 

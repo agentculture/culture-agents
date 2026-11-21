@@ -217,10 +217,13 @@ the Culture daemon starts.
 ## Per-harness skills discovery
 
 The canonical skill tree stays exactly one copy, at `.claude/skills/<name>/`.
-Each of the four harnesses this template ships for resolves that same tree
+Each of the five harnesses this repo ships for resolves that same tree
 its own way — no skill script is ever forked or duplicated per harness:
 
 - **Claude Code** reads `.claude/skills/` natively — no wiring needed.
+- **OpenCode** also reads `.claude/skills/` natively. It is one of
+  OpenCode's documented Claude Code compatibility sources, so no symlink is
+  needed (`OPENCODE_DISABLE_CLAUDE_CODE=1` would turn it off).
 - **Qwen Code** reads project skills from `.qwen/skills/`, and follows
   symlinks when loading them. `.qwen/skills` is therefore a *relative* git
   symlink to `../.claude/skills`, following the precedent already in place

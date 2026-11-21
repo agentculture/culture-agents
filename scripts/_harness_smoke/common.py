@@ -18,14 +18,15 @@ FINGERPRINTS_REL = (
 )
 CANONICAL_SKILLS_REL = Path(".claude") / "skills"
 
-#: The four harnesses this template supports, in report order. Keys must match
+#: The five harnesses this repo supports, in report order. Keys must match
 #: ``harnesses:`` in docs/harness-invocations.yaml exactly — a mismatch in
 #: either direction is a hard failure, so a harness can never be silently
 #: dropped from the smoke check by editing only one of the two files.
-HARNESSES = ("claude", "pi", "qwen", "colleague")
+HARNESSES = ("claude", "pi", "qwen", "colleague", "opencode")
 
-#: harness -> the Culture backend it rides. Four harnesses occupy only three
-#: backend names: Qwen Code rides ``acp`` and associate/Pi rides ``colleague``.
+#: harness -> the Culture backend it rides. Five harnesses occupy only three
+#: backend names: Qwen Code and OpenCode ride ``acp`` (OpenCode speaks ACP via
+#: ``opencode acp``), and associate/Pi rides ``colleague``.
 #: A harness's config files must be registered under ITS OWN backend in the
 #: fingerprint registry, not merely somewhere in it.
 HARNESS_BACKEND = {
@@ -33,11 +34,14 @@ HARNESS_BACKEND = {
     "pi": "colleague",
     "qwen": "acp",
     "colleague": "colleague",
+    "opencode": "acp",
 }
 
 #: harness -> (``guild create --harness`` name, the prompt file guild seeds).
 #: The seeded file is additionally asserted to be one of that harness's
 #: ``resolves`` entries in the YAML, so this table cannot drift off the source.
+#: A harness with no entry here (OpenCode: ``guild create`` has no harness for
+#: it) is reported as SKIP by the toolchain stage, never as a pass.
 GUILD_HARNESS = {
     "claude": ("claude", "CLAUDE.md"),
     "pi": ("associate", ".pi/SYSTEM.md"),
@@ -88,7 +92,7 @@ class Result:
 
 
 def load_invocations(repo: Path) -> dict[str, Any]:
-    """Read the single source of truth for the four harness invocations."""
+    """Read the single source of truth for the harness invocations."""
     path = repo / INVOCATIONS_REL
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     harnesses = data.get("harnesses") or {}

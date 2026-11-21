@@ -5,7 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.11.1] - 2026-11-21
+## [0.12.0] - 2026-11-21
+
+### Added
+
+- `AGENTS.md`, giving project guidance to **OpenCode**, which reads a directory's `AGENTS.md` in preference to its `CLAUDE.md` and discovers `.claude/skills` natively. colleague (cascade layer 1) and Qwen Code (alongside `QWEN.md`) load it too, so it is written as harness-neutral project context. Pi is still shielded from it by `AGENTS.override.md`.
+- OpenCode is the fifth harness in `scripts/harness-smoke.py`: `opencode` on the `acp` backend in `HARNESSES`/`HARNESS_BACKEND`, an `opencode run --agent plan --archived` probe in `docs/harness-invocations.yaml`, and native `.claude/skills` discovery in the config stage. `guild create` has no OpenCode harness, so the toolchain stage reports its dry-run as SKIP, never as a pass. The live probe's evidence is recorded as weaker than the other harnesses' (see `docs/automation-contract.md`).
+- Tests: OpenCode fails the config stage when `AGENTS.md` is missing or empty, and a harness without a guild mapping is skipped, never passed.
+
+### Removed
+
+- The `no-bare-agents-md` config check, which failed on any root `AGENTS.md`.
 
 ### Changed
 

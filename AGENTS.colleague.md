@@ -21,12 +21,12 @@ colleague concatenates up to three files, in order, as its prompt cascade:
 3. `AGENTS.colleague.<sanitized-model>.md` — a model-specific override, if
    present.
 
-**This repo ships only layer 2.** There is deliberately no `AGENTS.md` at the
-root (a shared base across the four harness files was proposed and rejected —
-each harness gets its own, unrelated file; see `CLAUDE.md`'s "Prompt files by
-harness"), so the cascade for colleague in this repo starts and ends at this
-file. There is also no `AGENTS.colleague.<sanitized-model>.md` — this repo
-doesn't need per-model overrides today. If you add one of those files later,
+**This repo ships layers 1 and 2.** `AGENTS.md` exists mainly as
+OpenCode's prompt file, but colleague loads it first as shared project
+context: the mission, status, plan, commands and conventions. This file adds
+what is specific to colleague, and where the two differ, this file wins.
+There is no `AGENTS.colleague.<sanitized-model>.md`, because this repo
+doesn't need per-model overrides today. If you add one later,
 update this section so the docs keep matching what's actually on disk.
 
 ## What this project is

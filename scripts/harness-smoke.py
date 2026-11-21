@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Per-harness smoke check — prove all four harness configs are correct.
+"""Per-harness smoke check — prove all five harness configs are correct.
 
-All four harnesses (Claude Code, Pi/associate, colleague, Qwen Code) are live
-for interactive use over the *same* clone at all times, independent of what
-``culture.yaml`` declares as the mesh resident. So all four configs must be
+All five harnesses (Claude Code, Pi/associate, colleague, Qwen Code, OpenCode)
+are live for interactive use over the *same* clone at all times, independent of
+what ``culture.yaml`` declares as the mesh resident. So all five configs must be
 correct at all times, and nothing else in this repo checks more than the one
 config the declared backend uses. That is what this script exists for: it
-exercises **all four**, and fails when **any one** of them is broken.
+exercises **all five**, and fails when **any one** of them is broken.
 
 The invocations come from ``docs/harness-invocations.yaml`` — the single source
 of truth — and are run ``binary`` + ``args`` **verbatim**, never re-typed here.
@@ -17,11 +17,11 @@ Three stages, selected with ``--stage``:
     Per harness: the config file(s) that harness resolves are present and
     non-empty, the harness's *skills discovery* wiring points at the one
     canonical ``.claude/skills`` tree, and every resolved prompt path is
-    registered in the vendored backend-fingerprint registry. Plus one global
-    check that no bare ``AGENTS.md`` has appeared (this template deliberately
-    ships none — it would shadow the colleague/Pi prompt cascade).
+    registered in the vendored backend-fingerprint registry. ``AGENTS.md`` is
+    OpenCode's file; Pi is shielded from it by ``AGENTS.override.md``, while
+    colleague and Qwen Code load it as shared project context.
 
-``live`` (needs the four harness binaries on PATH)
+``live`` (needs the five harness binaries on PATH)
     Runs each harness's documented invocation verbatim in the repo and asserts
     the answer proves that harness resolved this clone's config. Not available
     on a stock CI runner — it reports **SKIPPED**, never a pass.
@@ -31,8 +31,9 @@ Three stages, selected with ``--stage``:
       findings beyond the known-accepted, pre-existing portability finding in
       the vendored ``recall``/``remember`` skills (reported as WAIVED, loudly,
       never silently folded into a pass).
-    - ``guild create --harness X --json`` dry-runs for all four harnesses,
-      checking each names the prompt file it says it writes.
+    - ``guild create --harness X --json`` dry-runs for every harness guild
+      can create, checking each names the prompt file it says it writes.
+      OpenCode has no guild harness, so its dry-run is reported as SKIP.
 
 Exit status is 0 unless some check FAILED, 1 on a failure or a bad argument.
 Exit 2 is reserved for environment/system failures and is never used for user

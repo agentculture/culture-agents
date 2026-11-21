@@ -14,7 +14,7 @@ from _harness_smoke.common import FAIL, HARNESSES, PASS, SKIP, Result
 def _expectation(spec: dict[str, Any]) -> tuple[re.Pattern[str], str]:
     """Derive what the harness's own documented probe must answer.
 
-    The three model probes are yes/no questions whose affirmative answer is
+    The model probes are yes/no questions whose affirmative answer is
     only reachable from this clone's config; ``colleague agents list`` instead
     prints the file it resolved. Both expectations are derived from the YAML
     entry rather than hard-coded per harness.
@@ -58,7 +58,7 @@ def stage_live(repo: Path, harnesses: dict[str, Any], timeout: int) -> list[Resu
                     name,
                     SKIP,
                     f"{binary!r} is not on PATH — this harness's real invocation was "
-                    "NOT run (stock CI runners ship none of the four agent CLIs)",
+                    "NOT run (stock CI runners ship none of the agent CLIs)",
                 )
             )
             continue

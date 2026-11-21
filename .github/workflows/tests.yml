@@ -81,8 +81,8 @@ jobs:
         run: uv run teken cli doctor . --strict
 
   harness-smoke:
-    # All four harnesses (Claude Code, Pi/associate, colleague, Qwen Code) are
-    # live for interactive use over the same clone at all times, so all four
+    # All five harnesses (Claude Code, Pi/associate, colleague, Qwen Code,
+    # OpenCode) are live for interactive use over the same clone, so all five
     # configs must be correct at all times. Nothing else in CI checks more than
     # the one config `culture.yaml`'s declared backend uses.
     runs-on: ubuntu-latest
