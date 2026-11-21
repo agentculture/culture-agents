@@ -182,8 +182,8 @@ OpenCode was added later and verified on 2026-11-21 with opencode v2.3.2:
 | same | moved aside (negative control) | `AGENTS.md`, `CLAUDE.md` | restored, unchanged |
 
 The negative control does **not** cleanly discriminate on the verifying host.
-That host also loads a global `~/.config/opencode/AGENTS.md`, which is itself
-an AGENTS.md file and confounds the question. Treat the opencode live result
+That host also loads OpenCode's global `AGENTS.md` from the user's config
+directory, which is itself an AGENTS.md file and confounds the question. Treat the opencode live result
 as weaker evidence than the other four until it is re-run on a host without a
 global OpenCode instructions file.
 

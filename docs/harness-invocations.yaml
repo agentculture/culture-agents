@@ -136,6 +136,6 @@ harnesses:
       twice with AGENTS.md present, tree unchanged. WEAKER EVIDENCE than the
       other entries: on the verifying host, the negative control (AGENTS.md
       moved aside) answered "AGENTS.md" once and "CLAUDE.md" once. That host
-      also loads a global ~/.config/opencode/AGENTS.md, which confounds the
+      also loads OpenCode's global AGENTS.md (user config dir), which confounds the
       question, so the probe is not yet proven to discriminate on a host
       without one.
