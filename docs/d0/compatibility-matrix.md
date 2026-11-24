@@ -112,10 +112,51 @@ Also present, not one of the three: cultureagent has its own IRC transport with
 SASL PLAIN (`cultureagent:cultureagent/clients/shared/irc_transport.py:76`),
 archived at D6 (cultureagent#62).
 
+## Installed paths and dispositions
+
+Every path another repo or a user can reach today, from `inventory.md` and
+issue #2 (body, comment 1, comment 2 section 6, the 2026-11-24 comment).
+Dispositions use only the words issue #2 and the spec state: **keep**,
+**replace in culture-agents**, **replace in culture-chat**, **compat bridge**
+(compatibility bridge until consumers move), **sunset**, **undecided**.
+Nothing is archived before replacements pass compatibility and recovery tests
+(issue #2, repository moves). All issues are under `agentculture/`; "gate" is
+the D-gate where the path is exercised.
+
+| Installed path | Owner | Consumer | Disposition | Gate | Issue |
+| --- | --- | --- | --- | --- | --- |
+| `cultureagent~=0.16.0` pin and 47 `culture_core` imports | cultureagent | culture | replace in culture-agents (rewire `culture agents` and `residents`) | D2, D6 | [culture#533](https://github.com/agentculture/culture/issues/533), [cultureagent#62](https://github.com/agentculture/cultureagent/issues/62) |
+| `culture` extras for Colleague, ACP, Copilot, Claude (`culture:pyproject.toml:112-126`) | culture | culture users | undecided: no source states one per extra; a clean install and an upgrade through the `culture` entry point must decide it | D6 | [culture#533](https://github.com/agentculture/culture/issues/533) |
+| `cultureagent` console script (introspection verbs only) | cultureagent | operators | undecided: issue #2 says nothing about it; decided when the `agents` CLI covers `whoami` and `doctor` | D6 | [cultureagent#62](https://github.com/agentculture/cultureagent/issues/62) |
+| `cultureagent` import paths promised stable through 0.x (daemons, `SkillClient`, config classes) | cultureagent | culture | compat bridge: versioned migration paths and rollback required, no archive early | D6 | [cultureagent#62](https://github.com/agentculture/cultureagent/issues/62) |
+| `cultureagent` resident IRC daemons (claude, codex, copilot, acp, colleague) and `culture-<nick>.sock` | cultureagent | culture, mesh agents | undecided: issue #2 requires chat-free start but names no fate per backend; decided by D2 recovery tests | D2 | [cultureagent#62](https://github.com/agentculture/cultureagent/issues/62) |
+| `cultureagent-claude-bridge` and `/v1/invocations` | cultureagent | culture-rules `BridgeAgentActor`, embodiment `delegate` | compat bridge until consumers move; steer, answer, pause, resume absent | D2, D4 | [culture-rules#154](https://github.com/agentculture/culture-rules/issues/154), [cultureagent#62](https://github.com/agentculture/cultureagent/issues/62) |
+| `cultureagent-codex-bridge` and `/v1/invocations` | cultureagent | culture-rules | compat bridge until consumers move; Codex not verified in the probe | D2, D4 | [culture-rules#154](https://github.com/agentculture/culture-rules/issues/154) |
+| `cultureagent-qwen-bridge` (ACP) and `/v1/invocations` | cultureagent | culture-rules fixer and reviewer lanes | compat bridge until consumers move | D2, D4 | [culture-rules#154](https://github.com/agentculture/culture-rules/issues/154) |
+| `agent_lifecycle.runtime` import path (`ProcessSupervisor`, `RestartingSupervisor`, observers) | agent-lifecycle | cultureagent, colleague | replace in culture-agents; keep the supervision contracts that stay needed, compat adapter until proven | D2, D6 | [agent-lifecycle#38](https://github.com/agentculture/agent-lifecycle/issues/38) |
+| `agent-lifecycle` console script (introspection only) | agent-lifecycle | operators | undecided: no source states one; decided with the archive test | D6 | [agent-lifecycle#38](https://github.com/agentculture/agent-lifecycle/issues/38) |
+| colleague `resident` extra (`agent-lifecycle>=0.9`) and `colleague.resident` | colleague | colleague users | replace in culture-agents (migrate to the harness and supervision seam) | D6 | [colleague#503](https://github.com/agentculture/colleague/issues/503) |
+| colleague `culture` extra (`agentirc-cli>=9.6,<10`) | colleague | colleague users | replace in culture-chat (optional transport adapter) | D3, D6 | [colleague#503](https://github.com/agentculture/colleague/issues/503) |
+| `agentirc` and `agentirc-cli` console scripts, `culture server` forwarding | agentirc | culture | replace in culture-chat | D3, D6 | [agentirc#70](https://github.com/agentculture/agentirc/issues/70), [culture#533](https://github.com/agentculture/culture/issues/533) |
+| `agentirc` pin `>=9.14.0,<10` and in-process `IRCd` | agentirc | culture | replace in culture-chat | D3, D6 | [agentirc#70](https://github.com/agentculture/agentirc/issues/70) |
+| IRC wire protocol and legacy endpoints | agentirc | all mesh clients | compat bridge until consumers move: keep legacy endpoints alive or document migration | D3, D6 | [culture-chat#3](https://github.com/agentculture/culture-chat/issues/3) |
+| `agentirc` on-disk data (`history.db`, rooms, threads, `accounts.json`) | agentirc | culture, mesh | undecided: issue #2 requires migration but states no disposition; decided by the D3 data-migration test | D3, D6 | [culture-chat#3](https://github.com/agentculture/culture-chat/issues/3) |
+| `agentirc-cli>=9.12` `agent` extra, `MeshAgentActor` | agentirc | culture-rules | sunset (issue #2: remove `MeshAgentActor` and `agentirc-cli`) | D4 | [culture-rules#154](https://github.com/agentculture/culture-rules/issues/154) |
+| `irc-lens>=0.18.1` pin, console, web UI, MCP | irc-lens | culture | replace in culture-chat | D3, D6 | [irc-lens#103](https://github.com/agentculture/irc-lens/issues/103) |
+| codexd (Codex IRC daemon, `agentirc-cli>=9.6,<10`) | codexd | mesh | replace in culture-agents, archive at D6 after the Codex adapter passes equivalence; Codex is not verified | D6 | no codexd issue in the issue #2 table |
+| embodiment `mesh_client.py` (raw IRC client) | embodiment | embodiment | replace in culture-chat (swap the wire transport) | D3, D5 | [embodiment#130](https://github.com/agentculture/embodiment/issues/130) |
+| embodiment `delegate/` seam | embodiment | embodiment | keep, pointed at culture-agents | D5 | [embodiment#130](https://github.com/agentculture/embodiment/issues/130) |
+| associate Pi harness (`ready.json` preflight, CLEF gate) | associate | culture-agents | keep: culture-agents delegates Pi through associate | D1, D2 | [associate#44](https://github.com/agentculture/associate/issues/44) |
+| steward `doctor` channel check, `backend-fingerprints.yaml` | steward | agents | undecided: issue #2 says make chat optional, states no disposition | D2, D6 | [steward#88](https://github.com/agentculture/steward/issues/88) |
+| guildmaster scaffold backends and `communicate` skill | guildmaster | new repos | undecided: issue #2 says update, states no disposition | D6 | [guildmaster#156](https://github.com/agentculture/guildmaster/issues/156) |
+
+Not one row each: culture's own `culture` CLI and the culture-rules engine are
+**keep** per the repository-move table; their changes are the rows above.
+
 ## What this matrix does not say
 
-- No disposition (keep, replace, archive) is given per installed path. The
-  inventory records owners and receiving issues; dispositions need the D2 and
-  D6 gates and the recovery tests in the spec.
+- Rows marked undecided have no disposition in issue #2, the spec or the
+  2026-11-24 comment; each names what would decide it. Dispositions were read
+  from those sources, not tested.
 - Nothing about the fleet: every probe ran on one x86_64 host with Docker
   28.0.1, OpenShell 0.1.10 and the pinned adapter versions in `probe.md`.
