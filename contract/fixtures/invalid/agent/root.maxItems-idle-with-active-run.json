@@ -1,0 +1,16 @@
+{
+  "id": "spark-culture-agents",
+  "node": "spark",
+  "suffix": "culture-agents",
+  "harnesses": [
+    "claude-code",
+    "opencode"
+  ],
+  "repos": [
+    "/srv/repos/demo"
+  ],
+  "state": "idle",
+  "active_run_ids": [
+    "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
+  ]
+}

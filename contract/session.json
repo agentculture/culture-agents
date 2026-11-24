@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/session.json",
+  "title": "Session",
+  "description": "A harness conversation that one or more runs execute in. In D1 every submit opens a new session holding exactly that run, and the session closes when the run reaches a terminal state; continuing a session is the deferred capability `continue_session`.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "agent_id",
+    "harness",
+    "run_ids",
+    "state",
+    "created_at",
+    "closed_at"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.json#/$defs/session_id"
+    },
+    "agent_id": {
+      "$ref": "common.json#/$defs/mesh_id"
+    },
+    "harness": {
+      "$ref": "common.json#/$defs/harness_id"
+    },
+    "run_ids": {
+      "description": "Runs in this session, oldest first.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.json#/$defs/run_id"
+      }
+    },
+    "state": {
+      "enum": [
+        "open",
+        "closed"
+      ]
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "closed_at": {
+      "$ref": "common.json#/$defs/nullable_timestamp"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "const": "closed"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "closed_at": {
+            "$ref": "common.json#/$defs/timestamp"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "closed_at": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ]
+}

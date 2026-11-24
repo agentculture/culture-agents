@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "agent_id": "culture_agents",
+      "harness": "claude-code",
+      "repo": "/srv/repos/demo"
+    }
+  ]
+}

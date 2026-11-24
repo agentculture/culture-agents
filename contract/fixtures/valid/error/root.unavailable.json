@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "unavailable",
+    "message": "sandbox gateway is not reachable; start it and retry",
+    "retryable": true
+  }
+}

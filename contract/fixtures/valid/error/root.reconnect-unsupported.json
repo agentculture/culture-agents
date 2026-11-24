@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "unsupported",
+    "message": "the core restarted and cannot reconnect to this run's worker in D1",
+    "retryable": false,
+    "capability": "reconnect",
+    "run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
+  }
+}

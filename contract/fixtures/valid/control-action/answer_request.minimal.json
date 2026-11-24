@@ -1,0 +1,8 @@
+{
+  "caller": {
+    "kind": "operator",
+    "id": "spark-operator"
+  },
+  "question_id": "q1",
+  "answer": "yes"
+}

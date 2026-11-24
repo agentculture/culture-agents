@@ -1,0 +1,27 @@
+{
+  "run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "cursor": 6,
+  "time": "2026-11-25T10:00:06Z",
+  "kind": "run.refused",
+  "data": {
+    "action": {
+      "id": "spark-culture-agents.act.01JDQ5W0000000000000000002",
+      "run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "kind": "steer",
+      "caller": {
+        "kind": "operator",
+        "id": "spark-operator"
+      },
+      "requested_at": "2026-11-25T10:00:10Z",
+      "idempotency_key": null,
+      "outcome": "refused",
+      "error": {
+        "code": "busy",
+        "message": "repository already has an active run",
+        "retryable": true,
+        "active_run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+        "repo": "/srv/repos/demo"
+      }
+    }
+  }
+}
