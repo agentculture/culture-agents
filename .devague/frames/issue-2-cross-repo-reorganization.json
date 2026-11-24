@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T23:26:53Z",
+  "updated": "2026-11-24T23:29:51Z",
   "claims": [
     {
       "id": "c1",
@@ -1032,6 +1032,18 @@
       "id": "c61",
       "kind": "decision",
       "text": "D1's second required harness is OpenCode v2 instead of Codex. Codex is recorded as not verified: it authenticates inside an OpenShell sandbox but does not complete a turn (docs/d0/probe.md).",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c62",
+      "kind": "decision",
+      "text": "The first npm publish of @culture.dev/agents waits until D1 passes: one manual bootstrap publish with the NPM_ACCESS_TOKEN held in grant, at a real version matching the Python package, after which Trusted Publishing is configured on npmjs.com and the token is no longer used. Nothing is published before the owner's explicit go-ahead at that moment.",
       "origin": "user",
       "status": "confirmed",
       "honesty_conditions": [],
