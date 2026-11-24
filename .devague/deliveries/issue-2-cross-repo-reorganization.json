@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-24T22:42:36Z",
+  "updated": "2026-11-24T23:26:52Z",
   "deviations": [
     {
       "id": "d1",
@@ -30,6 +30,20 @@
       "status": "approved",
       "classification": "acceptable",
       "seq": 2
+    },
+    {
+      "id": "d3",
+      "what": "An extra build step was inserted before t8 and t9: a shared TypeScript contract module (schema loader, validator, derived types, state-machine and version helpers) under core/src/contract/.",
+      "task_ref": "t6",
+      "reason": "t6's instruction left the TS side of the contract to 'its own task', but no task owned it; t8 and t9 run in parallel and would each have added a validator and edited core/package.json.",
+      "affects": [
+        "t8",
+        "t9"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 3
     }
   ],
   "evidence": [],

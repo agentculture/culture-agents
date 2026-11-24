@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T23:05:20Z",
+  "updated": "2026-11-24T23:26:53Z",
   "claims": [
     {
       "id": "c1",
@@ -1457,6 +1457,28 @@
       "skipped_check": "a run without the auth override, and a grep of the sandbox log for denied telemetry hosts",
       "refs": [
         "t1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l6",
+      "code": "assumption-for-measurement",
+      "what": "t10's provider profiles and run policy were linted but not imported on the gateway, so whether their binary globs match at runtime, and whether Claude Code works without the statsig and sentry hosts it dropped, is unmeasured; the sandbox-leak cleanup was tested with a stand-in, not a real adapter failure.",
+      "skipped_check": "import the profiles on a gateway and run a harness under them; reproduce an adapter start failure",
+      "refs": [
+        "t10"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l7",
+      "code": "grader-unverified",
+      "what": "t6's contract tests validate with Python jsonschema only; the schemas were not run through the TypeScript validator (Ajv) the core will use, and the fixture generator script was left uncommitted in the scratch area.",
+      "skipped_check": "validate every fixture with Ajv 2020-12 (now assigned to the contract-kit step)",
+      "refs": [
+        "t6"
       ],
       "origin": "llm",
       "status": "proposed"
