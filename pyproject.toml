@@ -13,7 +13,9 @@ classifiers = [
     "Topic :: Software Development",
     "Intended Audience :: Developers",
 ]
-dependencies = []
+dependencies = [
+    "agentfront>=0.21.3,<0.22",
+]
 
 [project.urls]
 Homepage = "https://github.com/agentculture/culture-agents"

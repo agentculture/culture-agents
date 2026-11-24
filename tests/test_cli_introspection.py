@@ -15,7 +15,7 @@ def test_overview_text(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["overview"])
     assert rc == 0
     out = capsys.readouterr().out
-    assert "# culture-agents" in out
+    assert "# agents" in out
     assert "Identity" in out
 
 
@@ -23,7 +23,7 @@ def test_overview_json_shape(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["overview", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["subject"] == "culture-agents"
+    assert payload["subject"] == "agents"
     assert isinstance(payload["sections"], list)
     assert payload["sections"]
 
@@ -41,14 +41,14 @@ def test_overview_graceful_on_bad_path(capsys: pytest.CaptureFixture[str]) -> No
 def test_cli_overview_text(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["cli", "overview"])
     assert rc == 0
-    assert "# culture-agents cli" in capsys.readouterr().out
+    assert "# agents cli" in capsys.readouterr().out
 
 
 def test_cli_overview_json_shape(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["cli", "overview", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["subject"] == "culture-agents cli"
+    assert payload["subject"] == "agents cli"
     assert isinstance(payload["sections"], list)
 
 
@@ -63,9 +63,8 @@ def test_cli_overview_unknown_flag_structured_error(
 ) -> None:
     # `cli overview` parse errors must route through the structured error
     # contract (error:/hint: + exit 1), not argparse's default stderr/exit 2.
-    with pytest.raises(SystemExit) as exc:
-        main(["cli", "overview", "--bogus"])
-    assert exc.value.code == 1
+    rc = main(["cli", "overview", "--bogus"])
+    assert rc == 1
     err = capsys.readouterr().err
     assert err.startswith("error:")
     assert "hint:" in err
@@ -77,7 +76,7 @@ def test_cli_overview_unknown_flag_structured_error(
 def test_doctor_text(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["doctor"])
     assert rc in (0, 1)
-    assert "culture-agents doctor" in capsys.readouterr().out
+    assert "agents doctor" in capsys.readouterr().out
 
 
 def test_doctor_json_shape(capsys: pytest.CaptureFixture[str]) -> None:

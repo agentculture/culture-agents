@@ -1,7 +1,7 @@
-"""Markdown catalog for ``culture-agents explain <path>``.
+"""Markdown catalog for ``agents explain <path>``.
 
 Each entry is verbatim markdown. Keys are command-path tuples. The empty tuple
-and ``("culture-agents",)`` both resolve to the root entry.
+and ``("agents",)`` both resolve to the root entry.
 
 Keep bodies self-contained: an agent reading one entry should get enough
 context without chaining reads.
@@ -9,89 +9,103 @@ context without chaining reads.
 
 from __future__ import annotations
 
-_ROOT = """\
-# culture-agents
+from culture_agents.explain.catalog_control import CONTROL_ENTRIES
 
-A clonable template for AgentCulture mesh agents. It carries an agent-first CLI
-(cited from the teken `python-cli` reference), a mesh identity (`culture.yaml` +
-`CLAUDE.md`), the canonical guildmaster skill kit under `.claude/skills/`, and a
-buildable/deployable package baseline. Clone it, rename the package, edit
-`culture.yaml`, and you have a new agent.
+_ROOT = """\
+# agents
+
+`agents` is the CLI of culture-agents, the control plane for AgentCulture
+agents: direct dispatch, persistent runs, and lifecycle control (submit,
+attach, steer, cancel) over harness adapters, independent of chat. It talks
+to the core daemon over a local Unix socket (`CULTURE_AGENTS_SOCKET`, else
+`$XDG_RUNTIME_DIR/culture-agents/core.sock`). With the core not running every
+`agents` and `runs` verb exits 2 with a hint to start it.
+
+The CLI is built on agentfront: one registry of verbs and docs, so `learn`,
+`explain` and `overview` always describe exactly what is registered.
 
 ## Verbs
 
-- `culture-agents whoami` — identity probe from `culture.yaml`.
-- `culture-agents learn` — structured self-teaching prompt.
-- `culture-agents explain <path>` — markdown docs for any noun/verb.
-- `culture-agents overview` — descriptive snapshot of the agent.
-- `culture-agents doctor` — check the agent-identity invariants.
-- `culture-agents cli overview` — describe the CLI surface.
+- `agents whoami` — identity probe from `culture.yaml`.
+- `agents learn` — structured self-teaching prompt.
+- `agents explain <path>` — markdown docs for any noun/verb.
+- `agents overview` — descriptive snapshot of the agent.
+- `agents doctor` — check the agent-identity invariants.
+- `agents cli overview` — describe the CLI surface.
+- `agents agents list|status` — the agents the core knows and their harnesses.
+- `agents runs submit|list|show|attach|steer|cancel|logs|result` — runs.
+
+`agents explain agents` is this root page. For the `agents agents` noun group
+use `agents explain agents list` and `agents explain agents status`.
 
 ## Exit-code policy
 
 - `0` success
-- `1` user-input error
-- `2` environment / setup error
+- `1` user-input error, including a request the core refuses (`denied`,
+  `unsupported`, `busy`, `conflict`, `invalid`, `not_found`)
+- `2` environment / setup error (core not running, incompatible API version,
+  core failure)
 - `3+` reserved
 
 ## See also
 
-- `culture-agents explain whoami`
-- `culture-agents explain doctor`
+- `agents explain runs`
+- `agents explain whoami`
+- `agents explain doctor`
 """
 
 _WHOAMI = """\
-# culture-agents whoami
+# agents whoami
 
 Reports the agent's identity from `culture.yaml`: nick (`suffix`), backend,
 served model, and the package version. Read-only.
 
 ## Usage
 
-    culture-agents whoami
-    culture-agents whoami --json
+    agents whoami
+    agents whoami --json
 """
 
 _LEARN = """\
-# culture-agents learn
+# agents learn
 
 Prints a structured self-teaching prompt covering purpose, command map,
 exit-code policy, `--json` support, and the `explain` pointer.
 
 ## Usage
 
-    culture-agents learn
-    culture-agents learn --json
+    agents learn
+    agents learn --json
 """
 
 _EXPLAIN = """\
-# culture-agents explain <path>
+# agents explain <path>
 
 Prints markdown documentation for any noun/verb path. Unlike `--help` (terse,
 positional), `explain` is global and addressable by path.
 
 ## Usage
 
-    culture-agents explain culture-agents
-    culture-agents explain whoami
-    culture-agents explain --json <path>
+    agents explain agents
+    agents explain whoami
+    agents explain --json <path>
 """
 
 _OVERVIEW = """\
-# culture-agents overview
+# agents overview
 
 Read-only descriptive snapshot of the agent: identity (from `culture.yaml`), the
-verb surface, and the sibling-pattern artifacts the template carries. Accepts an
-ignored `target` so a stray path never hard-fails.
+verb surface (generated from the registry), and the artifacts that make up the
+repo. Accepts an ignored `target` so a stray path never hard-fails.
 
 ## Usage
 
-    culture-agents overview
-    culture-agents overview --json
+    agents overview
+    agents overview --json
 """
 
 _DOCTOR = """\
-# culture-agents doctor
+# agents doctor
 
 Checks the agent-identity invariants `steward doctor` verifies:
 prompt-file-present and backend-consistency (`claude` → `CLAUDE.md`), plus a
@@ -105,20 +119,20 @@ reported by the informational harness-prompts check and never substituted.
 
 ## Usage
 
-    culture-agents doctor
-    culture-agents doctor --json
+    agents doctor
+    agents doctor --json
 """
 
 _CLI = """\
-# culture-agents cli
+# agents cli
 
 Noun group for CLI-surface introspection. `cli overview` describes the CLI
 itself (distinct from the global `overview`, which describes the agent).
 
 ## Usage
 
-    culture-agents cli overview
-    culture-agents cli overview --json
+    agents cli overview
+    agents cli overview --json
 """
 
 
@@ -133,4 +147,5 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("doctor",): _DOCTOR,
     ("cli",): _CLI,
     ("cli", "overview"): _CLI,
+    **CONTROL_ENTRIES,
 }

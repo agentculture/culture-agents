@@ -1,9 +1,9 @@
-"""``culture-agents overview`` — read-only descriptive snapshot of the agent.
+"""``agents overview`` — read-only descriptive snapshot of the agent.
 
 Describes the agent to an agent reader: identity (from culture.yaml), the verb
-surface, and the sibling-pattern artifacts this template carries. The shared
-section/render helpers here are reused by the ``cli`` noun's ``overview`` (see
-:mod:`culture_agents.cli._commands.cli`).
+surface (read from the registry), and the artifacts that make up the repo. The
+shared section/render helpers here are reused by the ``cli`` noun's
+``overview`` (see :mod:`culture_agents.cli._commands.cli`).
 
 Descriptive verbs never hard-fail on a missing target path — an optional
 positional ``target`` is accepted and ignored (overview describes this agent,
@@ -14,26 +14,20 @@ from __future__ import annotations
 
 import argparse
 
+from culture_agents.cli import _surface
 from culture_agents.cli._commands.whoami import report
 from culture_agents.cli._output import emit_result
 
 _ARTIFACTS = [
     "culture.yaml + AGENTS.colleague.md — mesh identity (suffix + backend)",
     ".claude/skills/ — the canonical guildmaster skill kit (cite-don't-import)",
+    "contract/ — the control-API contract the core serves and this CLI consumes",
     "docs/skill-sources.md — skill provenance ledger",
     "pyproject.toml + .github/workflows/ — buildable, deployable package baseline",
 ]
 
-_VERBS = [
-    "whoami — identity probe (nick, version, backend, model)",
-    "learn — structured self-teaching prompt",
-    "explain <path> — markdown docs for a topic",
-    "overview — this descriptive snapshot",
-    "doctor — check the agent-identity invariants",
-]
 
-
-def agent_sections() -> list[dict[str, object]]:
+def agent_sections(app) -> list[dict[str, object]]:
     """Sections describing the agent (used by the global verb)."""
     ident = report()
     return [
@@ -46,24 +40,22 @@ def agent_sections() -> list[dict[str, object]]:
                 f"model: {ident['model']}",
             ],
         },
-        {"title": "Verbs", "items": list(_VERBS)},
-        {"title": "Sibling-pattern artifacts", "items": list(_ARTIFACTS)},
+        {"title": "Verbs", "items": _surface.verb_lines(app)},
+        {"title": "Artifacts", "items": list(_ARTIFACTS)},
     ]
 
 
-def cli_sections() -> list[dict[str, object]]:
+def cli_sections(app) -> list[dict[str, object]]:
     """Sections describing the CLI surface itself (used by `cli overview`)."""
     return [
-        {
-            "title": "Verbs",
-            "items": list(_VERBS) + ["cli overview — describe the CLI surface (this command)"],
-        },
+        {"title": "Verbs", "items": _surface.verb_lines(app)},
         {
             "title": "Conventions",
             "items": [
                 "every command supports --json",
                 "results to stdout, errors/diagnostics to stderr (never mixed)",
                 "exit codes: 0 success, 1 user error, 2 environment error, 3+ reserved",
+                "runs and agents verbs need the core daemon on its Unix socket",
             ],
         },
     ]
@@ -87,26 +79,9 @@ def emit_overview(subject: str, sections: list[dict[str, object]], *, json_mode:
 
 
 def cmd_overview(args: argparse.Namespace) -> int:
-    # `target` is accepted for rubric compatibility (descriptive verbs must not
-    # hard-fail on a missing path) but overview describes this agent itself.
-    emit_overview(
-        "culture-agents",
-        agent_sections(),
-        json_mode=bool(getattr(args, "json", False)),
-    )
+    # The positional is accepted for rubric compatibility (descriptive verbs
+    # must not hard-fail on a missing path) but overview describes this agent.
+    from culture_agents.cli._app import get_app
+
+    emit_overview("agents", agent_sections(get_app()), json_mode=bool(getattr(args, "json", False)))
     return 0
-
-
-def register(sub: argparse._SubParsersAction) -> None:
-    p = sub.add_parser(
-        "overview",
-        help="Read-only descriptive snapshot of the agent (identity, verbs, artifacts).",
-    )
-    p.add_argument(
-        "target",
-        nargs="?",
-        help="Ignored — overview always describes this agent itself. Accepted so a "
-        "stray path argument never hard-fails.",
-    )
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
-    p.set_defaults(func=cmd_overview)
