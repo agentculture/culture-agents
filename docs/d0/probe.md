@@ -1,8 +1,10 @@
 # D1 probe: AI SDK harness adapters in an OpenShell sandbox
 
 Plan task t1. Run on 2026-11-24 on the fleet host (x86_64, Docker 28.0.1).
-Status: **partial**. The credential-free half is done; the live harness half
-has not run yet.
+Status: **partial**. Claude Code runs live inside a sandbox on an API key and
+on a subscription token. Codex authenticates but does not complete a turn yet.
+The AI SDK `HarnessAgent` path through an OpenShell sandbox provider has not
+run yet.
 
 ## Versions
 
@@ -47,8 +49,10 @@ material or another auth method refuses to start.
 | Push to the remote denied | pass | `git push https://github.com/...` fails: `Couldn't connect to server` |
 | AI SDK steer support (static) | pass | `HarnessV1PromptControl.submitUserMessage` exists and both adapters reference it |
 | AI SDK suspend and continue (static) | pass | `doSuspendTurn` and `doContinueTurn` are required on every adapter |
-| Claude Code: submit, stream, steer, cancel | not verified | needs an Anthropic API key in an OpenShell provider |
-| Codex: submit, stream, steer, cancel | not verified | needs Codex OAuth tokens in an OpenShell provider |
+| Claude Code one-shot prompt, API key | pass | `claude -p` in a sandbox returned `pong`; 4.2 s including sandbox create and delete |
+| Claude Code one-shot prompt, subscription | pass | same prompt with a bearer-token profile returned `pong` in 3.5 s |
+| Codex one-shot prompt | fail | authenticates, then `selected workspace missing from routing discovery`; `*.oaiusercontent.com` is denied by the stock profile |
+| Claude Code and Codex: stream, steer, cancel through the AI SDK | not verified | needs the sandbox provider spike |
 | HarnessAgent through an OpenShell sandbox provider | not verified | provider spike not written yet |
 
 ## Working-tree handoff
@@ -74,9 +78,34 @@ transformations are optional. The OpenShell SDK offers `create`, `exec`,
 `execStream`, `execInteractive`, `forward`, `createSshSession`, `waitReady`
 and `delete`, so each required member has a counterpart.
 
+## Credentials and profiles
+
+- **Stock `claude-code` profile does not match an npm install.** It allows
+  `/usr/bin/claude` and `/usr/local/bin/claude`, but the process that opens the
+  connection is `/usr/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe`,
+  so every call to `api.anthropic.com` was denied until a profile listing
+  `/usr/lib/node_modules/@anthropic-ai/**` was imported under a new id. Updating
+  the stock profile in place failed.
+- **Subscription works with a custom profile.** A profile whose credential is
+  `CLAUDE_CODE_OAUTH_TOKEN` with `auth_style: bearer` on the `authorization`
+  header lets Claude Code run on a Claude subscription. The probe used the
+  short-lived token from the local login; a durable setup uses the token from
+  `claude setup-token`.
+- **The sandbox never holds the secret.** Inside the sandbox each credential
+  variable holds an `openshell:resolve:env:` placeholder that the proxy resolves
+  at egress.
+- **Codex needs a launcher.** Codex reads `~/.codex/auth.json`, not environment
+  variables, and parses its tokens as JWTs. The probe wrote that file inside
+  the sandbox from the placeholders, wrapping each in the documented JWT-shaped
+  alias with the real tokens' non-secret claims. Authentication then passed
+  (no more `401`), but the turn failed as recorded above.
+
 ## Open items
 
-- Live harness runs, once credentials are decided.
+- Codex: allow the extra hosts it contacts and resolve the workspace routing
+  error.
+- The sandbox provider spike and live steer, stream and cancel through the AI
+  SDK.
 - The sandbox image needs the harness CLIs; the stock base image
   (`nvcr.io/nvidia/base/ubuntu:24.04`) has neither git nor Node.
 - OpenShell's bundled `claude-code` profile takes an Anthropic API key; its
