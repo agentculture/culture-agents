@@ -260,6 +260,30 @@ Live harness turns spent: 11 model turns (Claude Code 4 prompts and 1 steer,
 OpenCode 1.19.5 3 prompts and 1 steer, OpenCode v2 over ACP 2 prompts), plus
 one call that the network policy denied before it reached the model.
 
+## OpenCode v2 through its own server API
+
+Run on 2026-11-25 on the host (not yet inside a sandbox), OpenCode 2.3.2,
+model `gateway/worker`, at the owner's suggestion. `opencode serve` starts the
+v2 API on a local port and prints a per-process password; requests use HTTP
+basic auth with user `opencode`. The server publishes its API description at
+`/openapi.json` (142 paths).
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Create a session and send a prompt | pass | `POST /api/session` with a `location.directory` and a model reference, then `POST /api/session/{id}/prompt` returned `200` |
+| Streamed events | pass | `GET /api/event` delivered 150 events in the steer run (`session.reasoning.delta`, `session.text.delta`, `session.step.*`, `session.tool.*`) |
+| Mid-run steer | pass | task: eight `sleep 4 && echo N > fileN.txt` commands one at a time; after two files a second prompt with `"delivery": "steer"` asked for `STEERED.txt` instead; result `STEERED.txt file1.txt file2.txt file3.txt` |
+| Interrupt | pass | same task; `POST /api/session/{id}/interrupt` after two files returned `{"interrupted": true}`; the file list stayed at two |
+| Child processes after interrupt | not verified | the check used was not able to tell a leftover `sleep` from the checking shell |
+| Inside an OpenShell sandbox | not verified | not run yet; needs the server port forwarded and the gateway profile to allow the server binary |
+
+Each check was run once. The prompt API takes `delivery: "steer"` or
+`"queue"`, so steering is native here, unlike ACP. The API also exposes an
+inbox of queued inputs, permission requests, forms for questions, and a wait
+call, which map onto capabilities deferred beyond D1. The event stream is
+documented as volatile (events during a disconnect are missed), so the run
+store must not rely on it alone for the terminal state.
+
 ## Open items
 
 - Codex is not pursued for D1. To revisit: allow the extra hosts it contacts

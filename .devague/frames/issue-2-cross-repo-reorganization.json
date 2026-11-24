@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T23:29:51Z",
+  "updated": "2026-11-24T23:38:32Z",
   "claims": [
     {
       "id": "c1",
@@ -1044,6 +1044,18 @@
       "id": "c62",
       "kind": "decision",
       "text": "The first npm publish of @culture.dev/agents waits until D1 passes: one manual bootstrap publish with the NPM_ACCESS_TOKEN held in grant, at a real version matching the Python package, after which Trusted Publishing is configured on npmjs.com and the token is no longer used. Nothing is published before the owner's explicit go-ahead at that moment.",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c63",
+      "kind": "decision",
+      "text": "The second D1 harness, OpenCode v2, is driven through OpenCode's own v2 server API (opencode serve), which supports mid-run steer natively, rather than through ACP or the AI SDK's 1.x adapter. The owner pointed to the server on 2026-11-25; a live host test against the local worker model passed prompt, streaming, steer and interrupt (docs/d0/probe.md).",
       "origin": "user",
       "status": "confirmed",
       "honesty_conditions": [],
