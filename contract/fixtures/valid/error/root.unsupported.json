@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "unsupported",
+    "message": "harness opencode cannot steer a running turn",
+    "retryable": false,
+    "capability": "steer"
+  }
+}

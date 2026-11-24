@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "unsupported",
+    "message": "x",
+    "retryable": false,
+    "capability": "fly"
+  }
+}

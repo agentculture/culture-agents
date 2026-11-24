@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "denied",
+    "message": "no allow-list entry matches agent, harness and repo; add one to allow",
+    "retryable": false
+  }
+}

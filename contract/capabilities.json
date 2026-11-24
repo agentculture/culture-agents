@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/capabilities.json",
+  "title": "Harness capability document",
+  "description": "What one harness can do through this core, stated honestly. Every capability name is always present. A control action whose capability is not supported is refused with an `unsupported` error naming it, never dropped or simulated.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "harness",
+    "available",
+    "version",
+    "transport",
+    "capabilities"
+  ],
+  "properties": {
+    "harness": {
+      "$ref": "common.json#/$defs/harness_id"
+    },
+    "available": {
+      "description": "Whether the core can start this harness right now (binary, credentials and sandbox present).",
+      "type": "boolean"
+    },
+    "version": {
+      "description": "The harness's own version string as detected, or null if unknown.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 128
+    },
+    "transport": {
+      "description": "Neutral one-line description of how the core drives the harness (for example `interactive session over a local bridge`). Informational only.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "capabilities": {
+      "$ref": "#/$defs/capability_set"
+    },
+    "extension": {
+      "$ref": "common.json#/$defs/extension"
+    }
+  },
+  "$defs": {
+    "capability_name": {
+      "description": "Every capability the contract can name in a capability document or an `unsupported` error.",
+      "enum": [
+        "submit",
+        "stream",
+        "steer",
+        "cancel",
+        "pause",
+        "resume",
+        "answer",
+        "continue_session",
+        "delegate",
+        "placement",
+        "reconnect",
+        "worktree_isolation"
+      ]
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported",
+        "reason",
+        "caveats"
+      ],
+      "properties": {
+        "supported": {
+          "type": "boolean"
+        },
+        "reason": {
+          "description": "Why it is unsupported (required then), or null when supported.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        },
+        "caveats": {
+          "description": "Known limits of a supported capability, for example that cancel can leave a harness child process running until the sandbox is deleted.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        }
+      },
+      "if": {
+        "required": [
+          "supported"
+        ],
+        "properties": {
+          "supported": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "deferred": {
+      "description": "A capability no harness supports in this API version. Changing it to supportable is a schema change (README: versioning).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "supported",
+        "reason",
+        "caveats"
+      ],
+      "properties": {
+        "supported": {
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "caveats": {
+          "type": "array",
+          "maxItems": 0
+        }
+      }
+    },
+    "capability_set": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "submit",
+        "stream",
+        "steer",
+        "cancel",
+        "pause",
+        "resume",
+        "answer",
+        "continue_session",
+        "delegate",
+        "placement",
+        "reconnect",
+        "worktree_isolation"
+      ],
+      "properties": {
+        "submit": {
+          "$ref": "#/$defs/capability"
+        },
+        "stream": {
+          "$ref": "#/$defs/capability"
+        },
+        "steer": {
+          "$ref": "#/$defs/capability"
+        },
+        "cancel": {
+          "$ref": "#/$defs/capability"
+        },
+        "pause": {
+          "$ref": "#/$defs/deferred"
+        },
+        "resume": {
+          "$ref": "#/$defs/deferred"
+        },
+        "answer": {
+          "$ref": "#/$defs/deferred"
+        },
+        "continue_session": {
+          "$ref": "#/$defs/deferred"
+        },
+        "delegate": {
+          "$ref": "#/$defs/deferred"
+        },
+        "placement": {
+          "$ref": "#/$defs/deferred"
+        },
+        "reconnect": {
+          "$ref": "#/$defs/deferred"
+        },
+        "worktree_isolation": {
+          "$ref": "#/$defs/deferred"
+        }
+      }
+    },
+    "capabilities_list": {
+      "description": "Response of GET /v1/harnesses.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "harnesses"
+      ],
+      "properties": {
+        "harnesses": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        }
+      }
+    }
+  }
+}

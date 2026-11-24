@@ -1,0 +1,14 @@
+{
+  "run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "cursor": 8,
+  "time": "2026-11-25T10:00:08Z",
+  "kind": "run.error",
+  "data": {
+    "error": {
+      "code": "internal",
+      "message": "harness exited with status 1",
+      "retryable": false
+    },
+    "fatal": true
+  }
+}

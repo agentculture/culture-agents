@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "invalid",
+    "message": "repo must be an absolute path",
+    "retryable": false,
+    "field": "/repo"
+  }
+}

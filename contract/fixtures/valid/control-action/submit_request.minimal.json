@@ -1,0 +1,10 @@
+{
+  "agent_id": "spark-culture-agents",
+  "harness": "claude-code",
+  "repo": "/srv/repos/demo",
+  "task": "Add a unit test for the parser's empty-input case.",
+  "caller": {
+    "kind": "operator",
+    "id": "spark-operator"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "timeout",
+    "message": "x",
+    "retryable": false
+  }
+}

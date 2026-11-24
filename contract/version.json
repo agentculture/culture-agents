@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/version.json",
+  "title": "Version",
+  "description": "Response of GET /v1/version, the first call a client makes on connect (README: versioning).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["api_version", "core_version", "node"],
+  "properties": {
+    "api_version": { "$ref": "common.json#/$defs/api_version" },
+    "core_version": {
+      "description": "The core package's own release version (semver); informational, never used for compatibility.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "node": {
+      "description": "The node this core runs on; the `<node>` of every agent it can execute in D1.",
+      "$ref": "common.json#/$defs/node"
+    }
+  }
+}

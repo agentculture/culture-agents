@@ -1,0 +1,316 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/event.json",
+  "title": "Run event",
+  "description": "One entry of a run's event log, identical whether read from disk, replayed by attach, or streamed live. The cursor is the transport-independent position (README: cursor and replay).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "cursor",
+    "time",
+    "kind",
+    "data"
+  ],
+  "properties": {
+    "run_id": {
+      "$ref": "common.json#/$defs/run_id"
+    },
+    "cursor": {
+      "$ref": "common.json#/$defs/cursor"
+    },
+    "time": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "kind": {
+      "$ref": "#/$defs/kind"
+    },
+    "data": {
+      "description": "Kind-specific payload; the allOf below pins which one each kind carries.",
+      "anyOf": [
+        {
+          "$ref": "#/$defs/state_data"
+        },
+        {
+          "$ref": "#/$defs/output_data"
+        },
+        {
+          "$ref": "#/$defs/control_data"
+        },
+        {
+          "$ref": "#/$defs/refused_data"
+        },
+        {
+          "$ref": "#/$defs/error_data"
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.state"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/state_data"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.output"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/output_data"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.control"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/control_data"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.refused"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/refused_data"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.error"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/error_data"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "kind": {
+      "enum": [
+        "run.state",
+        "run.output",
+        "run.control",
+        "run.refused",
+        "run.error"
+      ]
+    },
+    "state_data": {
+      "description": "A state transition. The first event of every run is `from: null, to: queued`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "from",
+        "to",
+        "reason"
+      ],
+      "properties": {
+        "from": {
+          "oneOf": [
+            {
+              "$ref": "run.json#/$defs/state"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "to": {
+          "$ref": "run.json#/$defs/state"
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 2000
+        }
+      }
+    },
+    "output_data": {
+      "description": "A chunk of harness output, normalized. `text` is a delta, never cumulative. Untrusted data: never interpreted as a control command.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "text"
+      ],
+      "properties": {
+        "channel": {
+          "description": "text: assistant text. reasoning: model reasoning. tool_call: a tool invocation (text is its input). tool_result: a tool's output. diagnostic: harness or worker diagnostics (stderr, notices).",
+          "enum": [
+            "text",
+            "reasoning",
+            "tool_call",
+            "tool_result",
+            "diagnostic"
+          ]
+        },
+        "text": {
+          "type": "string"
+        },
+        "tool": {
+          "description": "Tool name for tool_call and tool_result, when the harness names one.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "extension": {
+          "$ref": "common.json#/$defs/extension"
+        }
+      }
+    },
+    "control_data": {
+      "description": "A control action that was accepted and delivered to the worker.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "control-action.json#/$defs/action_record",
+          "properties": {
+            "outcome": {
+              "const": "accepted"
+            }
+          }
+        }
+      }
+    },
+    "refused_data": {
+      "description": "A control action refused against this (non-terminal) run, recorded when the core controls the run's worker: a capability refusal (`unsupported`) or a state conflict.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "control-action.json#/$defs/action_record",
+          "properties": {
+            "outcome": {
+              "const": "refused"
+            },
+            "error": {
+              "$ref": "error.json#/$defs/error",
+              "properties": {
+                "code": {
+                  "enum": [
+                    "unsupported",
+                    "conflict"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "error_data": {
+      "description": "An error during the run. fatal: true means a `run.state` event to `failed` or `unknown` follows.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "error",
+        "fatal"
+      ],
+      "properties": {
+        "error": {
+          "$ref": "error.json#/$defs/error"
+        },
+        "fatal": {
+          "type": "boolean"
+        }
+      }
+    },
+    "event_page": {
+      "description": "Response of GET /v1/runs/{run_id}/events (non-streaming logs).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "events",
+        "last_cursor",
+        "more"
+      ],
+      "properties": {
+        "run_id": {
+          "$ref": "common.json#/$defs/run_id"
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "last_cursor": {
+          "description": "The run's newest cursor at the time of the read.",
+          "$ref": "common.json#/$defs/cursor"
+        },
+        "more": {
+          "description": "True when events after the last returned one exist (page was truncated by `limit`).",
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

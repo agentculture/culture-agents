@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/agent.json",
+  "title": "Agent",
+  "description": "An agent known to the core. In D1 an agent is known exactly when at least one allow-list entry names it; `harnesses` and `repos` are the union of its allow-list entries.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "node",
+    "suffix",
+    "harnesses",
+    "repos",
+    "state",
+    "active_run_ids"
+  ],
+  "properties": {
+    "id": {
+      "description": "Mesh id; always equals `<node>-<suffix>`.",
+      "$ref": "common.json#/$defs/mesh_id"
+    },
+    "node": {
+      "$ref": "common.json#/$defs/node"
+    },
+    "suffix": {
+      "$ref": "common.json#/$defs/suffix"
+    },
+    "harnesses": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.json#/$defs/harness_id"
+      }
+    },
+    "repos": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.json#/$defs/repo_path"
+      }
+    },
+    "state": {
+      "description": "idle: no active run. running: at least one active run. unavailable: none of its harnesses is available on this core.",
+      "enum": [
+        "idle",
+        "running",
+        "unavailable"
+      ]
+    },
+    "active_run_ids": {
+      "description": "Runs of this agent in an active state (queued, running, cancelling).",
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "common.json#/$defs/run_id"
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "const": "idle"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "active_run_ids": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "const": "running"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "active_run_ids": {
+            "minItems": 1
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "agent_list": {
+      "description": "Response of GET /v1/agents: the core's node, every known agent, and every harness capability document, so one call serves `agents agents list --json`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node",
+        "agents",
+        "harnesses"
+      ],
+      "properties": {
+        "node": {
+          "$ref": "common.json#/$defs/node"
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        },
+        "harnesses": {
+          "type": "array",
+          "items": {
+            "$ref": "capabilities.json"
+          }
+        }
+      }
+    }
+  }
+}

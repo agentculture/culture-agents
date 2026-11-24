@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "internal",
+    "message": "unexpected core failure; see the core log",
+    "retryable": false
+  }
+}

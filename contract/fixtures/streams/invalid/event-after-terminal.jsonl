@@ -1,0 +1,4 @@
+{"run_id":"spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":1,"time":"2026-11-25T10:00:01Z","kind":"run.state","data":{"from":null,"to":"queued","reason":null}}
+{"run_id":"spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":2,"time":"2026-11-25T10:00:02Z","kind":"run.state","data":{"from":"queued","to":"running","reason":null}}
+{"run_id":"spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":3,"time":"2026-11-25T10:00:03Z","kind":"run.state","data":{"from":"running","to":"succeeded","reason":null}}
+{"run_id":"spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":4,"time":"2026-11-25T10:00:04Z","kind":"run.output","data":{"channel":"text","text":"late"}}

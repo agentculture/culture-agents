@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/allowlist.json",
+  "title": "Dispatch allow-list",
+  "description": "The core's local dispatch allow-list file (README: authorization). Not an API payload: no route reads or writes it. It ships empty, and a submit is allowed only when one entry matches its agent, harness and repo exactly.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "entries"],
+  "properties": {
+    "version": { "const": 1 },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent_id", "harness", "repo"],
+        "properties": {
+          "agent_id": { "$ref": "common.json#/$defs/mesh_id" },
+          "harness": { "$ref": "common.json#/$defs/harness_id" },
+          "repo": { "$ref": "common.json#/$defs/repo_path" }
+        }
+      }
+    }
+  }
+}
