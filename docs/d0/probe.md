@@ -2,7 +2,8 @@
 
 Plan task t1. Run on 2026-11-24 on the fleet host (x86_64, Docker 28.0.1).
 Status: **partial**. Claude Code runs live inside a sandbox on an API key and
-on a subscription token. Codex authenticates but does not complete a turn yet.
+on a subscription token, and OpenCode v2 runs against the local model gateway.
+Codex authenticates but does not complete a turn.
 The AI SDK `HarnessAgent` path through an OpenShell sandbox provider has not
 run yet.
 
@@ -51,6 +52,8 @@ material or another auth method refuses to start.
 | AI SDK suspend and continue (static) | pass | `doSuspendTurn` and `doContinueTurn` are required on every adapter |
 | Claude Code one-shot prompt, API key | pass | `claude -p` in a sandbox returned `pong`; 4.2 s including sandbox create and delete |
 | Claude Code one-shot prompt, subscription | pass | same prompt with a bearer-token profile returned `pong` in 3.5 s |
+| Claude Code one-shot prompt, durable subscription token | pass | token from `claude setup-token` stored in `grant` and injected at provider creation; `pong` in 3.2 s |
+| OpenCode v2 one-shot prompt, local model gateway | pass | `opencode run -m gateway/worker` returned `pong` in 7.2 s; the gateway answered `200` from inside the sandbox |
 | Codex one-shot prompt | fail | authenticates, then `selected workspace missing from routing discovery`; `*.oaiusercontent.com` is denied by the stock profile |
 | Claude Code and Codex: stream, steer, cancel through the AI SDK | not verified | needs the sandbox provider spike |
 | HarnessAgent through an OpenShell sandbox provider | not verified | provider spike not written yet |
@@ -100,10 +103,24 @@ and `delete`, so each required member has a counterpart.
   alias with the real tokens' non-secret claims. Authentication then passed
   (no more `401`), but the turn failed as recorded above.
 
+## OpenCode against the local model gateway
+
+- The second D1 harness is OpenCode v2 (2.3.2), replacing Codex by the owner's
+  decision on 2026-11-25. Codex stays not verified.
+- On this host OpenCode uses the local model gateway on port 8001. A sandbox
+  reaches it as `host.openshell.internal:8001` through a custom inference
+  profile that names that host and port, lists `/usr/local/bin/opencode` as an
+  allowed binary and carries the gateway key as a bearer credential.
+- The probe image copies the host's OpenCode binary and a config whose
+  `baseURL` is `http://host.openshell.internal:8001/v1` and whose key is read
+  from the placeholder variable.
+- This also settles the earlier open question: a sandboxed harness can reach
+  the local model gateway under OpenShell network policy.
+
 ## Open items
 
-- Codex: allow the extra hosts it contacts and resolve the workspace routing
-  error.
+- Codex is not pursued for D1. To revisit: allow the extra hosts it contacts
+  and resolve the workspace routing error.
 - The sandbox provider spike and live steer, stream and cancel through the AI
   SDK.
 - The sandbox image needs the harness CLIs; the stock base image
