@@ -40,9 +40,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Files this scanner should never inspect: its own source (full of example
 # patterns/regexes in comments), its own test fixtures (deliberately planted
 # fake secrets used to prove the scanner works), and lockfiles (vendored
-# hashes, not secrets).
+# hashes and registry URLs, not secrets; includes npm's package-lock.json).
 SELF_EXCLUDE = {"scripts/scan-secrets.py", "tests/test_scan_secrets.py"}
-EXCLUDE_SUFFIXES = (".lock",)
+EXCLUDE_SUFFIXES = (".lock", "package-lock.json")
 
 # ---------------------------------------------------------------------------
 # Check 1: credential / API-key-shaped strings
@@ -69,6 +69,7 @@ _ASSIGNMENT_RE = re.compile(
     r"""(?ix)
         \b(api[_-]?key|secret(?:[_-]?key)?|access[_-]?key|token|password|passwd|pwd)
         ["']?               # a JSON/YAML key's own closing quote, if any
+        (?:\s*:\s*[\w.<>\[\]|]+)?  # optional TypeScript annotation (`token: string = ...`)
         \s*[:=]\s*
         (?:
             "(?P<dq>[^"\n]{20,})"

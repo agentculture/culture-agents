@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Fail when a tracked source file grows past the line cap.
 
-Every tracked Python file in this repo — the package, ``scripts/`` and
-``tests/`` alike — must stay at or under ``MAX_LINES`` lines. Long files are
+Every tracked Python or TypeScript file in this repo — the package,
+``scripts/``, ``tests/`` and the ``core/`` TypeScript package alike — must
+stay at or under ``MAX_LINES`` lines. Long files are
 where review attention runs out; the cap forces a split into focused modules
 before that happens, rather than after.
 
@@ -11,6 +12,9 @@ Excluded:
 * ``.claude/skills/**`` — the guildmaster skill kit is cited verbatim and must
   never be edited here, so it cannot be held to this repo's cap (re-sync from
   upstream instead; see ``docs/skill-sources.md``).
+* ``spikes/**`` — throwaway probe code kept only as evidence; never built,
+  linted or analysed, so never held to the cap.
+* ``**/node_modules/**`` and ``**/dist/**`` — installed and generated code.
 
 Usage:
     check-file-length.py                 # check all tracked files (git ls-files)
@@ -22,7 +26,7 @@ on stderr as ``path: N lines (max M)``. Exit 0 when every file is within the
 cap; 1 when any file exceeds it or on bad input (an unknown flag, a ``--max``
 that is not a positive integer, or a path outside the repo); 2 only when
 ``git ls-files`` cannot run — exit 2 is reserved for environment failures.
-Explicit paths that are not checked (not ``.py``, or excluded) are named on
+Explicit paths that are not checked (not ``.py``/``.ts``/``.mts``, or excluded) are named on
 stderr rather than silently counted as passing.
 """
 
@@ -39,15 +43,20 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 MAX_LINES = 400
 
 #: Which tracked files count as source code held to the cap.
-CHECKED_SUFFIXES = (".py",)
+CHECKED_SUFFIXES = (".py", ".ts", ".mts")
 
 #: Path prefixes (repo-relative, POSIX) never checked — see the docstring.
-EXCLUDED_PREFIXES = (".claude/skills/",)
+EXCLUDED_PREFIXES = (".claude/skills/", "spikes/")
+
+#: Path segments that exclude a file wherever they appear (generated/installed).
+EXCLUDED_SEGMENTS = ("node_modules", "dist")
 
 
 def is_checked(rel: str) -> bool:
     """Whether a repo-relative path is held to the cap."""
-    return rel.endswith(CHECKED_SUFFIXES) and not rel.startswith(EXCLUDED_PREFIXES)
+    if not rel.endswith(CHECKED_SUFFIXES) or rel.startswith(EXCLUDED_PREFIXES):
+        return False
+    return not set(rel.split("/")[:-1]) & set(EXCLUDED_SEGMENTS)
 
 
 def tracked_files(repo: Path) -> list[str]:
@@ -145,7 +154,7 @@ def _main(argv: list[str] | None) -> int:
         paths = [_repo_relative(p, repo) for p in args.paths]
         for rel in paths:
             if not is_checked(rel):
-                print(f"{rel}: not checked (not a .py file, or excluded)", file=sys.stderr)
+                print(f"{rel}: not checked (not a .py/.ts/.mts file, or excluded)", file=sys.stderr)
     else:
         try:
             paths = tracked_files(repo)
