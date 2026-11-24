@@ -36,5 +36,11 @@
   "dependencies": {
     "@ai-openshell/sdk": "0.1.10",
     "@ai-sdk/harness": "1.0.192"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agentculture/culture-agents.git",
+    "directory": "core"
+  },
+  "homepage": "https://github.com/agentculture/culture-agents#readme"
 }
