@@ -1,0 +1,14 @@
+[0.8s] [provider] sandbox spike-44a2b61e260e1 ready in 791 ms (identity undefined)
+[1.1s] initialize ok: agent {"name":"OpenCode","version":"2.3.2"} protocol 1
+[1.7s] session/new ses_df034abccffeorC62IVMKHLy9t
+[7.2s] prompt 1 stopReason=end_turn updates={"available_commands_update":1,"agent_thought_chunk":7,"agent_message_chunk":2,"usage_update":1} text="pong"
+[22.7s] sending session/cancel
+[23.2s] prompt 2 stopReason=cancelled updates={"agent_thought_chunk":54,"tool_call":1,"tool_call_update":3,"usage_update":1}
+[24.8s] processes after cancel:
+76 sh -c opencode acp
+     77 opencode acp
+     87 /usr/local/bin/opencode serve --stdio --port 0
+    138 /sandbox/.cache/opencode/bin/opencode-pty/0.6.0-3a781ac5ff8bc189/opencode-pty daemon --runtime-dir /sandbox/.local/state/opencode/pty --name b95739e3-b0df-451c-9482-7ff95d8a4a3b
+    145 sleep 120
+[24.8s] [provider] spawn stream ended: [canceled] exec cancelled
+[30.1s] [provider] deleted sandbox spike-44a2b61e260e1

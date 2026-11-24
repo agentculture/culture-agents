@@ -1,0 +1,15 @@
+HarnessAgent: `sandbox` is deprecated. Supply `sandboxSession` to createSession() instead.
+[0.0s] createSession opencode-cancel-mwvat9bq on culture-agents-probe:0.5
+[0.8s] [provider] sandbox spike-3cc1754762ffe ready in 792 ms (identity f4f54043233fc9f3)
+[1.4s] [provider] forward 127.0.0.1:37887 -> spike-3cc1754762ffe:4100
+[1.4s] session ready (sandbox spike-3cc1754762ffe)
+[14.7s] tool-call bash {"command":"sleep 120","timeout":130000}
+[17.7s] aborting turn
+[17.7s] part counts {"start":1,"start-step":1,"reasoning-start":1,"reasoning-delta":34,"reasoning-end":1,"tool-call":1,"abort":1}
+[17.7s] text: ""
+[19.8s] processes after abort:
+137 sh -c node '/sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs' --workdir '/sandbox/opencode-opencode-cancel-mwvat9bq' --bridge-state-dir '/sandbox/.ai-sdk-harness/.agent-runs/opencode-cancel-mwvat9bq/bridge' --bootstrap-dir '/sandbox/.ai-sdk-harness/.harness-bootstrap/opencode' --skills-dir '/sandbox/.agents/skills'
+    138 node /sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs --workdir /sandbox/opencode-opencode-cancel-mwvat9bq --bridge-state-dir /sandbox/.ai-sdk-harness/.agent-runs/opencode-cancel-mwvat9bq/bridge --bootstrap-dir /sandbox/.ai-sdk-harness/.harness-bootstrap/opencode --skills-dir /sandbox/.agents/skills
+    168 opencode serve --hostname=127.0.0.1 --port=0
+[25.2s] [provider] deleted sandbox spike-3cc1754762ffe
+[25.2s] session destroyed; sandbox spike-3cc1754762ffe deleted

@@ -1,0 +1,20 @@
+HarnessAgent: `sandbox` is deprecated. Supply `sandboxSession` to createSession() instead.
+[0.0s] createSession opencode-steer-mwvasd9t on culture-agents-probe:0.5
+[0.8s] [provider] sandbox spike-fdf5e12e2cd7e ready in 786 ms (identity f4f54043233fc9f3)
+[1.4s] [provider] forward 127.0.0.1:39771 -> spike-fdf5e12e2cd7e:4100
+[1.4s] session ready (sandbox spike-fdf5e12e2cd7e)
+[16.6s] tool-call write {"content":"1","filePath":"file01.txt"}
+[16.6s] tool-call fileChange {"event":"modify","path":"file01.txt"}
+[23.3s] tool-call write {"content":"2","filePath":"file02.txt"}
+[23.3s] tool-call fileChange {"event":"modify","path":"file02.txt"}
+[23.3s] steering after 2 writes
+[23.3s] steer accepted by adapter
+[26.1s] tool-call write {"content":"3","filePath":"file03.txt"}
+[26.1s] tool-call fileChange {"event":"modify","path":"file03.txt"}
+[27.3s] tool-call write {"content":"steered","filePath":"STEERED.txt"}
+[27.4s] tool-call fileChange {"event":"modify","path":"STEERED.txt"}
+[30.0s] part counts {"start":1,"start-step":4,"reasoning-start":4,"reasoning-delta":58,"reasoning-end":4,"tool-call":8,"tool-result":8,"finish-step":4,"text-start":1,"text-delta":5,"text-end":1,"finish":1}
+[30.0s] text: "Done. Created file01.txt, file02.txt, file03.txt, and STEERED.txt containing \"steered\"."
+[30.0s] files in /sandbox/opencode-opencode-steer-mwvasd9t: STEERED.txt file01.txt file02.txt file03.txt
+[35.4s] [provider] deleted sandbox spike-fdf5e12e2cd7e
+[35.4s] session destroyed; sandbox spike-fdf5e12e2cd7e deleted

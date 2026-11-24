@@ -1,0 +1,5 @@
+# Variant: the adapter-pinned OpenCode 1.19.5 installed at /usr/local/bin/opencode,
+# the only path the lobes provider profile lets reach the model gateway.
+FROM culture-agents-probe:0.3
+RUN cp /usr/local/lib/ai-sdk-harness/opencode/node_modules/opencode-ai/bin/opencode.exe \
+      /usr/local/bin/opencode && /usr/local/bin/opencode --version

@@ -1,0 +1,12 @@
+[provider] sandbox spike-selftest ready in 797 ms (identity undefined)
+cwd /sandbox ubuntu
+/sandbox
+read "world\n"
+stat { type: 'directory', size: 4096 } null
+ls [ { name: 'b.txt', type: 'file' } ] del true
+spawn "via-stdin\n" { exitCode: 0 }
+[provider] forward 127.0.0.1:41213 -> spike-selftest:4100
+forward http://127.0.0.1:41213 pong
+[provider] spawn stream ended: [canceled] exec cancelled
+after kill 102 sh -c pgrep -af "node -e" || echo no-node
+[provider] deleted sandbox spike-selftest

@@ -1,0 +1,22 @@
+HarnessAgent: `sandbox` is deprecated. Supply `sandboxSession` to createSession() instead.
+[0.0s] createSession opencode-smoke-mwvanclg on culture-agents-probe:0.3
+[0.8s] [provider] sandbox spike-e6e2769529851 ready in 795 ms (identity f4f54043233fc9f3)
+[1.2s] [provider] forward 127.0.0.1:40053 -> spike-e6e2769529851:4100
+[1.2s] session ready (sandbox spike-e6e2769529851)
+[harness:opencode:stderr] [harness:opencode:error] OpenCode turn failed: Timeout waiting for server to start after 30000ms
+[harness:opencode:stderr] Error: Timeout waiting for server to start after 30000ms
+[harness:opencode:stderr] at Timeout._onTimeout (file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/server.js:23:20)
+[harness:opencode:stderr] at listOnTimeout (node:internal/timers:585:17)
+[harness:opencode:stderr] at process.processTimers (node:internal/timers:521:7)
+[harness:opencode:error session=opencode-smoke-mwvanclg] bridge emitted an error frame: Error: Timeout waiting for server to start after 30000ms
+[harness:opencode:error session=opencode-smoke-mwvanclg]     at Timeout._onTimeout (file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/server.js:23:20)
+[harness:opencode:error session=opencode-smoke-mwvanclg]     at listOnTimeout (node:internal/timers:585:17)
+[harness:opencode:error session=opencode-smoke-mwvanclg]     at process.processTimers (node:internal/timers:521:7)
+[harness:opencode:error session=opencode-smoke-mwvanclg] harness stream error: Error: Timeout waiting for server to start after 30000ms
+[harness:opencode:error session=opencode-smoke-mwvanclg]     at Timeout._onTimeout (file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/server.js:23:20)
+[harness:opencode:error session=opencode-smoke-mwvanclg]     at listOnTimeout (node:internal/timers:585:17)
+[harness:opencode:error session=opencode-smoke-mwvanclg]     at process.processTimers (node:internal/timers:521:7)
+[31.3s] part counts {"start":1,"error":1}
+[31.3s] text: ""
+[36.7s] [provider] deleted sandbox spike-e6e2769529851
+[36.7s] session destroyed; sandbox spike-e6e2769529851 deleted

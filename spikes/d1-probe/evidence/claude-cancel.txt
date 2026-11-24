@@ -1,0 +1,15 @@
+HarnessAgent: `sandbox` is deprecated. Supply `sandboxSession` to createSession() instead.
+[0.0s] createSession claude-cancel-mwvam08m on culture-agents-probe:0.3
+[0.8s] [provider] sandbox spike-f33d9f75c1364 ready in 788 ms (identity ecfb87d8d0b9b418)
+[1.2s] [provider] forward 127.0.0.1:37785 -> spike-f33d9f75c1364:4100
+[1.2s] session ready (sandbox spike-f33d9f75c1364)
+[3.7s] tool-call bash {"command":"sleep 120","description":"Sleep for 120 seconds"}
+[6.3s] tool-call bash {"command":"sleep 120","description":"Sleep for 120 seconds in background","run_in_background":true}
+[6.7s] aborting turn
+[6.7s] part counts {"start":1,"raw":9,"start-step":2,"tool-input-start":2,"tool-input-delta":12,"tool-call":2,"tool-input-end":2,"tool-error":1,"finish-step":2,"reasoning-start":1,"reasoning-delta":39,"reasoning-end":1,"text-start":1,"text-delta":16,"text-end":1,"tool-result":1,"abort":1}
+[6.7s] text: "The harness blocked a foreground `sleep 120`, but it suggests running the wait in the background instead. I'll do that so the sleep still runs for the full 120 seconds."
+[8.7s] processes after abort:
+121 sh -c node '/sandbox/.ai-sdk-harness/.harness-bootstrap/claude-code/bridge.mjs' --workdir '/sandbox/claude-code-claude-cancel-mwvam08m' --bridge-state-dir '/sandbox/.ai-sdk-harness/.agent-runs/claude-cancel-mwvam08m/bridge'
+    122 node /sandbox/.ai-sdk-harness/.harness-bootstrap/claude-code/bridge.mjs --workdir /sandbox/claude-code-claude-cancel-mwvam08m --bridge-state-dir /sandbox/.ai-sdk-harness/.agent-runs/claude-cancel-mwvam08m/bridge
+[14.1s] [provider] deleted sandbox spike-f33d9f75c1364
+[14.1s] session destroyed; sandbox spike-f33d9f75c1364 deleted
