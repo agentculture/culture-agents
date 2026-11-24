@@ -62,4 +62,4 @@ export type RunResult = {
   error: ErrorBody;
 }) | ({ state: "succeeded" } & {
   error: null;
-}));
+}) | ({ state: Exclude<TerminalState, "failed" | "succeeded"> }));

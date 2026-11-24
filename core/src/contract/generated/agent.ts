@@ -19,7 +19,7 @@ export type Agent = {
   active_run_ids: unknown;
 }) | ({ state: "running" } & {
   active_run_ids: unknown;
-}));
+}) | ({ state: Exclude<"idle" | "running" | "unavailable", "idle" | "running"> }));
 
 /** Response of GET /v1/agents: the core's node, every known agent, and every harness capability document, so one call serves `agents agents list --json`. */
 export type AgentList = {
