@@ -1,0 +1,59 @@
+# OpenShell provider profile: Claude Code on a Claude subscription token.
+#
+# Import (an operator step, not done by the core):
+#   openshell provider profile lint   -f core/policy/profiles/culture-agents-claude-subscription.yaml
+#   openshell provider profile import -f core/policy/profiles/culture-agents-claude-subscription.yaml
+#   openshell provider create --name claude-sub-ca --type culture-agents-claude-subscription \
+#     --credential CLAUDE_CODE_OAUTH_TOKEN
+# `--credential VAR` reads the value from the operator's environment at
+# provider creation; this file names the variable only. Inside the sandbox
+# the variable holds an `openshell:resolve:env:` placeholder; the proxy puts the
+# real token on the `authorization` header at egress, for the endpoint below
+# and nowhere else. Take the token from `claude setup-token` (durable), stored
+# behind `grant`.
+#
+# Binaries (the D1 probe, docs/d0/probe.md, "Credentials and profiles"):
+# - The stock `claude-code` profile lists /usr/bin/claude and
+#   /usr/local/bin/claude, but an npm global install connects from
+#   /usr/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe, so every
+#   call was denied. That exact path is listed here.
+# - The AI SDK bridge launches the native `claude` bundled in the Claude Agent
+#   SDK, from the bridge's own node_modules. The probe had to bake the bridge
+#   under /usr/lib/node_modules/@anthropic-ai/ only to fit the stock glob. This
+#   profile instead names /usr/local/lib/ai-sdk-harness/**, the read-only
+#   location where the image bakes every adapter's bridge dependencies
+#   (claude-code/ and opencode/ side by side).
+# - No path under /sandbox (the writable home, where the adapter's bootstrap
+#   directory lives) is listed: a binary a run can write must not reach the
+#   credentialed endpoint.
+#
+# Endpoints: api.anthropic.com only. The bundled profile also opens
+# statsig.anthropic.com and sentry.io for telemetry; they are left out here.
+# NOT VERIFIED: whether Claude Code runs cleanly without them (the probe ran
+# with them allowed).
+
+id: culture-agents-claude-subscription
+display_name: Claude Code (subscription token, culture-agents)
+description: Claude Code CLI and the AI SDK Claude Code bridge, on a Claude subscription OAuth token
+category: agent
+inference_capable: true
+credentials:
+  - name: oauth_token
+    description: Claude subscription OAuth token (claude setup-token)
+    env_vars: [CLAUDE_CODE_OAUTH_TOKEN]
+    required: true
+    auth_style: bearer
+    header_name: authorization
+discovery:
+  credentials: [oauth_token]
+endpoints:
+  - host: api.anthropic.com
+    port: 443
+    protocol: rest
+    access: read-write
+    enforcement: enforce
+binaries:
+  - /usr/bin/claude
+  - /usr/local/bin/claude
+  - /usr/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+  - /usr/local/lib/ai-sdk-harness/**
