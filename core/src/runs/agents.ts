@@ -36,7 +36,7 @@ export function buildAgents(entries: Allowlist["entries"], runs: readonly Run[],
       repos: [...info.repos],
       state,
       active_run_ids: active,
-    } as unknown as Agent);
+    });
   }
   return agents.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

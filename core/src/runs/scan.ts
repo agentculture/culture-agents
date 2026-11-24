@@ -88,5 +88,5 @@ export function resultOf(options: ScanOptions, run: Run): RunResult {
     commits: [],
     ended_at: run.ended_at ?? run.updated_at,
     error,
-  } as RunResult;
+  } as RunResult; // `state` is a union value here; TS cannot correlate it with the `error` variants
 }

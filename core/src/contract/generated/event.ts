@@ -23,7 +23,7 @@ export type RunEvent = {
   data: RefusedData;
 }) | ({ kind: "run.error" } & {
   data: ErrorData;
-}));
+}) | ({ kind: Exclude<EventKind, "run.state" | "run.output" | "run.control" | "run.refused" | "run.error"> }));
 
 export type EventKind = "run.state" | "run.output" | "run.control" | "run.refused" | "run.error";
 

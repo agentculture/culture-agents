@@ -124,14 +124,24 @@ function render(node, depth, ctx) {
 const wrap = (t) => (/[|&]/.test(t) && !/^\(.*\)$/.test(t) ? `(${t})` : t);
 
 // allOf of `if: {properties: {k: {const: V}}}, then: {properties: {...}}` (no else)
-// becomes a discriminated union. Anything else under allOf is validation-only.
+// becomes a discriminated union. Values of `k` that no branch names are not constrained by the
+// schema, so the union gets one extra variant for them (`k` excluding every named value);
+// without it the type would reject valid payloads (e.g. an Agent in state `unavailable`).
+// Anything else under allOf is validation-only.
 function discriminated(node, depth, ctx) {
   const branches = (node.allOf ?? []).filter((b) => b.if?.properties && b.then?.properties && !b.else);
   if (branches.length === 0 || branches.length !== node.allOf.length) return null;
+  const keys = new Set(branches.map((b) => Object.keys(b.if.properties)[0]));
   const variants = branches.map((b) => {
     const [[key, cond]] = Object.entries(b.if.properties);
     return `{ ${key}: ${lit(cond.const)} } & ${renderObject({ properties: b.then.properties }, depth, ctx, false)}`;
   });
+  if (keys.size === 1) {
+    const [key] = keys;
+    const named = branches.map((b) => lit(b.if.properties[key].const)).join(" | ");
+    const own = node.properties?.[key];
+    variants.push(`{ ${key}: ${own ? `Exclude<${render(own, depth, ctx)}, ${named}>` : "never"} }`);
+  }
   return variants.map((v) => `(${v})`).join(" | ");
 }
 
