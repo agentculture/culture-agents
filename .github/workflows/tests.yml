@@ -47,7 +47,7 @@ jobs:
       - name: scan for committed secrets and non-localhost endpoints
         run: python3 scripts/scan-secrets.py
 
-      - name: file length (max 400 lines per tracked Python file)
+      - name: file length (max 400 lines per tracked Python/TypeScript file)
         run: python3 scripts/check-file-length.py
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -79,6 +79,40 @@ jobs:
 
       - name: afi rubric gate
         run: uv run teken cli doctor . --strict
+
+  core:
+    # The TypeScript core (`core/`, published as @culture.dev/agents). Every
+    # dependency is an exact pin and `npm ci` installs strictly from the
+    # committed lockfile (it fails if package.json and the lockfile disagree),
+    # so a PR that breaks the build, types, lint or tests fails here.
+    # `spikes/` is outside `core/` and is never built or linted.
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: install (frozen lockfile)
+        run: npm ci
+
+      - name: build
+        run: npm run build
+
+      - name: type-check
+        run: npm run typecheck
+
+      - name: lint
+        run: npm run lint
+
+      - name: test
+        run: npm test
 
   harness-smoke:
     # All five harnesses (Claude Code, Pi/associate, colleague, Qwen Code,
