@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T22:07:20Z",
+  "updated": "2026-11-24T22:42:44Z",
   "claims": [
     {
       "id": "c1",
@@ -1027,6 +1027,18 @@
       "links": [],
       "instruction": "",
       "revisions": []
+    },
+    {
+      "id": "c61",
+      "kind": "decision",
+      "text": "D1's second required harness is OpenCode v2 instead of Codex. Codex is recorded as not verified: it authenticates inside an OpenShell sandbox but does not complete a turn (docs/d0/probe.md).",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
     }
   ],
   "open_vagueness": [
@@ -1393,7 +1405,41 @@
       ]
     }
   ],
-  "lapses": [],
+  "lapses": [
+    {
+      "id": "l1",
+      "code": "grader-unverified",
+      "what": "t2's citation checker verifies only that each cited file exists at the pinned SHA and has that many lines; whether the inventory's prose matches the cited line rests on one read by the task agent, with no second reviewer.",
+      "skipped_check": "content-level check of each citation against its claim",
+      "refs": [
+        "t2"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l2",
+      "code": "assumption-for-measurement",
+      "what": "t5's workspace map takes its Status table and the consolidation gates for codexd, agent-lifecycle and cultureagent from issue #2 and the spec, read by the task agent, not from the live state of those repos.",
+      "skipped_check": "checking culture-chat, codexd and culture-rules current state before writing the status rows",
+      "refs": [
+        "t5"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l3",
+      "code": "provenance-missing",
+      "what": "The spec's scope entry s18 states culture has 86 cultureagent import sites; t2's inventory at upstream main counts 47 import lines in culture_core. The earlier figure came from a subagent grep of a stale checkout and was recorded without a second count.",
+      "skipped_check": "",
+      "refs": [
+        "spec s18 / c19"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    }
+  ],
   "obligations": [
     {
       "id": "o1",

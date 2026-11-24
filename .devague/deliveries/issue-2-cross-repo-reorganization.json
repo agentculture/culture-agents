@@ -1,0 +1,38 @@
+{
+  "plan_slug": "issue-2-cross-repo-reorganization",
+  "schema_version": 2,
+  "created": "2026-11-24T22:42:35Z",
+  "updated": "2026-11-24T22:42:36Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "The second required D1 harness changes from Codex to OpenCode v2; Codex is reported not verified.",
+      "task_ref": "t1",
+      "reason": "The probe showed Codex authenticating in an OpenShell sandbox but failing with 'selected workspace missing from routing discovery' and denied *.oaiusercontent.com hosts; the user chose on 2026-11-25 to mark Codex not verified and use OpenCode v2.",
+      "affects": [
+        "t3",
+        "t10",
+        "t11",
+        "t16"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "Task t5's commit in the culture worktree was made with git hooks skipped.",
+      "task_ref": "t5",
+      "reason": "The repo's installed pre-commit environment cannot build its markdownlint hook (nodeenv fails on a '0-alpha' version string). The same hooks were run from an isolated environment with a current nodeenv and all passed on the staged files; the user approved the commit on 2026-11-25.",
+      "affects": [],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 2
+    }
+  ],
+  "evidence": [],
+  "deltas": [],
+  "supersessions": []
+}
