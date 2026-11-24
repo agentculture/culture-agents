@@ -1,20 +1,18 @@
-"""``culture-agents whoami`` — the smallest identity probe.
+"""``agents whoami`` — the smallest identity probe.
 
 Reports the agent's identity as declared in ``culture.yaml``: its nick
 (``suffix``), the backend it runs on, and the served model (if any) — plus the
 package version. Read-only; touches nothing but its own ``culture.yaml``.
 
-When you clone this template, rename the package and update ``culture.yaml`` —
-``whoami`` then reflects your new agent's identity with no code change.
+Edit ``culture.yaml`` and ``whoami`` reflects the new identity with no code change.
 """
 
 from __future__ import annotations
 
-import argparse
 from pathlib import Path
 
 from culture_agents import __version__
-from culture_agents.cli._output import emit_result
+from culture_agents.cli._render import Rendered
 
 _FALLBACK_NICK = "culture-agents"
 
@@ -82,25 +80,13 @@ def report() -> dict[str, object]:
     }
 
 
-def cmd_whoami(args: argparse.Namespace) -> None:
+def whoami() -> Rendered:
+    """Report this agent's nick, version, backend, and served model."""
     identity = report()
-    json_mode = bool(getattr(args, "json", False))
-    if json_mode:
-        emit_result(identity, json_mode=True)
-        return
     text = (
         f"nick: {identity['nick']}\n"
         f"version: {identity['version']}\n"
         f"backend: {identity['backend']}\n"
         f"model: {identity['model']}"
     )
-    emit_result(text, json_mode=False)
-
-
-def register(sub: argparse._SubParsersAction) -> None:
-    p = sub.add_parser(
-        "whoami",
-        help="Report this agent's nick, version, backend, and served model.",
-    )
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
-    p.set_defaults(func=cmd_whoami)
+    return Rendered(identity, text)

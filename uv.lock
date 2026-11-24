@@ -3,6 +3,15 @@ revision = 3
 requires-python = ">=3.12"
 
 [[package]]
+name = "agentfront"
+version = "0.21.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/1f/66/23093539cc0857a26dee06910ea333005d5cd5a442f3a31c58904ac2c941/agentfront-0.21.3.tar.gz", hash = "sha256:7ffdae45e94c084c31ee5ad8abc7b74b96f293ff91e1d34271ddf446b8e80f36", size = 569065, upload-time = "2026-10-31T18:49:38.798Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/1d/70/daeba9f3f4ea2be718a5bedb7ed51e08deaa284f7a2ba39737b9da99c74b/agentfront-0.21.3-py3-none-any.whl", hash = "sha256:2f73c01873385742181148e3f09ed18e3bed0416f9323afca6b1712dc4d250db", size = 153457, upload-time = "2026-10-31T18:49:37.365Z" },
+]
+
+[[package]]
 name = "attrs"
 version = "26.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -167,6 +176,9 @@ wheels = [
 name = "culture-agents"
 version = "0.12.0"
 source = { editable = "." }
+dependencies = [
+    { name = "agentfront" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -183,6 +195,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "agentfront", specifier = ">=0.21.3,<0.22" }]
 
 [package.metadata.requires-dev]
 dev = [

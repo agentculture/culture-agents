@@ -12,22 +12,21 @@ from culture_agents.explain import known_paths
 
 
 def test_version_flag(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as exc:
-        main(["--version"])
-    assert exc.value.code == 0
-    assert __version__ in capsys.readouterr().out
+    rc = main(["--version"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert out.strip() == f"agents {__version__}"
 
 
 def test_no_args_prints_help(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main([])
     assert rc == 0
-    assert "usage: culture-agents" in capsys.readouterr().out
+    assert "usage: agents" in capsys.readouterr().out
 
 
 def test_unknown_command_errors(capsys: pytest.CaptureFixture[str]) -> None:
-    with pytest.raises(SystemExit) as exc:
-        main(["bogus"])
-    assert exc.value.code == 1
+    rc = main(["bogus"])
+    assert rc == 1
     err = capsys.readouterr().err
     assert err.startswith("error:")
     assert "hint:" in err
@@ -72,7 +71,7 @@ def test_learn_json(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["learn", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["tool"] == "culture-agents"
+    assert payload["tool"] == "agents"
     assert payload["version"] == __version__
     assert payload["json_support"] is True
 
@@ -83,11 +82,11 @@ def test_learn_json(capsys: pytest.CaptureFixture[str]) -> None:
 def test_explain_root(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["explain"])
     assert rc == 0
-    assert "# culture-agents" in capsys.readouterr().out
+    assert "# agents" in capsys.readouterr().out
 
 
 def test_explain_self(capsys: pytest.CaptureFixture[str]) -> None:
-    rc = main(["explain", "culture-agents"])
+    rc = main(["explain", "agents"])
     assert rc == 0
     assert capsys.readouterr().out.startswith("#")
 
@@ -97,7 +96,7 @@ def test_explain_json(capsys: pytest.CaptureFixture[str]) -> None:
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["path"] == ["whoami"]
-    assert "culture-agents whoami" in payload["markdown"]
+    assert "agents whoami" in payload["markdown"]
 
 
 def test_explain_unknown_path_errors(capsys: pytest.CaptureFixture[str]) -> None:

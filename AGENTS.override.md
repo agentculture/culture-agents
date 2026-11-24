@@ -78,8 +78,8 @@ That is a per-clone choice; this template does not ship it.)
 ## Layout (what you can read/find/summarize here)
 
 ```text
-culture_agents/   agent-first CLI (cited from teken's python-cli reference)
-  cli/                    parser, error/output contract, _commands/ (verbs)
+culture_agents/   `agents` CLI, built on agentfront (one App registry)
+  cli/                    _app.py registry, socket client, error/output contract, _commands/ (verbs)
   explain/                markdown catalog for `explain`
 tests/                    pytest smoke + introspection tests
 .claude/skills/           vendored guildmaster skill kit (cite-don't-import)
@@ -93,11 +93,13 @@ culture.yaml              mesh identity (suffix + backend)
 - The vendored skills under `.claude/skills/` are cited **verbatim** from
   guildmaster — never propose editing their scripts; the fix belongs upstream
   (`docs/skill-sources.md` has the re-sync procedure).
-- The console script is `agents` (`uv run agents whoami`), even though the
-  parser's `prog` still prints `culture-agents`. That is scaffold drift, noted
-  in `CLAUDE.md`.
-- Proposed control-plane verbs (`agents runs submit|attach|steer|cancel|…`)
-  are **not implemented**. Don't describe them as available.
+- The console script and the parser `prog` are both `agents`
+  (`uv run agents whoami`).
+- The control-plane verbs (`agents agents list|status`, `agents runs
+  submit|list|show|attach|steer|cancel|logs|result`) exist as a **client** of
+  the core daemon's Unix socket. The core itself is not built yet, so against
+  a stopped core they exit 2 with a hint. Don't describe runs as working
+  end to end.
 - Every PR bumps the version (`version-bump` skill); CI's `version-check` job
   blocks merge otherwise.
 - This file describes the repo **as it exists on disk today**. If you are
