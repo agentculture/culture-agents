@@ -1,0 +1,278 @@
+# sibling checkout baseline, captured 2026-11-24T22:09:38Z before any sibling worktree was created
+## culture
+HEAD 9217b4163319c86461949eb94e019cbcaf2f93c6 branch fix/colleague-engine-from-culture-yaml
+ M .eidetic/memory/culture-core__public.jsonl
+ M .eidetic/memory/culture__public.jsonl
+ M .eidetic/memory/default__public.jsonl
+ M culture.yaml
+ M culture_core/config.py
+ M tests/test_culture_config.py
+?? .claude/settings.json
+?? .eidetic/memory/colleague__public.jsonl
+?? .eidetic/memory/culture-agent-template__public.jsonl
+?? .playwright-mcp/
+worktree /home/ori/git/culture                                  9217b41 [fix/colleague-engine-from-culture-yaml]
+worktree /home/ori/git/.worktrees.culture/agent-t10             ead6c70 [agent/t10-console-replica]
+worktree /home/ori/git/.worktrees.culture/agent-t3              13ffe84 [agent/t3-healthcheck]
+worktree /home/ori/git/.worktrees.culture/agent-t5              a370fd4 [agent/t5-link-secrets-grant]
+worktree /home/ori/git/.worktrees.culture/gate-section          4de8e72 [ci/fixer-gate-section]
+worktree /home/ori/git/.worktrees.culture/healthcheck-extended  7f4edba [fix/healthcheck-extended-checks]
+worktree /home/ori/git/culture-sonar-cli                        b95a325 [fix/sonarcloud-cli]
+worktree /home/ori/git/culture-worktrees/462-guild-forward      c4e71a0 [feat/462-guild-forward]
+worktree /home/ori/git/culture-worktrees/462-pin-drift          1e78c84 [feat/462-pin-drift]
+worktree /home/ori/git/culture-worktrees/462-sdk-extras         d5806d3 [feat/462-sdk-extras]
+worktree /home/ori/git/culture-worktrees/agent-t13              830f5c4 [feat/durable-mesh-provisioning]
+worktree /home/ori/git/culture-worktrees/wave0-t2               6fe3bfe [fix/unknown-backend-hard-error]
+worktree /home/ori/git/culture-worktrees/wave0-t5               10861a8 [feat/agentfront-migration]
+worktree /home/ori/git/culture-worktrees/wave0-t7               120fbf0 [feat/parity-three-backends]
+## culture-chat
+HEAD 6dec7b13b32b3c19ae7ab6766a554b1e71ddc898 branch feat/init-agents-md-file-length
+worktree /home/ori/git/culture-chat  6dec7b1 [feat/init-agents-md-file-length]
+## culture-rules
+HEAD 08be157cb55742019e5f6523db94b538065ae602 branch main
+ M .devague/deliveries/qodo-bridge.json
+ M .devague/handoff-qodo-bridge.md
+worktree /home/ori/git/culture-rules                             08be157c [main]
+worktree /home/ori/git/.worktrees.culture-rules/button-code-use  08be157c [discord/button-code-use]
+worktree /home/ori/git/.worktrees.culture-rules/json-text        08be157c [rules/json-text]
+worktree /home/ori/git/.worktrees.culture-rules/open-pr-action   0404ebb7 [rules/open-pr-action]
+## culture-nodes
+HEAD 957157d10510c76b2bb6c766f9d25f06e3fa3d89 branch build/trigger-condition-action
+ M .eidetic/memory/culture-nodes__public.jsonl
+?? .eidetic/memory/culture-agent-template__public.jsonl
+?? .playwright-mcp/
+worktree /home/ori/git/culture-nodes                              957157d1 [build/trigger-condition-action]
+worktree /home/ori/git/.worktrees.culture-nodes/deploy-main       94415be1 (detached HEAD)
+worktree /home/ori/git/.worktrees.culture-nodes/deploy-tca        29296f5d (detached HEAD)
+worktree /home/ori/git/.worktrees.culture-nodes/gate-t8           955aebb0 [harvest/t8]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-ghapp         df8af1f0 [tca/ghapp-token]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-ghapp-runner  5516d77f [tca/ghapp-runner]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t10           f0c7789d [tca/t10]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t11           2df0325a [tca/t11]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t12           5deb172b [tca/t12]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t13           0d1f54c8 [tca/t13]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t14           31387b48 [tca/t14]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t15           884e9fde [tca/t15]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t16           415c3ed1 [tca/t16]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t17           23e6589a [tca/t17]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t18           41e69f34 [tca/t18]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t19           db478270 [tca/t19]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t2            ec085769 [tca/t2]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t20           7247c762 [tca/t20]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t23           5dae9224 [tca/t23]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t24           db8a62d9 [tca/t24]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t25           c9df3525 [tca/t25]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t26           7ab0e6b2 [tca/t26]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t27           3a7088da [tca/t27]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t28           170b3e1e [tca/t28]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t3            73cd73db [tca/t3]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t4            2868b0b5 [tca/t4]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t48           8bcf115d [tca/t48]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t49           bfb2aefd [tca/t49]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t5            33a47662 [tca/t5]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t6            ee868093 [tca/t6]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t7            0e87b157 [tca/t7]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t8            538e3ecc [tca/t8]
+worktree /home/ori/git/.worktrees.culture-nodes/tca-t9            28daa1b2 [tca/t9]
+## cultureagent
+HEAD 4fefe6937f681545118179e34f117c675f53abfb branch main
+ M .agex/data/pr/events.jsonl
+ M .eidetic/memory/default__public.jsonl
+?? .eidetic/memory/culture-agent-template__public.jsonl
+worktree /home/ori/git/cultureagent                               4fefe69 [main]
+worktree /home/ori/git/.worktrees.cultureagent/claude-bridge      dece35a [feat/claude-bridge]
+worktree /home/ori/git/.worktrees.cultureagent/qwen-reject-once   1f31fff [fix/qwen-plan-no-shell]
+worktree /home/ori/git/.worktrees.cultureagent/qwen-status-notes  d9ddc2a [fix/qwen-bridge-tool-call-update]
+## agent-lifecycle
+HEAD 81436b6c482be361dbeae898858cc3d2c5357fa0 branch main
+?? docs/steward/
+worktree /home/ori/git/agent-lifecycle                     81436b6 [main]
+worktree /home/ori/git/agent-lifecycle-worktrees/spec-291  7a43a26 [spec/291-integration]
+## agentirc
+HEAD a403572c67c8f6d56632ca6dd05f5c5a81bf95ac branch main
+?? .claude/worktrees/
+?? .devex/
+?? .eidetic/
+?? AGENTS.colleague.md
+?? culture.yaml
+?? docs/perfect-patient.md
+worktree /home/ori/git/agentirc                                                  a403572 [main]
+worktree /home/ori/git/.worktrees.agentirc/agent-t4                              1fe23fb [fix/link-handshake-retry]
+worktree /home/ori/git/agentirc-worktrees/agent-sonar                            3904b5a [agent/sonar-cleanup]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a250d216d8f77891c        f5be2ed [worktree-agent-a250d216d8f77891c]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a2c7bf8b9bc5bf1bd        122e028 [worktree-agent-a2c7bf8b9bc5bf1bd]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a38fe87852d7c0f98        67b6462 [worktree-agent-a38fe87852d7c0f98]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a52b1ad71a30b98e9        bdeeebe [worktree-agent-a52b1ad71a30b98e9]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a5dad00bf2541bf7c        d1c1c6c [worktree-agent-a5dad00bf2541bf7c]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a8012e711d872aeb7        279301e [worktree-agent-a8012e711d872aeb7]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a9d54675447f97da3        5046c75 [worktree-agent-a9d54675447f97da3]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-a9e6719324a9a0e1d        11d226e [worktree-agent-a9e6719324a9a0e1d]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-ac88f300e85026241        8a124bc [worktree-agent-ac88f300e85026241]
+worktree /home/ori/git/agentirc/.claude/worktrees/agent-af1658dcfa0d6208a        fcc2a05 [worktree-agent-af1658dcfa0d6208a]
+worktree /home/ori/git/agentirc/.claude/worktrees/shape-b3-test-migration        aa552d6 [feat/shape-b3-test-migration]
+worktree /home/ori/git/agentirc/.claude/worktrees/shape-b4-docs-and-config-yaml  351da18 [feat/shape-b4-docs-and-config-yaml]
+## irc-lens
+HEAD 6c69c60cdea6fc9240afafa888175d2ff52bcf24 branch main
+ M .devague/deliveries/chat-edge-gate-and-spark2-fallback.json
+?? .devague/deliveries/harden-public-sign-in.json
+?? .devague/frames/harden-public-sign-in.json
+?? .devague/plans/harden-public-sign-in.json
+?? docs/clef-threat-verdicts.md
+?? docs/deliveries/2026-11-04-harden-public-sign-in.md
+?? docs/plans/2026-11-04-harden-public-sign-in-split.md
+?? docs/plans/2026-11-04-harden-public-sign-in.md
+?? docs/specs/2026-11-04-harden-public-sign-in.md
+?? scripts/clef_lines.py
+?? scripts/clef_windows.py
+?? src/irc_lens/decider.py
+?? src/irc_lens/mail_budget.py
+?? src/irc_lens/rules.py
+?? src/irc_lens/threat.py
+?? src/irc_lens/web/message_check.py
+?? tests/test_bot_check.py
+?? tests/test_clef_lines.py
+?? tests/test_clef_windows.py
+?? tests/test_decider.py
+?? tests/test_mail_budget.py
+?? tests/test_message_check.py
+?? tests/test_rules.py
+?? tests/test_threat.py
+?? tests/test_worker_trust.py
+worktree /home/ori/git/irc-lens                          6c69c60 [main]
+worktree /home/ori/git/.worktrees.irc-lens/agent-t6      0567838 [agent/t6-worker-trust]
+worktree /home/ori/git/.worktrees.irc-lens/agent-t7      8a17b68 [agent/t7-standby]
+worktree /home/ori/git/.worktrees.irc-lens/agent-t8      cd6753f [agent/t8-edge-worker]
+worktree /home/ori/git/.worktrees.irc-lens/fix-mail-ua   6e6a576 [fix/resend-user-agent]
+worktree /home/ori/git/.worktrees.irc-lens/gate-section  e927468 [ci/fixer-gate-section]
+worktree /home/ori/git/.worktrees.irc-lens/privacy-d9    045a0bd [feat/guest-privacy-d9]
+worktree /home/ori/git/.worktrees.irc-lens/signin-trust  9b908ef [agent/signin-trust]
+worktree /home/ori/git/.worktrees.irc-lens/t8-fixes      f765e6a [fix/chat-edge-review]
+## embodiment
+HEAD 398e92fa70bb2ba5d96aa3a6198425da5c1fe93b branch main
+ M .devague/current
+ M .devague/current_plan
+ M .eidetic/memory/embodiment__public.jsonl
+ M culture.yaml
+ M web/package-lock.json
+ M web/package.json
+?? .claude/settings.json
+?? .devague/frames/opencode-subagent.json
+?? .devague/frames/tools-mcp-presence-loop.json
+?? .devague/plans/opencode-subagent.json
+?? .devague/plans/tools-mcp-presence-loop.json
+?? .eidetic/memory/operator__public.jsonl
+?? .eidetic/memory/workspace__public.jsonl
+?? colleague-mock.md
+?? docs/live-test-results/2026-09-22-t21-acceptance.md
+?? docs/plans/2026-11-21-opencode-subagent.md
+?? docs/specs/2026-11-13-tools-mcp-presence-loop.md
+?? docs/specs/2026-11-21-opencode-subagent.md
+?? report.md
+worktree /home/ori/git/embodiment                        398e92f [main]
+worktree /home/ori/git/.worktrees.embodiment/config-t14  7f495cb [config/t14]
+worktree /home/ori/git/.worktrees.embodiment/gwen-live   3f81d0f (detached HEAD)
+worktree /home/ori/git/.worktrees.embodiment/live-main   00be09a (detached HEAD)
+worktree /home/ori/git/.worktrees.embodiment/t12         ebf3c5e [owa/t12]
+## colleague
+HEAD 6081b8c82373b3242e630656510e82dc84eeeaed branch main
+worktree /home/ori/git/colleague                        6081b8c8 [main]
+worktree /home/ori/git/colleague-worktrees/p387-full    2293ca63 [integration/p387-full]
+worktree /home/ori/git/colleague-worktrees/p387-lane-a  00241a18 [lane/p387-sse]
+worktree /home/ori/git/colleague-worktrees/p387-lane-b  398848d8 [lane/p387-selflearn]
+worktree /home/ori/git/colleague-worktrees/p387-lane-c  b89b29a5 [lane/p387-mode]
+worktree /home/ori/git/colleague-worktrees/p387-rev1    27fc4050 [review/p387-authority]
+worktree /home/ori/git/colleague-worktrees/p387-rev1b   2293ca63 [review/p387-authority-new]
+worktree /home/ori/git/colleague-worktrees/p387-rev2    80743ecd [review/p387-selflearn]
+worktree /home/ori/git/colleague-worktrees/p387-rev2b   2293ca63 [review/p387-selflearn-new]
+worktree /home/ori/git/colleague-worktrees/p387-t1      02a9c9ca [agent/p387-t1]
+worktree /home/ori/git/colleague-worktrees/p387-t10     31b9812c [agent/p387-t10]
+worktree /home/ori/git/colleague-worktrees/p387-t11     007d9e23 [agent/p387-t11]
+worktree /home/ori/git/colleague-worktrees/p387-t12     27908146 [agent/p387-t12]
+worktree /home/ori/git/colleague-worktrees/p387-t13     8e4bb6b3 [agent/p387-t13]
+worktree /home/ori/git/colleague-worktrees/p387-t15     d828f5dd [agent/p387-t15]
+worktree /home/ori/git/colleague-worktrees/p387-t17     5fed0e38 [agent/p387-t17]
+worktree /home/ori/git/colleague-worktrees/p387-t3      64e4ffb0 [agent/p387-t3]
+worktree /home/ori/git/colleague-worktrees/p387-t4      904bb762 [agent/p387-t4]
+worktree /home/ori/git/colleague-worktrees/p387-t5      f71ae397 [agent/p387-t5]
+worktree /home/ori/git/colleague-worktrees/p387-t6      d364b111 [agent/p387-t6]
+worktree /home/ori/git/colleague-worktrees/p387-t7      42d06982 [agent/p387-t7]
+worktree /home/ori/git/colleague-worktrees/p387-t8      165875fc [agent/p387-t8]
+worktree /home/ori/git/colleague-worktrees/p387-t9      55544bf5 [agent/p387-t9]
+worktree /home/ori/git/colleague-worktrees/rts-t8       49811a1b [agent/rts-t8]
+worktree /home/ori/git/colleague-worktrees/scout-exp    b90aff92 (detached HEAD)
+worktree /home/ori/git/colleague-worktrees/ssv-t2       48a8c0c8 [agent/ssv-t2]
+worktree /home/ori/git/colleague-worktrees/t19          d57ce7e6 [agent/t19]
+worktree /home/ori/git/colleague-worktrees/t460         8f717a38 [agent/t460]
+worktree /home/ori/git/worktrees/agent-411-q1           e6408a08 [agent/411-q1]
+worktree /home/ori/git/worktrees/fl-t1                  6b62447d [agent/fl-t1]
+worktree /home/ori/git/worktrees/fl-t10                 53f4ba6f [agent/fl-t10]
+worktree /home/ori/git/worktrees/fl-t11                 608ba178 [agent/fl-t11]
+worktree /home/ori/git/worktrees/fl-t12                 2798bb8d [agent/fl-t12]
+worktree /home/ori/git/worktrees/fl-t13                 5db11970 [agent/fl-t13]
+worktree /home/ori/git/worktrees/fl-t14                 177b8aa0 [agent/fl-t14]
+worktree /home/ori/git/worktrees/fl-t15                 cc77ab57 [agent/fl-t15]
+worktree /home/ori/git/worktrees/fl-t16                 83546910 [agent/fl-t16]
+worktree /home/ori/git/worktrees/fl-t17                 8b7a8139 [agent/fl-t17]
+worktree /home/ori/git/worktrees/fl-t2                  37beada1 [agent/fl-t2]
+worktree /home/ori/git/worktrees/fl-t3                  79839838 [agent/fl-t3]
+worktree /home/ori/git/worktrees/fl-t4                  3fabe81d [agent/fl-t4]
+worktree /home/ori/git/worktrees/fl-t5                  1f6f130a [agent/fl-t5]
+worktree /home/ori/git/worktrees/fl-t6                  99d2d05a [agent/fl-t6]
+worktree /home/ori/git/worktrees/fl-t7                  551233a3 [agent/fl-t7]
+worktree /home/ori/git/worktrees/fl-t8                  ec13d6a1 [agent/fl-t8]
+worktree /home/ori/git/worktrees/fl-t9                  dfcbe6b2 [agent/fl-t9]
+worktree /home/ori/git/worktrees/harness-decay          bd89f144 (detached HEAD)
+worktree /home/ori/git/worktrees/harness-full           6bb14ec7 (detached HEAD)
+worktree /home/ori/git/worktrees/harness-v1751          5b163084 (detached HEAD)
+worktree /home/ori/git/worktrees/rerun-low-arm          5a721b8f [rerun/ev4-low-arm]
+worktree /home/ori/git/worktrees/sf-arms                5a721b8f (detached HEAD)
+worktree /home/ori/git/worktrees/sf-t12-target          5a721b8f [sf-t12-rerun]
+worktree /home/ori/git/worktrees/t12-verify             46a8d082 [colleague/cc5d1f1a2c5f-reduce-colleague-loop-py-from-962-lines]
+worktree /home/ori/git/worktrees/t19-claude             c7b798c8 [agent/t19-claude]
+worktree /home/ori/git/worktrees/t19-colleague          5a721b8f [agent/t19-colleague]
+worktree /home/ori/git/worktrees/verify-2e38475f1f1a    cf97fd55 [colleague/2e38475f1f1a-reduce-colleague-loop-py-from-962-lines]
+worktree /home/ori/git/worktrees/verify-411             ec30c35b (detached HEAD)
+worktree /home/ori/git/worktrees/verify-77e350cbffbc    75781e73 [colleague/77e350cbffbc-reduce-colleague-loop-py-from-962-lines]
+## associate
+HEAD f678902ccb902832734ce7d5994bb53b0413e154 branch accuracy/issue-20
+ M culture.yaml
+?? .eidetic/
+worktree /home/ori/git/associate                                          f678902 [accuracy/issue-20]
+worktree /home/ori/git/.worktrees.associate/agent-strict-dog              8783c84 (detached HEAD)
+worktree /home/ori/git/.worktrees.associate/agent-strict-int              4368ff2 [strict/t9]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t1               3c8abdf [strict/t1]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t10              4f02193 [strict/t10]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t11              bf81d49 [strict/t11]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t2               091c11e [strict/t2]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t3               8e95f19 [strict/t3]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t4               52e0973 [strict/t4]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t5               86423b7 [strict/t5]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t6               502311d [strict/t6]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t7               35d7cd4 [strict/t7]
+worktree /home/ori/git/.worktrees.associate/agent-strict-t8               c99be84 [strict/t8]
+worktree /home/ori/git/.worktrees.associate/agent-strict-wording          ea15d4e [strict/wording]
+worktree /home/ori/git/.worktrees.associate/bridge                        a9182d7 (detached HEAD)
+worktree /home/ori/git/.worktrees.associate/decider-close                 65967c0 [clef/decider-close]
+worktree /home/ori/git/.worktrees.associate/decider-result                f49a4c1 [clef/decider-result]
+worktree /home/ori/git/.worktrees.associate/how-to-check                  b075c12 [accuracy/how-to-check]
+worktree /home/ori/git/.worktrees.associate/measure-harness-208935e07412  208935e (detached HEAD)
+worktree /home/ori/git/.worktrees.associate/measure-harness-266dad376813  266dad3 (detached HEAD)
+worktree /home/ori/git/.worktrees.associate/measure-harness-a9182d70962c  a9182d7 (detached HEAD)
+worktree /home/ori/git/.worktrees.associate/measure-harness-ef6d1b47a8e4  ef6d1b4 (detached HEAD)
+worktree /home/ori/git/.worktrees.associate/review-fixes                  f63739c [harness/review-fixes]
+## steward
+HEAD 7b6c16db2c683d1d1b2a9588671e314afca146fb branch main
+?? docs/steward/
+worktree /home/ori/git/steward  7b6c16d [main]
+## guildmaster
+HEAD b33b524b07ac7589a25bbd9be83e759715d0fc5c branch feat/ledger-culture-agents
+ M .agex/data/pr/events.jsonl
+worktree /home/ori/git/guildmaster                                       b33b524 [feat/ledger-culture-agents]
+worktree /home/ori/git/.worktrees.guildmaster/pr-fixer-gate              bd62357 [feat/pr-fixer-gate]
+worktree /home/ori/git/.worktrees.guildmaster/register-pr-fixer-sandbox  e61b28c [ledger/register-pr-fixer-sandbox]
+## codexd
+HEAD 0ae475bc3cb011cdbc54b5f0501e6055e95aad30 branch codex/culture-agent-migration-local
+?? .agex/
+?? docs/steward/
+worktree /home/ori/git/codexd                                          0ae475b [codex/culture-agent-migration-local]
+worktree /home/ori/git/codexd-worktrees/codex-culture-agent-migration  81a3e2f [codex/culture-agent-migration]
