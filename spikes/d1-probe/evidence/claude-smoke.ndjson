@@ -1,0 +1,12 @@
+{"t":"1.3s","type":"start"}
+{"t":"2.8s","type":"raw"}
+{"t":"2.8s","type":"raw"}
+{"t":"3.7s","type":"raw"}
+{"t":"3.7s","type":"start-step"}
+{"t":"3.7s","type":"text-start"}
+{"t":"3.7s","type":"text-delta"}
+{"t":"3.7s","type":"text-end"}
+{"t":"3.8s","type":"raw"}
+{"t":"3.8s","type":"finish-step"}
+{"t":"4.2s","type":"finish","finishReason":"stop"}
+{"t":"9.6s","destroyed":true,"sandboxDeleted":true}

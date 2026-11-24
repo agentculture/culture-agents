@@ -1,0 +1,31 @@
+HarnessAgent: `sandbox` is deprecated. Supply `sandboxSession` to createSession() instead.
+[0.0s] createSession opencode-smoke-mwvapl8t on culture-agents-probe:0.4
+[0.8s] [provider] sandbox spike-92662e70f3bf3 ready in 798 ms (identity f4f54043233fc9f3)
+[1.2s] [provider] forward 127.0.0.1:44395 -> spike-92662e70f3bf3:4100
+[1.2s] session ready (sandbox spike-92662e70f3bf3)
+[harness:opencode:stderr] [harness:opencode:error] OpenCode turn failed: Request is not supported by this version of OpenCode Server (Server responded with text/html)
+[harness:opencode:stderr] Error: Request is not supported by this version of OpenCode Server (Server responded with text/html)
+[harness:opencode:stderr] at file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/client.js:75:19
+[harness:opencode:stderr] at request (file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/gen/client/client.gen.js:84:34)
+[harness:opencode:stderr] at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[harness:opencode:stderr] at async ensureRuntime (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:2324:40)
+[harness:opencode:stderr] at async runTurn (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:2236:3)
+[harness:opencode:stderr] at async handleInbound (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:576:6)
+[harness:opencode:error session=opencode-smoke-mwvapl8t] bridge emitted an error frame: Error: Request is not supported by this version of OpenCode Server (Server responded with text/html)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/client.js:75:19
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at request (file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/gen/client/client.gen.js:84:34)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at async ensureRuntime (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:2324:40)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at async runTurn (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:2236:3)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at async handleInbound (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:576:6)
+[harness:opencode:error session=opencode-smoke-mwvapl8t] harness stream error: Error: Request is not supported by this version of OpenCode Server (Server responded with text/html)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/client.js:75:19
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at request (file:///usr/local/lib/ai-sdk-harness/opencode/node_modules/.pnpm/@opencode-ai+sdk@1.19.5/node_modules/@opencode-ai/sdk/dist/v2/gen/client/client.gen.js:84:34)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at async ensureRuntime (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:2324:40)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at async runTurn (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:2236:3)
+[harness:opencode:error session=opencode-smoke-mwvapl8t]     at async handleInbound (file:///sandbox/.ai-sdk-harness/.harness-bootstrap/opencode/bridge.mjs:576:6)
+[1.5s] part counts {"start":1,"error":1}
+[1.5s] text: ""
+[7.0s] [provider] deleted sandbox spike-92662e70f3bf3
+[7.0s] session destroyed; sandbox spike-92662e70f3bf3 deleted

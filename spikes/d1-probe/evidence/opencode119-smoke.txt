@@ -1,0 +1,9 @@
+HarnessAgent: `sandbox` is deprecated. Supply `sandboxSession` to createSession() instead.
+[0.0s] createSession opencode-smoke-mwvartag on culture-agents-probe:0.5
+[0.8s] [provider] sandbox spike-04ecd9d3cfb57 ready in 795 ms (identity f4f54043233fc9f3)
+[1.4s] [provider] forward 127.0.0.1:34239 -> spike-04ecd9d3cfb57:4100
+[1.4s] session ready (sandbox spike-04ecd9d3cfb57)
+[9.9s] part counts {"start":1,"start-step":1,"reasoning-start":1,"reasoning-delta":5,"reasoning-end":1,"text-start":1,"text-delta":2,"text-end":1,"finish-step":1,"finish":1}
+[9.9s] text: "pong"
+[15.4s] [provider] deleted sandbox spike-04ecd9d3cfb57
+[15.4s] session destroyed; sandbox spike-04ecd9d3cfb57 deleted
