@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-24T23:35:24Z",
+  "updated": "2026-11-24T23:44:15Z",
   "deviations": [
     {
       "id": "d1",
@@ -44,6 +44,19 @@
       "status": "approved",
       "classification": "acceptable",
       "seq": 3
+    },
+    {
+      "id": "d4",
+      "what": "t12 (orchestration) was started in parallel with t11 (harness adapters) instead of after it.",
+      "task_ref": "t12",
+      "reason": "t12 codes against a fixed harness-catalog port and the worker's fake driver, so it does not need the real adapters; the coordinator connects the real catalog after both merge. This shortens the run without changing what either task delivers.",
+      "affects": [
+        "t11"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 4
     }
   ],
   "evidence": [],

@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T23:38:32Z",
+  "updated": "2026-11-24T23:44:16Z",
   "claims": [
     {
       "id": "c1",
@@ -1503,6 +1503,17 @@
       "skipped_check": "validate every fixture with Ajv 2020-12 (now assigned to the contract-kit step)",
       "refs": [
         "t6"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l8",
+      "code": "control-absent",
+      "what": "t9 wrote its tests after the implementation skeleton rather than test-first, as its task agent reported.",
+      "skipped_check": "failing tests written before the implementation",
+      "refs": [
+        "t9"
       ],
       "origin": "llm",
       "status": "proposed"
