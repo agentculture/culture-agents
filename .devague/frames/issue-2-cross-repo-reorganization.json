@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T22:42:44Z",
+  "updated": "2026-11-24T23:05:20Z",
   "claims": [
     {
       "id": "c1",
@@ -1435,6 +1435,28 @@
       "skipped_check": "",
       "refs": [
         "spec s18 / c19"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l4",
+      "code": "n-below-claim",
+      "what": "The t1 spike ran each live capability once (Claude cancel twice); steer, stream and cancel results for Claude Code and OpenCode 1.19.5 rest on single trials, and the OpenCode 1.19.5 steer pass was judged on the resulting file list alone, so it may partly reflect the model choosing to stop.",
+      "skipped_check": "repeat trials per capability and a control run without the steer message",
+      "refs": [
+        "t1"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l5",
+      "code": "assumption-for-measurement",
+      "what": "The t1 spike's statement that the Claude Code adapter reads host credentials unless 'auth: {}' is passed comes from reading the adapter source, not from a test; and it did not check whether Claude's calls to statsig.anthropic.com and sentry.io were denied by policy.",
+      "skipped_check": "a run without the auth override, and a grep of the sandbox log for denied telemetry hosts",
+      "refs": [
+        "t1"
       ],
       "origin": "llm",
       "status": "proposed"
