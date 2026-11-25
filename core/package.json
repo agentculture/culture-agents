@@ -30,6 +30,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "npm run build && node --test 'dist/test/**/*.test.js'",
+    "test:coverage": "npm run build && node --test --experimental-test-coverage --enable-source-maps --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage.lcov 'dist/test/**/*.test.js'",
     "gen:contract": "node scripts/gen-contract-types.mjs",
     "check:contract-types": "node scripts/gen-contract-types.mjs --check"
   },
