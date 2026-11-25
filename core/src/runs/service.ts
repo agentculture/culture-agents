@@ -155,7 +155,9 @@ export class StoreRunService implements RunService {
   }
 
   async listRuns(query: RunListQuery): Promise<Run[]> {
-    return scanRuns(this.scan)
+    const runs = scanRuns(this.scan);
+    for (const run of runs) if (run.terminal) this.controls.delete(run.id); // a finished run's worker channel is not kept
+    return runs
       .filter((run) => (query.state === undefined || run.state === query.state) && (query.agent_id === undefined || run.agent_id === query.agent_id))
       .slice(0, query.limit);
   }

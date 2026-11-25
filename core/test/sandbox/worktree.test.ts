@@ -136,6 +136,16 @@ test("collect fetches runs/<id> over OpenShell's ssh config without touching the
   assertHostUntouched(calls);
 });
 
+test("collect drops a branch that does not descend from the run's base commit", async () => {
+  const base = "f".repeat(40);
+  const { calls, runner } = recorder((r) => (subcommand(r.args) === "merge-base" ? { code: 1, stdout: "", stderr: "" } : undefined));
+  const { sb } = await sandboxWithClone();
+  await assert.rejects(collect(sb, { hostRepo: HOST, runId: "r1", runner, baseCommit: base }), /does not descend from the run's base commit/);
+  assert.deepEqual(must(calls.find((c) => subcommand(c.args) === "merge-base")).args, ["merge-base", "--is-ancestor", base, "refs/heads/runs/r1"]);
+  assert.deepEqual(must(calls.find((c) => subcommand(c.args) === "update-ref")).args, ["update-ref", "-d", "refs/heads/runs/r1", SHA]);
+  assert.equal(calls.some((c) => subcommand(c.args) === "rev-list"), false);
+});
+
 test("collect refuses when the host has runs/<id> checked out", async () => {
   const { calls, runner } = recorder((r) =>
     subcommand(r.args) === "symbolic-ref" ? { code: 0, stdout: "refs/heads/runs/r1\n", stderr: "" } : undefined,

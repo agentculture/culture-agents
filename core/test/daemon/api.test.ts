@@ -93,6 +93,8 @@ test("unknown ids, bad parameters, unknown paths and wrong methods get typed err
   expectError(await call(env.socket, "GET", "/v1/agents/spark-nobody"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/harnesses/nope"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/elsewhere"), "not_found");
+  expectError(await call(env.socket, "GET", "/v1/runs/%zz"), "invalid");
+  expectError(await call(env.socket, "GET", "/v1/agents/%E0%A4%A"), "invalid");
   expect(await call(env.socket, "GET", "/v1/runs/not-a-run-id"), "run_id");
   expect(await call(env.socket, "GET", "/v1/runs?limit=0"), "limit");
   expect(await call(env.socket, "GET", "/v1/runs?limit=501"), "limit");

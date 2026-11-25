@@ -79,7 +79,11 @@ function matchPath(pathname: string, method: string): Match | null {
     const ok = segs.every((seg, i) => {
       const part = parts[i] ?? "";
       if (seg.startsWith(":")) {
-        params[seg.slice(1)] = decodeURIComponent(part);
+        try {
+          params[seg.slice(1)] = decodeURIComponent(part);
+        } catch {
+          throw new ControlError("invalid", "The request path holds a malformed percent-encoding.");
+        }
         return part !== "";
       }
       return seg === part;
@@ -145,7 +149,12 @@ function checkSubmit(ctx: RouteContext, body: unknown): SubmitRequest {
 
 /** Handle one request. Throws `ControlError` for refusals; the caller renders it. */
 export async function handle(ctx: RouteContext, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const url = new URL(req.url ?? "/", "http://localhost");
+  let url: URL;
+  try {
+    url = new URL(req.url ?? "/", "http://localhost");
+  } catch {
+    throw new ControlError("invalid", "The request target is not a valid path.");
+  }
   const method = req.method ?? "GET";
   const isVersion = url.pathname === "/v1/version";
   // The version route is never refused for version reasons; every other request is checked before anything else.

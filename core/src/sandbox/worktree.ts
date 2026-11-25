@@ -186,6 +186,14 @@ export async function collect(sandbox: RunSandbox, options: CollectOptions): Pro
       env,
     );
     const commit = await git(runner, host, ["rev-parse", "--verify", "--quiet", target]);
+    if (options.baseCommit) {
+      // The sandbox is not trusted: the branch it hands back must continue the commit the run started from.
+      const descends = await runner("git", ["merge-base", "--is-ancestor", options.baseCommit, target], { cwd: host, env: hostEnv() });
+      if (descends.code !== 0) {
+        await runner("git", ["update-ref", "-d", target, commit], { cwd: host, env: hostEnv() });
+        throw new HandoffError(`${branch} from the sandbox does not descend from the run's base commit ${options.baseCommit}; the branch was not kept`);
+      }
+    }
     const listed = options.baseCommit ? await git(runner, host, ["rev-list", "--reverse", `${options.baseCommit}..${target}`]) : "";
     return { branch, commit, commits: listed.split("\n").filter(Boolean) };
   } finally {
