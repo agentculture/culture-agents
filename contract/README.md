@@ -41,8 +41,8 @@ sets `additionalProperties: false`, except the one opaque `extension` object
 
 - HTTP/1.1 over a Unix domain socket. The path is
   `${XDG_RUNTIME_DIR}/culture-agents/core.sock`. When `XDG_RUNTIME_DIR` is
-  unset, it is `/tmp/culture-agents-<uid>/core.sock`, in a directory with
-  mode 0700. The environment variable `CULTURE_AGENTS_SOCKET` overrides both,
+  unset, it is `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`
+  (never a shared directory such as `/tmp`), in a directory with mode 0700. The environment variable `CULTURE_AGENTS_SOCKET` overrides both,
   for the core and the client alike.
 - The socket file has mode 0600. In D1 that owner-only mode is the whole
   authentication: any process that can connect acts as the owning OS user.

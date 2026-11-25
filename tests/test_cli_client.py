@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 
 import pytest
 
@@ -33,8 +32,16 @@ def test_socket_path_precedence() -> None:
         "/x/y.sock"
     )
     assert socket_path({"XDG_RUNTIME_DIR": "/run/u"}) == "/run/u/culture-agents/core.sock"
-    assert socket_path({}) == f"/tmp/culture-agents-{os.getuid()}/core.sock"
-    assert socket_path({"XDG_RUNTIME_DIR": ""}) == f"/tmp/culture-agents-{os.getuid()}/core.sock"
+    home = {"HOME": "/home/u"}
+    assert socket_path(home) == "/home/u/.local/state/culture-agents/core.sock"
+    assert socket_path({"XDG_RUNTIME_DIR": "", **home}) == (
+        "/home/u/.local/state/culture-agents/core.sock"
+    )
+    assert socket_path({"XDG_STATE_HOME": "/s", **home}) == "/s/culture-agents/core.sock"
+    assert socket_path({"XDG_STATE_HOME": "relative", **home}) == (
+        "/home/u/.local/state/culture-agents/core.sock"
+    )
+    assert "/tmp" not in socket_path(home)
 
 
 @pytest.mark.parametrize(

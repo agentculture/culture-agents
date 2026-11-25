@@ -36,11 +36,11 @@ from culture_agents.cli._errors import EXIT_ENV_ERROR, CliError
 from culture_agents.cli._output import emit_error
 
 
-class _StdoutClosed(BaseException):
-    """The reader of stdout went away.
+class _StdoutClosed(SystemExit):
+    """The reader of stdout went away: a request to exit quietly, not an error.
 
-    A ``BaseException`` on purpose: ``run_cli`` wraps every ``Exception`` a
-    handler raises as an "unexpected" error, and this is not one.
+    A ``SystemExit`` because ``run_cli`` lets a handler's exit request through,
+    while it wraps every ``Exception`` a handler raises as an "unexpected" error.
     """
 
 

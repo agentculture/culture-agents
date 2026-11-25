@@ -1,17 +1,12 @@
 // AI-SDK-shaped view of a run sandbox, for the harness adapter layer only:
-// HarnessV1NetworkSandboxSession and HarnessV1SandboxProvider over RunSandbox.
+// HarnessV1NetworkSandboxSession over RunSandbox.
 // AI SDK types appear in this file and nowhere else in core.
 import { posix } from "node:path";
 
-import {
-  HarnessSandboxAuthenticationError,
-  type HarnessV1NetworkSandboxSession,
-  type HarnessV1SandboxProvider,
-} from "@ai-sdk/harness";
+import type { HarnessV1NetworkSandboxSession } from "@ai-sdk/harness";
 
-import { isAuthFailure } from "./openshell-client.js";
 import { NOT_FOUND_EXIT, shellQuote } from "./run-sandbox.js";
-import type { RunProcess, RunSandbox, RunSandboxes } from "./types.js";
+import type { RunProcess, RunSandbox } from "./types.js";
 
 type SandboxSession = ReturnType<HarnessV1NetworkSandboxSession["restricted"]>;
 type RunOptions = Parameters<SandboxSession["run"]>[0];
@@ -186,65 +181,5 @@ export function toHarnessSandboxSession(
     stop: () => sb.stop(),
     destroy: () => sb.destroy(),
     restricted: () => sandboxSession(sb),
-  };
-}
-
-function authError(error: unknown): unknown {
-  if (!isAuthFailure(error)) return error;
-  return new HarnessSandboxAuthenticationError({
-    message:
-      "OpenShell gateway refused the client: check the mTLS material in OPENSHELL_LOCAL_TLS_DIR",
-    sandboxProviderId: PROVIDER_ID,
-    cause: error,
-  });
-}
-
-/**
- * The AI SDK sandbox provider over run sandboxes. Bind it to a run id so the
- * sandbox is named from the run, not from the harness session id; then the
- * control plane can always delete it with `sandboxes.destroy(runId)`, even
- * when HarnessAgent fails after creating it. Unbound, the harness session id
- * is used as the run id.
- */
-export function toHarnessSandboxProvider(
-  sandboxes: RunSandboxes,
-  options: { runId?: string; ports?: readonly number[] } = {},
-): HarnessV1SandboxProvider {
-  const runIdFor = (sessionId?: string): string => {
-    const runId = options.runId ?? sessionId;
-    if (!runId) throw new Error("openshell provider needs a run id (bind one, or pass sessionId)");
-    return runId;
-  };
-  const portOpts = options.ports ? { ports: options.ports } : {};
-  return {
-    specificationVersion: "harness-sandbox-v1",
-    providerId: PROVIDER_ID,
-    createSession: async (opts = {}) => {
-      const runId = runIdFor(opts.sessionId);
-      let sb: RunSandbox;
-      try {
-        sb = await sandboxes.create(runId, sig(opts.abortSignal));
-      } catch (error) {
-        throw authError(error);
-      }
-      const session = toHarnessSandboxSession(sb, portOpts);
-      if (opts.onFirstCreate) {
-        try {
-          await opts.onFirstCreate(session.restricted(), opts.abortSignal ? { abortSignal: opts.abortSignal } : {});
-        } catch (error) {
-          await sandboxes.destroy(runId).catch(() => undefined);
-          throw error;
-        }
-      }
-      return session;
-    },
-    resumeSession: async ({ sessionId, abortSignal }) => {
-      try {
-        const sb = await sandboxes.resume(runIdFor(sessionId), sig(abortSignal));
-        return toHarnessSandboxSession(sb, portOpts);
-      } catch (error) {
-        throw authError(error);
-      }
-    },
   };
 }

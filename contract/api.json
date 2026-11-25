@@ -5,7 +5,7 @@
   "transport": {
     "kind": "http/1.1 over a Unix domain socket",
     "socket": "${XDG_RUNTIME_DIR}/culture-agents/core.sock",
-    "socket_fallback": "/tmp/culture-agents-${UID}/core.sock",
+    "socket_fallback": "${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock",
     "socket_override_env": "CULTURE_AGENTS_SOCKET",
     "socket_mode": "0600",
     "version_header": "Agents-Api-Version"

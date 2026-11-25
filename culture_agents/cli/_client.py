@@ -4,7 +4,7 @@ Implements the transport, version and error rules of ``contract/README.md``:
 
 * socket path from ``CULTURE_AGENTS_SOCKET``, else
   ``$XDG_RUNTIME_DIR/culture-agents/core.sock``, else
-  ``/tmp/culture-agents-<uid>/core.sock``;
+  ``${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock``;
 * ``GET /v1/version`` on connect, refusing an incompatible core (exit 2);
 * ``Agents-Api-Version`` on every request;
 * typed error bodies mapped to CLI exit codes (0 ok, 1 user, 2 environment);
@@ -80,7 +80,10 @@ def socket_path(env: dict[str, str] | None = None) -> str:
         return env[SOCKET_ENV]
     if env.get("XDG_RUNTIME_DIR"):
         return os.path.join(env["XDG_RUNTIME_DIR"], "culture-agents", "core.sock")
-    return f"/tmp/culture-agents-{os.getuid()}/core.sock"  # nosec B108
+    state_home = env.get("XDG_STATE_HOME", "")
+    if not state_home.startswith("/"):
+        state_home = os.path.join(env.get("HOME") or os.path.expanduser("~"), ".local", "state")
+    return os.path.join(state_home, "culture-agents", "core.sock")
 
 
 def parse_api_version(text: str) -> tuple[int, int]:

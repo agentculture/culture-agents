@@ -1,16 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { HarnessSandboxAuthenticationError } from "@ai-sdk/harness";
-
 import {
   sliceLines,
-  toHarnessSandboxProvider,
   toHarnessSandboxSession,
 } from "../../src/sandbox/harness-session.js";
-import { sandboxName } from "../../src/sandbox/naming.js";
 import { createRunSandboxes } from "../../src/sandbox/run-sandboxes.js";
-import { FakeOpenShell, SdkLikeError, TEST_POLICY, type FakeOptions, must } from "./fake-openshell.js";
+import { FakeOpenShell, TEST_POLICY, type FakeOptions, must } from "./fake-openshell.js";
 
 function setup(options: FakeOptions = {}) {
   const fake = new FakeOpenShell(options);
@@ -20,69 +16,6 @@ function setup(options: FakeOptions = {}) {
   );
   return { fake, sandboxes };
 }
-
-test("the provider names the sandbox from the bound run id, not the harness session id", async () => {
-  const { fake, sandboxes } = setup();
-  const provider = toHarnessSandboxProvider(sandboxes, { runId: "run-7" });
-  assert.equal(provider.specificationVersion, "harness-sandbox-v1");
-  assert.equal(provider.providerId, "openshell");
-  const session = await provider.createSession({ sessionId: "harness-session-abc" });
-  assert.equal(session.id, sandboxName("run-7", "t-"));
-  assert.equal(session.defaultWorkingDirectory, "/sandbox");
-  assert.deepEqual(session.ports, [4100]);
-  assert.ok(fake.sandboxes.has(sandboxName("run-7", "t-")));
-  await session.destroy();
-  assert.equal(fake.sandboxes.size, 0);
-});
-
-test("an unbound provider falls back to the session id and resumes by it", async () => {
-  const { fake, sandboxes } = setup();
-  const provider = toHarnessSandboxProvider(sandboxes);
-  await provider.createSession({ sessionId: "sess-1" });
-  const other = createRunSandboxes({ image: "img:1", prefix: "t-" }, { client: fake, policy: TEST_POLICY });
-  const resumed = await must(toHarnessSandboxProvider(other).resumeSession)({ sessionId: "sess-1" });
-  assert.equal(resumed.id, sandboxName("sess-1", "t-"));
-  await assert.rejects(Promise.resolve(provider.createSession({})), /needs a run id/);
-});
-
-test("onFirstCreate failure deletes the sandbox", async () => {
-  const { fake, sandboxes } = setup();
-  const provider = toHarnessSandboxProvider(sandboxes, { runId: "run-1" });
-  await assert.rejects(
-    Promise.resolve(
-      provider.createSession({
-        onFirstCreate: async () => {
-          throw new Error("bootstrap failed");
-        },
-      }),
-    ),
-    /bootstrap failed/,
-  );
-  assert.equal(fake.sandboxes.size, 0);
-});
-
-test("adapter start failure after createSession: the run id alone deletes the leaked sandbox", async () => {
-  const { fake, sandboxes } = setup();
-  const provider = toHarnessSandboxProvider(sandboxes, { runId: "run-1" });
-  // What HarnessAgent.createSession does: provider.createSession, then the
-  // adapter's doStart. When doStart throws, HarnessAgent does not destroy.
-  const fakeHarnessAgentCreate = async () => {
-    await provider.createSession({ sessionId: "s" });
-    throw new Error("doStart: bridge did not come up");
-  };
-  await assert.rejects(fakeHarnessAgentCreate(), /bridge did not come up/);
-  assert.equal(fake.sandboxes.size, 1);
-  await sandboxes.destroy("run-1");
-  assert.equal(fake.sandboxes.size, 0);
-});
-
-test("gateway auth failures surface as HarnessSandboxAuthenticationError", async () => {
-  const { sandboxes } = setup({ createError: new SdkLikeError("tls", "bad client cert") });
-  const provider = toHarnessSandboxProvider(sandboxes, { runId: "run-1" });
-  await assert.rejects(Promise.resolve(provider.createSession({})), (error: unknown) =>
-    HarnessSandboxAuthenticationError.isInstance(error),
-  );
-});
 
 test("the session runs commands, reads and writes files, and resolves port endpoints", async () => {
   const { fake, sandboxes } = setup({

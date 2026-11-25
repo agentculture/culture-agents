@@ -16,8 +16,10 @@ export function hostRepo(t: TestContext): { dir: string; git: (...args: string[]
   const root = mkdtempSync(join(tmpdir(), "ca-harness-host-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const dir = join(root, "host");
-  execFileSync("git", ["init", "-q", "-b", "main", dir], { env: hostEnv() });
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8", env: hostEnv() }).trim();
+  // git is looked up in fixed system directories only, never in a directory a test could write to.
+  const env = { ...hostEnv(), PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin" };
+  execFileSync("git", ["init", "-q", "-b", "main", dir], { env });
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8", env }).trim();
   writeFileSync(join(dir, "README"), "host\n");
   git("add", "README");
   git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "-m", "one");

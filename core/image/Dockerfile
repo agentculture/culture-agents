@@ -68,5 +68,13 @@ COPY pnpm-shim.sh /usr/local/bin/pnpm
 COPY opencode /usr/local/bin/opencode
 RUN chmod 0755 /usr/local/bin/pnpm /usr/local/bin/opencode && /usr/local/bin/opencode --version
 
+# OpenShell runs every sandbox process as uid 1000 whatever the image says
+# (measured: same uid, capabilities, seccomp, readable paths and blocked egress
+# with and without this line). Declaring it keeps a plain `docker run` of the
+# image from being root too. The user's extra groups (adm, sudo, ...) are
+# dropped first, so the declared user carries no more than the sandbox gives.
+RUN if id ubuntu >/dev/null 2>&1; then usermod -G "" ubuntu; fi
+USER 1000:1000
+
 LABEL org.opencontainers.image.title="culture-agents run image" \
       org.opencontainers.image.source="https://github.com/agentculture/culture-agents"

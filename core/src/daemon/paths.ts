@@ -5,7 +5,7 @@ import { dirname, join } from "node:path";
  * Where the daemon keeps its files (contract/README.md: transport, authorization).
  *
  * - socket: `$CULTURE_AGENTS_SOCKET`, else `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
- *   `/tmp/culture-agents-<uid>/core.sock`.
+ *   `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`. Never a shared directory.
  * - lock key and pid file sit beside the socket (`<socket>.lock`, `<socket>.pid`).
  * - allow-list: `${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/allowlist.json`.
  */
@@ -23,16 +23,18 @@ export interface DaemonPaths {
 
 type Env = Record<string, string | undefined>;
 
-export function resolveSocketPath(env: Env = process.env, uid: number = process.getuid?.() ?? 0): { path: string; overridden: boolean } {
+export function resolveSocketPath(env: Env = process.env): { path: string; overridden: boolean } {
   const override = env["CULTURE_AGENTS_SOCKET"];
   if (override) return { path: override, overridden: true };
   const runtime = env["XDG_RUNTIME_DIR"];
   if (runtime) return { path: join(runtime, "culture-agents", "core.sock"), overridden: false };
-  return { path: join("/tmp", `culture-agents-${uid}`, "core.sock"), overridden: false };
+  const xdgState = env["XDG_STATE_HOME"];
+  const stateHome = xdgState?.startsWith("/") ? xdgState : join(env["HOME"] || homedir(), ".local", "state");
+  return { path: join(stateHome, "culture-agents", "core.sock"), overridden: false };
 }
 
-export function resolvePaths(env: Env = process.env, uid?: number): DaemonPaths {
-  const { path, overridden } = resolveSocketPath(env, uid);
+export function resolvePaths(env: Env = process.env): DaemonPaths {
+  const { path, overridden } = resolveSocketPath(env);
   return { socket: path, lock: `${path}.lock`, info: `${path}.pid`, dir: dirname(path), overridden };
 }
 

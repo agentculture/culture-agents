@@ -7,7 +7,8 @@ _CORE = """\
 
 These verbs talk to the core daemon over its Unix socket
 (`CULTURE_AGENTS_SOCKET`, else `$XDG_RUNTIME_DIR/culture-agents/core.sock`,
-else `/tmp/culture-agents-<uid>/core.sock`). On connect the CLI checks the
+else `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`). On
+connect the CLI checks the
 core's API version and refuses an incompatible one (exit 2, naming both
 versions). With no socket, or a refused connection, it exits 2 with a hint to
 start the core. A refusal by the core (`denied`, `unsupported`, `busy`,

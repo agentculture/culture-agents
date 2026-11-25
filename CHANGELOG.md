@@ -23,6 +23,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Without `XDG_RUNTIME_DIR` the control socket is now `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`, not a path under `/tmp`. The run image declares a non-root user. The unused AI SDK sandbox-provider adapter (`toHarnessSandboxProvider`) is removed.
 - CI analyses each pull request on SonarCloud with Python and TypeScript coverage and fails on any open issue. The run image installs Node.js from a signed apt source instead of running a downloaded script, and `npm ci` runs without install scripts.
 - A wedged OpenCode server now fails the turn mid-run instead of holding it in `running`: the session reads and the interrupt are bounded. The recovery instructions of a kept sandbox are never clipped by a long failure reason. The CLI refuses an event-stream line over 4 MiB.
 - The CLI is built on `agentfront` 0.22's public API, so `learn`, `explain` and `overview` describe exactly the registered verbs.
