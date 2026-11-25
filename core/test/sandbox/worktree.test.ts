@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -130,7 +130,16 @@ test("collect fetches runs/<id> over OpenShell's ssh config without touching the
   for (const flag of ["--no-tags", "--no-write-fetch-head", "--no-recurse-submodules", "--end-of-options"]) {
     assert.ok(fetch.args.includes(flag), flag);
   }
-  assert.match(fetch.options.env?.["GIT_SSH_COMMAND"] ?? "", /^ssh -F '.*culture-agents-ssh-.*\/ssh_config'$/);
+  const ssh = fetch.options.env?.["GIT_SSH_COMMAND"] ?? "";
+  const dir = must(/^ssh -F '(.*culture-agents-ssh-[^/']+)\/ssh_config' /.exec(ssh))[1] as string;
+  // The operator's keys and agent are never offered to the sandbox's sshd; known hosts go to a file that is removed.
+  assert.equal(ssh, `ssh -F '${dir}/ssh_config' -o 'BatchMode=yes' -o 'IdentitiesOnly=yes' -o 'IdentityFile=none' -o 'IdentityAgent=none' -o 'ForwardAgent=no' -o 'UserKnownHostsFile=${dir}/known_hosts'`);
+  assert.ok(!/StrictHostKeyChecking/.test(ssh), "the generated config decides host key checking");
+  assert.equal(existsSync(dir), false, "the temp dir with the config and known hosts is removed");
+  for (const key of ["fetch.fsckObjects=true", "transfer.fsckObjects=true"]) {
+    const at = fetch.args.indexOf(key);
+    assert.ok(at > 0 && fetch.args[at - 1] === "-c" && at < fetch.args.indexOf("fetch"), `-c ${key} before the fetch subcommand`);
+  }
   assert.equal(fetch.options.env?.["SSH_AUTH_SOCK"], undefined);
   assert.equal(fetch.options.env?.["GH_TOKEN"], undefined);
   assertHostUntouched(calls);
