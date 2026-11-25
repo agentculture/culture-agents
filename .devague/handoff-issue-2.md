@@ -14,16 +14,15 @@ This is working state, not a design document. The authoritative records are:
 
 ## Start here in a new session
 
-Two pieces of work are ready to start. The owner chooses the order.
-
-1. **Release workflow: stage on pull requests, publish on `main`.** The
-   owner's instruction (2026-11-25): "PR should be stage, and main should be
-   publish." See [The npm release](#the-npm-release) for what is known and the
-   design question to settle first. This file's own update rides on that
-   branch (`runs/npm-stage-on-pr`), unmerged, so that no release is made for a
-   note alone.
-2. **D2 scoping** (fleet and recovery). Not started. It begins with its own
-   scope, think and challenge pass. See [Inputs for D2](#inputs-for-d2).
+1. **Release workflow: stage on pull requests, publish on `main`.** Decided
+   by the owner on 2026-11-25: a pull request stages a development version,
+   `main` publishes the real one. The change is on branch
+   `runs/npm-stage-on-pr` (0.15.1). See [The npm release](#the-npm-release).
+2. **D2 scoping** (fleet and recovery). The scope pass is recorded on the
+   frame `d2-fleet-and-recovery` (`devague scope --list`): 27 explored
+   surfaces and 22 proposed claims, none confirmed yet. Five hard questions
+   wait for the owner; `q2` (which machines are the fleet) is blocking. Next
+   leg: `/think`. See [Inputs for D2](#inputs-for-d2).
 
 ## What shipped
 
@@ -102,11 +101,26 @@ stage the version that `main` will then publish. The two workable shapes are:
   version matches. This breaks as soon as a pull request gets a second
   commit, because the same version cannot be staged twice.
 
-The first shape fits the owner's wording. Confirm it with the owner, check
-the commands against npm's own documentation, then change the `npm-dry-run`
-job in `.github/workflows/publish.yml` (it needs `environment: npm` and
-`id-token: write` to use the trusted publisher) and update
-`tests/test_publish_workflow.py`.
+The owner chose the first shape on 2026-11-25. The `npm-stage` job in
+`.github/workflows/publish.yml` implements it for same-repository pull
+requests: it stages `<version>-dev.<run number>.<run attempt>` with
+`--tag dev` through the trusted publisher (`environment: npm`,
+`id-token: write`). The run attempt is in the version because a re-run cannot
+stage the same version twice. The fork-safe `npm-dry-run` job stays.
+
+Checked against npm's documentation (`docs.npmjs.com/staged-publishing`,
+`/trusted-publishers`, `/cli/v11/commands/npm-stage`):
+
+- `npm stage publish` works with a trusted publisher. `approve`, `reject`,
+  `list` and `view` need interactive authentication and cannot use it.
+- The docs state no expiry for staged versions and no limit on their number.
+  npmjs.com can reject up to 100 at once.
+- Staged publishing needs npm 11.15.0 or later and Node 22.14.0 or later.
+- `0.0.0-stage` is the placeholder npm publishes when a package is first
+  staged; the docs do not say whether it can be removed.
+
+The first pull request that runs this job is also the first use of the
+trusted publisher.
 
 ## Owner decisions in force
 
