@@ -91,8 +91,8 @@ export class OpenCodeClient {
   }
 
   /** `POST /api/session/{id}/interrupt`; true when an active execution was interrupted. */
-  async interrupt(sessionId: string): Promise<boolean> {
-    const res = await this.json<{ interrupted: boolean }>("POST", `/api/session/${encodeURIComponent(sessionId)}/interrupt`);
+  async interrupt(sessionId: string, signal?: AbortSignal): Promise<boolean> {
+    const res = await this.json<{ interrupted: boolean }>("POST", `/api/session/${encodeURIComponent(sessionId)}/interrupt`, undefined, signal);
     return res.interrupted;
   }
 

@@ -268,7 +268,8 @@ export class RunWorker {
     if (req.op === "refuse") {
       if (req.action.run_id !== id || req.action.outcome !== "refused") return invalid("The refusal record does not match this run.");
       try {
-        this.append({ kind: "run.refused", data: { action: req.action } });
+        // A run that ended meanwhile takes no record (nothing follows a terminal event): say so.
+        if (this.append({ kind: "run.refused", data: { action: req.action } }) === null) return conflict(id, "The run ended before the refusal was recorded.", false);
       } catch (err) {
         if (err instanceof ContractValidationError) return invalid(err.message);
         throw err;

@@ -19,7 +19,7 @@ export class FakeOpenCode {
   private server: Server | null = null;
   readonly sessionId = "ses_fake1";
   /** Routes that accept the request and never answer (a stalled server). */
-  readonly stalled = new Set<"create" | "session" | "prompt">();
+  readonly stalled = new Set<"create" | "session" | "prompt" | "interrupt">();
 
   constructor(readonly password = "pw") {}
 
@@ -117,6 +117,7 @@ export class FakeOpenCode {
 
   private interrupt(res: ServerResponse): void {
     this.interrupts += 1;
+    if (this.stalled.has("interrupt")) return;
     const was = this.busy;
     if (was) this.finish("interrupted");
     this.json(res, 200, { interrupted: was });

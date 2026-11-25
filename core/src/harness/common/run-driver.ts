@@ -48,7 +48,8 @@ interface Listing {
   failed: string | null;
 }
 
-const clip = (text: string) => (text.length > 2000 ? `${text.slice(0, 1997)}...` : text);
+const ERROR_MESSAGE_LIMIT = 2000;
+const clip = (text: string) => (text.length > ERROR_MESSAGE_LIMIT ? `${text.slice(0, ERROR_MESSAGE_LIMIT - 3)}...` : text);
 const diagnostic = (text: string): DriverEvent => ({ type: "output", data: { channel: "diagnostic", text } });
 
 /** Iterate `source` until it ends or `stop` resolves (then the source is abandoned). */
@@ -262,10 +263,12 @@ export class RunDriver<W extends Workspace> implements Driver {
     if (left.failed === null && left.procs.length > 0) await this.workspace.kill(left.procs.map((p) => p.pid)).catch(() => undefined);
     await this.workspace.keep?.().catch(() => undefined);
     const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
-    const shortWhy = why.length > 900 ? `${why.slice(0, 897)}...` : why;
-    const message =
-      `${shortWhy}. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
+    // The recovery instructions are the point of the message, so the cause gives way to them.
+    const tail =
+      `. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
       `with the run's work in it. To get the work out: ${retention.recover}`;
+    const room = Math.max(200, Math.min(900, ERROR_MESSAGE_LIMIT - tail.length));
+    const message = (why.length > room ? `${why.slice(0, room - 3)}...` : why) + tail;
     this.finish({ type: "failed", error: this.error("internal", message, false), retained: { sandbox: retention.sandbox, until } });
   }
 

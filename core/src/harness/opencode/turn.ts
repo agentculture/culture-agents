@@ -4,7 +4,7 @@
  * ended. The authority is the wait route (the session loop is idle) confirmed by the session
  * route (a new idle time and an `outcome`) and the active-session list.
  */
-import { withTimeout } from "../../sandbox/timeout.js";
+import { SandboxTimeoutError, withTimeout } from "../../sandbox/timeout.js";
 import { EventQueue, errorMessage, sleep, within } from "../common/queue.js";
 import type { Sink, TurnEvent, TurnHandle, TurnOutcome } from "../common/types.js";
 import type { OpenCodeClient } from "./client.js";
@@ -21,6 +21,8 @@ export interface TurnTiming {
   maxFailures?: number;
   /** Longest a session read, a prompt or a steer may take. Default 30 s. */
   callMs?: number;
+  /** Longest one long-poll for the session to go idle may stay open before the session is checked. Default 60 s. */
+  waitMs?: number;
   /** Receives every raw server event (live-test recording). */
   tap?: (raw: unknown) => void;
 }
@@ -90,13 +92,23 @@ export async function startOpenCodeTurn(
     throw err;
   }
 
+  const longPoll = async (): Promise<void> => {
+    try {
+      await withTimeout("waiting for the OpenCode session", timing.waitMs ?? 60_000, (bound) => client.wait(sessionId, bound), closed);
+    } catch (err) {
+      if (!(err instanceof SandboxTimeoutError)) throw err;
+    }
+  };
+
   const authority = async (): Promise<SessionOutcome> => {
     let failures = 0;
     while (!closed.aborted) {
       try {
-        await client.wait(sessionId, closed);
-        const info = await client.getSession(sessionId, closed);
-        const active = await client.activeSessions(closed);
+        // The long-poll is legitimately open for a whole turn, so its bound only forces a look at the
+        // session. The two reads answer at once on a healthy server: a hung one counts as a failure.
+        if (failures === 0) await longPoll();
+        const info = await withTimeout("reading the OpenCode session", callMs, (bound) => client.getSession(sessionId, bound), closed);
+        const active = await withTimeout("listing the active OpenCode sessions", callMs, (bound) => client.activeSessions(bound), closed);
         failures = 0;
         if (!active.has(sessionId) && info.outcome && (info.time.idle ?? 0) > idleBefore) return info.outcome;
       } catch (err) {
@@ -128,7 +140,7 @@ export async function startOpenCodeTurn(
     outcome,
     steer: (text) => withTimeout("delivering the steer to OpenCode", callMs, (bound) => client.prompt(sessionId, text, "steer", bound), stop),
     interrupt: async () => {
-      const interrupted = await client.interrupt(sessionId);
+      const interrupted = await withTimeout("interrupting the OpenCode session", callMs, (bound) => client.interrupt(sessionId, bound), closed);
       if (!interrupted) sink(diag("interrupt: the OpenCode session had no active execution"));
     },
   };

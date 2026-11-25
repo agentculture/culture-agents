@@ -89,6 +89,22 @@ test("a long failure message still leaves room for the sandbox, the date and the
   assert.match(outcome.error.message, /sandbox t-abc123 is kept until .*ssh-config t-abc123/);
 });
 
+test("a long failure reason gives way to the recovery instructions, which are never clipped", async () => {
+  const { factory, backend, driver } = setup("commit");
+  const done = drive(driver.start());
+  await backend.turnStarted;
+  const ws = factory.workspace;
+  assert.ok(ws);
+  ws.failureText = "x".repeat(3000);
+  ws.recoverText = `git fetch ${"/long/path".repeat(120)} END-OF-INSTRUCTIONS`;
+  backend.turn.end({ kind: "completed", summary: "done" });
+  const outcome = lastEvent(await done);
+  assert.ok(outcome?.type === "failed", JSON.stringify(outcome));
+  assert.ok(outcome.error.message.length <= 2000);
+  assert.ok(outcome.error.message.endsWith("END-OF-INSTRUCTIONS"), "the instructions are whole");
+  assert.match(outcome.error.message, /^Could not commit the run's changes: x+\.\.\.\. The turn had completed/);
+});
+
 test("retention set to 0 days, or a workspace that cannot be kept, deletes as before", async () => {
   for (const options of [{ days: 0 }, { retainable: false }]) {
     const { factory, backend, driver } = setup("collect", options);

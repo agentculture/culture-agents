@@ -67,6 +67,28 @@ test("a steer the server never answers is released within the bound", async (t) 
   assert.equal((await turn.outcome).kind, "completed");
 });
 
+test("a server that stops answering mid-turn fails the turn instead of holding it open", async (t) => {
+  const { fake, client } = await server(t);
+  const timing = { connectMs: 2000, callMs: 100, pollMs: 10, waitMs: 100, maxFailures: 3 };
+  const turn = await startOpenCodeTurn(client, fake.sessionId, "do it", new AbortController().signal, () => undefined, timing);
+  fake.stalled.add("session");
+  const began = Date.now();
+  const outcome = await turn.outcome;
+  assert.equal(outcome.kind, "failed");
+  assert.match(outcome.kind === "failed" ? outcome.error.message : "", /stopped answering.*did not finish within/);
+  assert.ok(Date.now() - began < 5000);
+});
+
+test("an interrupt the server never answers is released within the bound", async (t) => {
+  const { fake, client } = await server(t);
+  const turn = await startOpenCodeTurn(client, fake.sessionId, "do it", new AbortController().signal, () => undefined, { connectMs: 2000, callMs: 150, pollMs: 20 });
+  fake.stalled.add("interrupt");
+  await assert.rejects(turn.interrupt(), /did not finish within/);
+  fake.stalled.delete("interrupt");
+  fake.finish("succeeded");
+  assert.equal((await turn.outcome).kind, "completed");
+});
+
 function scriptedProcess(stdout: ReadableStream<Uint8Array>): RunProcess & { cancelled: number } {
   const proc = {
     cancelled: 0,

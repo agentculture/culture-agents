@@ -25,7 +25,7 @@ ARG PNPM_VERSION=10.33.0
 # are purged again: the repo's local-gateway profile deliberately does not let
 # curl reach the gateway.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends ca-certificates curl gnupg git openssh-client procps \
+ && apt-get install -y --no-install-recommends ca-certificates curl git gnupg openssh-client procps \
  && mkdir -p /etc/apt/keyrings \
  && curl --proto '=https' --tlsv1.2 -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
     | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \

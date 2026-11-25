@@ -25,6 +25,9 @@ export class FakeWorkspace implements Workspace {
   procFailure: string | null = null;
   /** When true, the workspace can be kept after a failed commit or collect (a sandbox); false models the stub. */
   retainable = false;
+  /** Overridable texts, for the tests of long messages. */
+  failureText: string | null = null;
+  recoverText = "openshell sandbox ssh-config t-abc123, then git fetch runs/x";
   kept = 0;
 
   constructor(private readonly failAt: FailAt) {}
@@ -44,7 +47,7 @@ export class FakeWorkspace implements Workspace {
 
   async commitAll(): Promise<number> {
     this.calls.push("commit");
-    if (this.failAt === "commit") throw new Error("commit failed");
+    if (this.failAt === "commit") throw new Error(this.failureText ?? "commit failed");
     return 1;
   }
 
@@ -55,7 +58,7 @@ export class FakeWorkspace implements Workspace {
   }
 
   retention(): { sandbox: string; recover: string } | null {
-    return this.retainable ? { sandbox: "t-abc123", recover: "openshell sandbox ssh-config t-abc123, then git fetch runs/x" } : null;
+    return this.retainable ? { sandbox: "t-abc123", recover: this.recoverText } : null;
   }
 
   async keep(): Promise<void> {
