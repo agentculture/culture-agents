@@ -165,6 +165,17 @@ test("sweep deletes managed sandboxes not kept and not live", async () => {
   assert.deepEqual([...fake.sandboxes.keys()].sort(), [sandboxName("kept", "t-"), sandboxName("live", "t-"), "unmanaged"].sort());
 });
 
+test("sweep with `only` leaves every other run's sandbox alone", async () => {
+  const { fake, sandboxes } = setup();
+  const other = createRunSandboxes(CONFIG, { client: fake, policy: TEST_POLICY });
+  await other.create("mine-finished");
+  await other.create("mine-active");
+  await other.create("another-cores-run");
+  const deleted = await sandboxes.sweep(["mine-active"], ["mine-finished", "mine-active", "never-had-a-sandbox"]);
+  assert.deepEqual(deleted, ["mine-finished"]);
+  assert.deepEqual([...fake.sandboxes.keys()].sort(), [sandboxName("another-cores-run", "t-"), sandboxName("mine-active", "t-")].sort());
+});
+
 test("exec scrubs operator credentials from any env it is given", async () => {
   const { fake, sandboxes } = setup();
   const sb = await sandboxes.create("run-1");

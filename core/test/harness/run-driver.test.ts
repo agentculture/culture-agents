@@ -195,3 +195,55 @@ test("start() is called once", async () => {
   backend.turn.end({ kind: "completed" });
   await done;
 });
+
+test("a steer after the turn ended is refused, not passed to a harness that is shutting down", async () => {
+  const { factory, backend, driver } = setup();
+  const done = drive(driver.start());
+  await backend.turnStarted;
+  const ws = factory.workspace;
+  assert.ok(ws);
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => (release = resolve));
+  const commit = ws.commitAll.bind(ws);
+  ws.commitAll = async () => (await held, commit());
+  backend.turn.end({ kind: "completed", summary: "done" });
+  await new Promise((resolve) => setTimeout(resolve, 20)); // the driver is now past the outcome, held in commit
+  await assert.rejects(driver.steer("too late"), /no running turn to steer/);
+  assert.deepEqual(backend.turn.steers, [], "nothing reached the harness");
+  release();
+  assert.equal(lastEvent(await done)?.type, "completed");
+});
+
+test("a cancel before the commit stops the run without collecting; one after the collect completes it with its branch", async () => {
+  const early = setup();
+  const earlyDone = drive(early.driver.start());
+  await early.backend.turnStarted;
+  const ws1 = early.factory.workspace;
+  assert.ok(ws1);
+  let releaseClose!: () => void;
+  const closeHeld = new Promise<void>((resolve) => (releaseClose = resolve));
+  const commit1 = ws1.commitAll.bind(ws1);
+  ws1.commitAll = async () => (await closeHeld, commit1());
+  early.backend.turn.end({ kind: "completed" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await early.driver.cancel(); // lands while the commit is running, before the collect
+  releaseClose();
+  assert.equal(lastEvent(await earlyDone)?.type, "stopped");
+  assert.ok(!ws1.calls.includes("collect"), "a run stopped before its collect leaves no branch on the host");
+  assert.equal(early.backend.turn.interrupts, 0, "an ended turn is not interrupted");
+
+  const late = setup();
+  const lateDone = drive(late.driver.start());
+  await late.backend.turnStarted;
+  const ws2 = late.factory.workspace;
+  assert.ok(ws2);
+  let releaseCollect!: () => void;
+  const collectHeld = new Promise<void>((resolve) => (releaseCollect = resolve));
+  const collect2 = ws2.collect.bind(ws2);
+  ws2.collect = async () => (await collectHeld, collect2());
+  late.backend.turn.end({ kind: "completed", summary: "done" });
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  await late.driver.cancel(); // lands while the commits are being fetched to the host
+  releaseCollect();
+  assert.deepEqual(lastEvent(await lateDone), { type: "completed", summary: "done", collected: { branch: "runs/x", commits: ["abc"] } });
+});

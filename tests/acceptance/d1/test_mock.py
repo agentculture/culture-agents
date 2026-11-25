@@ -29,6 +29,7 @@ from tests.acceptance.d1.support import (
 )
 
 MANY = "files: " + ", ".join(f"f{i:02d}.txt" for i in range(1, 31))  # 30 steps of 150 ms
+LONG = "files: " + ", ".join(f"g{i:03d}.txt" for i in range(1, 121))  # 120 steps: about 18 s
 
 
 def test_submit_returns_a_run_id_in_under_2_seconds_and_the_task_completes(core: Core) -> None:
@@ -119,11 +120,13 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
     assert second.rc == 1 and second.error_code() == "busy"
-    unsupported = core.cli(
+    other_harness = core.cli(
         *("runs", "submit", "--agent", AGENT, "--harness", "claude-code"),
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
-    assert unsupported.rc != 0, "a harness that is not allowed or not available is refused"
+    assert (
+        other_harness.rc == 1 and other_harness.error_code() == "denied"
+    ), "the allow-list names the harness too: an entry for stub does not permit claude-code"
     core.ok("runs", "cancel", run["id"])
 
 
@@ -151,7 +154,7 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     repos = [core.add_repo() for _ in range(4)]
     finished, _ = core.submit("stub", repos[0], "files: done.txt")
     assert core.wait_terminal(finished["id"], 20)["state"] == "succeeded"
-    working, _ = core.submit("stub", repos[1], MANY)
+    working, _ = core.submit("stub", repos[1], LONG)
     hung, _ = core.submit("stub", repos[2], "hang")
     orphan, _ = core.submit("stub", repos[3], "hang")
     for run in (working, hung, orphan):
@@ -171,6 +174,8 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     assert set(listed) == submitted, "100% of submitted runs are reported"
     assert all(r["state"] in STATES for r in listed.values())
     assert listed[finished["id"]]["state"] == "succeeded"
+    assert listed[working["id"]]["state"] == "running", "the surviving worker is still at work"
+    assert not listed[working["id"]]["live_control"]
     assert listed[orphan["id"]]["state"] == "unknown", "a dead worker is unknown, never succeeded"
     assert listed[hung["id"]]["state"] == "running" and not listed[hung["id"]]["live_control"]
     assert hung_pid in core.worker_pids(), "the restart did not signal the surviving worker"
@@ -178,13 +183,17 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     assert steer.rc == 1 and steer.error_code() == "unsupported", "no live control after a restart"
 
     # The surviving worker finishes on its own, and its success is backed by its commits.
-    assert core.wait_terminal(working["id"], 30)["state"] == "succeeded"
-    assert "f30.txt" in branch_files(repos[1], working["id"])
+    assert core.wait_terminal(working["id"], 60)["state"] == "succeeded"
+    assert len(branch_files(repos[1], working["id"])) == 121, "README and all 120 files"
     succeeded = [r for r in core.ok("runs", "list")["runs"] if r["state"] == "succeeded"]
+    by_repo = {str(r): r for r in repos}
+    invented = 0
     for run in succeeded:
-        log = core.events(run["id"])
-        assert states(log)[-1] == "succeeded", "success is a recorded event, never derived"
-        assert core.ok("runs", "result", run["id"])["commits"], "and it carries its commits"
+        recorded = states(core.events(run["id"]))[-1] == "succeeded"
+        commits = core.ok("runs", "result", run["id"])["commits"]
+        on_host = len(branch_files(by_repo[run["repo"]], run["id"])) > 1
+        invented += not (recorded and commits and on_host)
+    assert invented == 0, "every success is a recorded event with its commits on the host"
     assert {r["id"] for r in succeeded} == {finished["id"], working["id"]}
     assert branch_files(repos[3], orphan["id"]) == []
     record(
@@ -192,12 +201,12 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
         submitted=len(submitted),
         reported=len(listed),
         states=sorted(r["state"] for r in core.ok("runs", "list")["runs"]),
-        invented_success=0,
+        invented_success=invented,
     )
 
 
-def test_the_cli_is_a_separate_process_and_never_imports_the_core() -> None:
-    """The control path under test is the socket: the CLI package has no path into core/."""
+def test_without_a_core_the_cli_exits_2_and_guesses_nothing() -> None:
+    """The CLI's only path to a run is the socket: with no core there is no answer, only exit 2."""
     res = subprocess.run(  # nosec B603
         [sys.executable, "-m", "culture_agents", "runs", "list", "--json"],
         env={**os.environ, "CULTURE_AGENTS_SOCKET": "/nonexistent/core.sock"},

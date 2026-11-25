@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { closeSync, openSync, readFileSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { closeSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:net";
+import { join } from "node:path";
 
 import type { DaemonPaths } from "./paths.js";
 
@@ -149,4 +150,27 @@ export async function readInstanceInfo(paths: DaemonPaths, attempts = 20, delayM
     await new Promise((r) => setTimeout(r, delayMs));
   }
   return null;
+}
+
+/**
+ * A second lock, on the run store itself. The instance lock above is keyed on the socket path, so
+ * two cores given different sockets would otherwise both serve one state directory: each with its
+ * own submit queue, and both settling the same orphaned run. Keyed on the directory's real path.
+ */
+export async function acquireStateLock(stateDir: string): Promise<HeldLock> {
+  mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+  const real = realpathSync(stateDir);
+  const taken = new Error(`another culture-agents core already uses the state directory ${real}; stop it first, or set CULTURE_AGENTS_STATE_DIR.`);
+  if (LINUX) {
+    try {
+      const server = await listenAbstract(abstractName(`state:${real}`));
+      return { release: () => new Promise<void>((resolve) => server.close(() => resolve())) };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EADDRINUSE") throw e;
+      throw taken;
+    }
+  }
+  const held = acquirePidFile(join(real, "core.lock"));
+  if (held) return held;
+  throw taken;
 }

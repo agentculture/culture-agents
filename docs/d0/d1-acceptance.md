@@ -49,8 +49,12 @@ uv run pytest tests/acceptance/d1 -n 2 -rs             # mock and live
 
 ## Results
 
-Two full runs, each `16 passed`: 8 mock checks and 8 live checks (4 per
-harness). No sandbox was left on the gateway after either run.
+Two full runs at `1be5282`, each `16 passed`: 8 mock checks and 8 live checks
+(4 per harness). A third full run at `6fe17f9`, after the fixes from the review
+of PR #4, also passed 16 of 16: cancel took 7.6 s (Claude Code) and 8.8 s
+(OpenCode), and both restarted runs finished `succeeded`. After each run
+`openshell sandbox list` showed no sandbox; that was checked by hand, and no
+test checks it. The table shows the first two runs.
 
 | Target | Mock (stub) | Claude Code | OpenCode v2 |
 | --- | --- | --- | --- |
@@ -76,17 +80,22 @@ What each row means in detail:
 - **Cancel.** The run's states end `cancelling`, `cancelled`, the result
   reports `cancelled`, and no `runs/<id>` branch exists.
 - **Restart, mock.** Four runs with four fates: one finished before the kill
-  (`succeeded`), one still working (reported `running`, later `succeeded` with
-  all 30 files on its branch), one hung with its worker alive (`running`,
+  (`succeeded`), one still working (asserted `running` without live control,
+  later `succeeded` with all 120 files on its branch), one hung with its worker alive (`running`,
   without live control, a steer refused as `unsupported`), and one whose
   worker was killed with the daemon (`unknown`). With the core down, the CLI
   exits 2 with `unavailable`.
 - **Restart, live.** The run was reported `running` without live control
   after the restart, then finished `succeeded` with every file of its task on
-  its branch (ten for Claude Code, six for OpenCode).
+  its branch (ten for Claude Code, six for OpenCode). In the first two runs
+  the test only recorded this; since `6fe17f9` it asserts it.
+- **Unbacked successes.** Counted in the mock stage since `6fe17f9`: a success
+  counts as backed when its last state event is `succeeded`, its result lists
+  commits, and its branch holds files in the host repository. In the first two
+  runs the figure was a constant in the test, not a measurement.
 
-Also checked in the mock stage: `list`, `show`, `logs` and `attach` report the
-same events with gapless cursors; dispatch for an agent that is not on the
+Also checked in the mock stage: `attach` and `logs` report the same events with
+gapless cursors, and `show` reports the same last cursor; dispatch for an agent that is not on the
 allow-list is `denied` and creates no run; a second submit for a busy
 repository is `busy`.
 
@@ -100,12 +109,18 @@ checked instead:
 
 - **Mock stage.** While a run was steered and cancelled, the core process and
   the worker process held no TCP socket at all, read from `/proc`. The core's
-  `HOME` was a temporary directory, so no `.culture` configuration of the
-  operator was readable.
+  `HOME` pointed at a temporary directory with no `.culture` configuration in
+  it.
 - **Live stage.** During a run, no TCP socket of the core or its workers had
   a chat server's listening port as its remote port. The remote ports seen
   were the gateway's (17670) and two to four other ports per run, which were
   not identified individually.
+
+Limits of this check: it is one sample per run, of the core process and the
+worker processes only. Child processes (the harness bridge, the `openshell`
+CLI, `ssh`), UDP and Unix sockets are not inspected, and a connection opened
+and closed between samples is not seen. The live check compares remote ports
+only.
 
 Not verified: the same suite on a host where no chat server process exists.
 Unprivileged user namespaces are disabled here, so the suite could not be run
@@ -134,8 +149,8 @@ in an isolated namespace either.
   records whether the plan was dropped (`plan_abandoned`) without asserting
   it. In that run it is not known whether the steer reached the model before
   or after the last numbered file.
-- **Live turns spent:** 32 (the two recorded runs of 8, one earlier run of 8,
-  2 wiring checks, 6 debugging runs).
+- **Live turns spent:** 44 (three recorded runs of 8, one earlier run of 8,
+  2 wiring checks, 6 debugging runs, 4 after the colleague review).
 
 ## Not delivered by D1
 

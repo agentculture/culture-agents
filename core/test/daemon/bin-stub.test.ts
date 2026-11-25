@@ -145,6 +145,25 @@ test("a harness configuration error stops the daemon bin with exit 2 and one cle
   assert.doesNotMatch(again.stderr(), /^\s+at /m);
 });
 
+test("a second core on another socket is refused when it would share the first core's state directory", async (t) => {
+  const env = makeBinEnv(t, HERMETIC);
+  const first = startBin(t, env);
+  await waitFor(() => /listening/.test(first.stderr()), 10_000, "the first core to listen");
+  const other = makeBinEnv(t, HERMETIC);
+  other.vars = { ...other.vars, CULTURE_AGENTS_STATE_DIR: env.stateDir };
+  const second = startBin(t, other);
+  assert.equal(await second.exited, 2);
+  assert.match(second.stderr(), /another culture-agents core already uses the state directory/);
+  assert.doesNotMatch(second.stderr(), /^\s+at /m);
+  first.proc.kill("SIGTERM");
+  assert.equal(await first.exited, 0);
+  // Released on a clean stop: the state directory can be served again.
+  const again = makeBinEnv(t, HERMETIC);
+  again.vars = { ...again.vars, CULTURE_AGENTS_STATE_DIR: env.stateDir };
+  const third = startBin(t, again);
+  await waitFor(() => /listening/.test(third.stderr()), 10_000, "a core to start on the released state directory");
+});
+
 test("the run service stays free of harness imports; only the daemon's adapter connects the registry", () => {
   const src = fileURLToPath(new URL("../../../src/", import.meta.url));
   for (const file of readdirSync(join(src, "runs"))) {

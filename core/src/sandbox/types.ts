@@ -88,9 +88,10 @@ export interface RunSandboxes {
   active(): string[];
   /**
    * Delete every sandbox this core manages (by label and prefix) whose run id is
-   * not in `keep`. Returns the deleted run ids. For startup after a crash.
+   * not in `keep`. With `only`, sandboxes of other run ids are left alone, so a core that shares
+   * a gateway with another core reclaims its own runs and nothing else. Returns the deleted run ids.
    */
-  sweep(keep?: Iterable<string>): Promise<string[]>;
+  sweep(keep?: Iterable<string>, only?: Iterable<string>): Promise<string[]>;
 }
 
 export interface RunSandboxesConfig {

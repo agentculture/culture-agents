@@ -108,7 +108,7 @@ export async function control(kind: ControlKind, target: ControlTarget, request:
         ? await target.worker.steer(action, (request as SteerRequest).message)
         : await target.worker.cancel(action, (request as CancelRequest).reason);
   } catch (err) {
-    if (err instanceof ControlUnavailableError) throw unavailable(`The worker of run ${run.id} cannot be reached: ${err.message}`);
+    if (err instanceof ControlUnavailableError) throw unavailable(`The worker of run ${run.id} did not answer: ${err.message}. The ${kind} may still take effect; check the run's events before sending it again.`);
     throw err;
   }
   const failed = replyError(run, reply);

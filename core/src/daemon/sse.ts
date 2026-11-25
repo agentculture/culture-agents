@@ -4,6 +4,19 @@ import { isTerminal, validate, type StateData } from "../contract/index.js";
 import { sseFrame } from "./http.js";
 import type { RouteContext } from "./routes.js";
 
+/** Resolves when the response can take more data, or the connection closed. */
+function drained(res: ServerResponse): Promise<void> {
+  return new Promise((resolve) => {
+    const done = (): void => {
+      res.off("drain", done);
+      res.off("close", done);
+      resolve();
+    };
+    res.once("drain", done);
+    res.once("close", done);
+  });
+}
+
 /**
  * Serve `runs.attach`: replay events after `after`, then follow live ones, in cursor order. The stream
  * closes right after the terminal `run.state` event, or when the service's iterable ends. A comment line
@@ -25,7 +38,8 @@ export async function streamAttach(ctx: RouteContext, res: ServerResponse, runId
         process.stderr.write(`culture-agents core: dropping stream for ${runId}: event ${event.cursor} failed validation\n`);
         break;
       }
-      res.write(sseFrame(event.cursor, event.kind, event));
+      // A client that does not read must not make the core buffer the log for it: wait for the socket.
+      if (!res.write(sseFrame(event.cursor, event.kind, event))) await drained(res);
       if (event.kind === "run.state" && isTerminal((event.data as StateData).to)) break;
     }
   } catch (e) {

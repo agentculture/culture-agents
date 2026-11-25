@@ -162,6 +162,9 @@ export class RunWorker {
   }
 
   private fail(error: ErrorBody): void {
+    // A driver's message can be any length (a stack, captured stderr); the contract caps it, and an
+    // unclipped one would fail validation here and leave the run without its terminal event.
+    error = { ...error, message: clip(error.message) };
     this.append({ kind: "run.error", data: { error, fatal: true } });
     this.transition("failed", error.message);
   }
@@ -176,7 +179,7 @@ export class RunWorker {
         this.append({ kind: "run.output", data: event.data });
         return;
       case "error":
-        this.append({ kind: "run.error", data: { error: event.error, fatal: false } });
+        this.append({ kind: "run.error", data: { error: { ...event.error, message: clip(event.error.message) }, fatal: false } });
         return;
       case "completed":
         if (state === "queued") this.transition("running", "the harness completed before reporting a start");
@@ -222,7 +225,7 @@ export class RunWorker {
       }, grace),
     );
     void this.driver?.cancel(origin === "deadline" ? "deadline" : reason).catch((err: unknown) => {
-      this.append({ kind: "run.error", data: { error: internal(`cancel failed: ${String(err)}`), fatal: false } });
+      this.append({ kind: "run.error", data: { error: internal(clip(`cancel failed: ${String(err)}`)), fatal: false } });
     });
   }
 

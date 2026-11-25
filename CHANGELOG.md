@@ -16,6 +16,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs/d0/`: the consumer inventory, compatibility matrix, decision record, probe results, the D1 acceptance record and the boundary audit; the confirmed spec and plan under `docs/specs/` and `docs/plans/`.
 - `tests/acceptance/d1/`: the real CLI against the real core. A mock stage always runs; an opt-in live stage covers Claude Code and OpenCode v2 and reports NOT VERIFIED when a harness is unavailable.
 - CI: a `core` job (build, type-check, lint, tests from the lockfile), the core build before the Python tests, a secret scan and the 400-line cap extended to TypeScript.
+- The core reclaims the sandboxes of its own finished runs at startup and every five minutes, takes a second lock on its state directory, reports an unreadable run as `internal` (keeping its repository busy while its worker lives), and bounds its calls into the sandbox.
 
 ### Changed
 

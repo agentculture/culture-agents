@@ -33,7 +33,7 @@ export type Timestamp = string;
 /** A timestamp (same pattern as `timestamp`) or null. */
 export type NullableTimestamp = string | null;
 
-/** Absolute POSIX path of a repository on the core's host, with no `.` or `..` segments and no trailing slash. */
+/** Absolute POSIX path of a repository on the core's host, with no `.` or `..` segments, no trailing slash and no control characters (a newline would hide a `..` segment from the pattern). */
 export type RepoPath = string;
 
 /** Caller-chosen key, recorded and returned. D1 does not deduplicate on it (see README). */

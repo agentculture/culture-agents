@@ -31,13 +31,18 @@ export class WorkerControl {
   constructor(
     readonly runDir: string,
     private readonly timeoutMs = 2000,
+    /**
+     * A steer is answered only after the harness took the message, which can take seconds. Giving up
+     * earlier would tell the caller `unavailable` for a steer that is then delivered.
+     */
+    private readonly steerTimeoutMs = 8000,
   ) {}
 
   ping(): Promise<ControlReply> {
     return controlRequest(this.runDir, { op: "ping" }, this.timeoutMs);
   }
   steer(action: ActionRecord, message: string): Promise<ControlReply> {
-    return this.deliver({ op: "steer", action, message }, "run.control");
+    return this.deliver({ op: "steer", action, message }, "run.control", this.steerTimeoutMs);
   }
   cancel(action: ActionRecord, reason?: string): Promise<ControlReply> {
     const req = reason === undefined ? { op: "cancel" as const, action } : { op: "cancel" as const, action, reason };
@@ -49,9 +54,9 @@ export class WorkerControl {
   }
 
   /** Send an action; with no reply, settle its outcome from the run's log (see `settleFromLog`). */
-  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused"): Promise<ControlReply> {
+  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused", timeoutMs = this.timeoutMs): Promise<ControlReply> {
     try {
-      return await controlRequest(this.runDir, request, this.timeoutMs);
+      return await controlRequest(this.runDir, request, timeoutMs);
     } catch (err) {
       if (err instanceof ControlUnavailableError) return settleFromLog(this.runDir, request.action, recordedAs, err);
       throw err;

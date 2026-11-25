@@ -62,10 +62,10 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\\.[0-9]{1,9})?Z$"
     },
     "repo_path": {
-      "description": "Absolute POSIX path of a repository on the core's host, with no `.` or `..` segments and no trailing slash.",
+      "description": "Absolute POSIX path of a repository on the core's host, with no `.` or `..` segments, no trailing slash and no control characters (a newline would hide a `..` segment from the pattern).",
       "type": "string",
       "maxLength": 4096,
-      "pattern": "^(?!.*/\\.\\.?(/|$))(/[^/]+)+$"
+      "pattern": "^(?![\\s\\S]*[\\u0000-\\u001f])(?!.*/\\.\\.?(/|$))(/[^/]+)+$"
     },
     "idempotency_key": {
       "description": "Caller-chosen key, recorded and returned. D1 does not deduplicate on it (see README).",

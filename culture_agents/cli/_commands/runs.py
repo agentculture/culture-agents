@@ -21,7 +21,16 @@ from culture_agents.cli import _mode, _render
 from culture_agents.cli._client import CoreClient
 from culture_agents.cli._render import Rendered
 
-_STATES = ("queued", "running", "cancelling", "succeeded", "failed", "cancelled", "timed_out")
+_STATES = (
+    "queued",
+    "running",
+    "cancelling",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "timed_out",
+    "unknown",
+)
 _KINDS = ("operator", "agent")
 
 CALLER_FLAGS = (

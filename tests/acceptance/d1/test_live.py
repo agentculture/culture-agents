@@ -15,7 +15,6 @@ import pytest
 
 from tests.acceptance.d1 import netcheck
 from tests.acceptance.d1.support import (
-    STATES,
     Core,
     branch_files,
     host_untouched,
@@ -37,6 +36,7 @@ TASKS = {
             "file contains just its number. Do not explain."
         ),
         "last": "file10.txt",
+        "count": 10,
         "hang": (
             "Run the shell command: sleep 120 && echo late > late.txt . Use the Bash tool. "
             "Then write done.txt."
@@ -54,6 +54,7 @@ TASKS = {
             "sleep 3 && echo 5 > file5.txt ; sleep 3 && echo 6 > file6.txt . Then reply done."
         ),
         "last": "file6.txt",
+        "count": 6,
         "hang": (
             "Run the shell command: sleep 120 && echo late > late.txt . Use one bash tool call "
             "in the foreground. Then create done.txt."
@@ -176,7 +177,7 @@ def test_live_kill_9_and_restart_reports_every_run_truthfully(live_core: Core) -
     listed = {r["id"]: r for r in live_core.ok("runs", "list")["runs"]}
     assert set(listed) == {run["id"]}
     after_restart = listed[run["id"]]
-    assert after_restart["state"] in STATES
+    assert after_restart["state"] == "running", "the worker outlived the core and is still at work"
     assert not after_restart["live_control"], "a surviving worker is reported without live control"
     done = live_core.wait_terminal(run["id"], TURN_TIMEOUT)
     files = branch_files(repo, run["id"])
@@ -187,7 +188,7 @@ def test_live_kill_9_and_restart_reports_every_run_truthfully(live_core: Core) -
         final_state=done["state"],
         files=files,
     )
-    assert done["state"] in STATES
-    if done["state"] == "succeeded":
-        assert states(live_core.events(run["id"]))[-1] == "succeeded"
-        assert TASKS[harness]["last"] in files, "a reported success is backed by the run's commits"
+    assert done["state"] == "succeeded", "the surviving worker finishes its task on its own"
+    assert states(live_core.events(run["id"]))[-1] == "succeeded"
+    numbered = [f for f in files if f.startswith("file")]
+    assert len(numbered) == TASKS[harness]["count"], "every file of the task is on the run's branch"

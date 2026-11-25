@@ -3,6 +3,7 @@
 // adapter's start fails (docs/d0/probe.md, obstacle 7), so every path here
 // either returns a tracked handle or deletes what it created, and any run's
 // sandbox can be deleted from its run id alone.
+import { withTimeout } from "./timeout.js";
 import {
   isAlreadyExists,
   isNotFound,
@@ -32,6 +33,8 @@ import {
 } from "./types.js";
 
 const DELETE_ATTEMPTS = 3;
+/** Longest one delete request to the gateway may take; the wait for the sandbox to be gone is bounded separately. */
+const DELETE_CALL_TIMEOUT_MS = 30_000;
 
 export interface RunSandboxesDeps {
   readonly client: OpenShellClientLike;
@@ -70,7 +73,7 @@ class OpenShellRunSandboxes implements RunSandboxes {
     let lastError: unknown;
     for (let attempt = 1; attempt <= DELETE_ATTEMPTS; attempt++) {
       try {
-        await this.client.delete(name, { allowMissing: true });
+        await withTimeout(`asking the gateway to delete sandbox ${name}`, DELETE_CALL_TIMEOUT_MS, () => this.client.delete(name, { allowMissing: true }));
         await this.client
           .waitDeleted(name, this.config.deleteTimeoutSecs ?? 120)
           .catch((error: unknown) => {
@@ -212,8 +215,9 @@ class OpenShellRunSandboxes implements RunSandboxes {
     return [...this.#live.keys()];
   }
 
-  async sweep(keep: Iterable<string> = []): Promise<string[]> {
+  async sweep(keep: Iterable<string> = [], only?: Iterable<string>): Promise<string[]> {
     const kept = new Set(keep);
+    const wanted = only === undefined ? null : new Set(only);
     const all = await this.client.listAll({
       labelSelector: `${LABEL_MANAGED_BY}=${LABEL_MANAGED_BY_VALUE}`,
     });
@@ -227,6 +231,7 @@ class OpenShellRunSandboxes implements RunSandboxes {
     const deleted: string[] = [];
     for (const runId of doomed) {
       if (kept.has(runId) || this.#live.has(runId)) continue;
+      if (wanted !== null && !wanted.has(runId)) continue;
       try {
         await this.destroy(runId);
         deleted.push(runId);
