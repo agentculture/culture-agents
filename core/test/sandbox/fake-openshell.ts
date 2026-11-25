@@ -49,7 +49,7 @@ export class FakeInteractive implements InteractiveControl {
   readonly written: Buffer[] = [];
   inputClosed = false;
   cancelled = false;
-  #queue: StreamEvent[] = [];
+  readonly #queue: StreamEvent[] = [];
   #wake: (() => void) | undefined;
   #ended = false;
 
@@ -210,8 +210,9 @@ export class FakeOpenShell implements OpenShellClientLike {
     return {
       localHost: "127.0.0.1",
       localPort: this.#port++,
-      close: async () => {
+      close: (): Promise<void> => {
         this.closedForwards++;
+        return Promise.resolve();
       },
     };
   }

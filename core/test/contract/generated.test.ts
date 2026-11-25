@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,9 @@ import type { SchemaTypes } from "../../src/contract/generated/index.js";
 const core = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 test("generated types are current (regenerate and diff)", () => {
-  execFileSync("node", [join(core, "scripts", "gen-contract-types.mjs"), "--check"], { stdio: "pipe" });
+  const check = spawnSync(process.execPath, [join(core, "scripts", "gen-contract-types.mjs"), "--check"], { encoding: "utf8" });
+  assert.equal(check.error, undefined, "the generator ran");
+  assert.equal(check.status, 0, `the generator's --check found stale output: ${check.stderr}`);
 });
 
 test("every schema target has a generated type", () => {

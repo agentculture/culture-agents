@@ -14,7 +14,7 @@ import { defineContractSuite } from "./contract-suite.js";
 
 const config = { ...loadHarnessConfig({ HOME: "/nonexistent" }), stub: true };
 
-defineContractSuite({
+await defineContractSuite({
   harness: "stub",
   skip: async () => null,
   createDriver: async (run) => {

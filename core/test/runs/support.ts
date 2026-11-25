@@ -96,7 +96,9 @@ export async function startDaemon(t: TestContext, env: Env): Promise<Daemon> {
   let err = "";
   proc.stderr?.on("data", (d: Buffer) => (err += d.toString()));
   const exited = new Promise<{ code: number | null; signal: NodeJS.Signals | null }>((resolve) => proc.on("exit", (code, signal) => resolve({ code, signal })));
-  t.after(() => void proc.kill("SIGKILL"));
+  t.after(() => {
+    proc.kill("SIGKILL");
+  });
   const daemon = { proc, stderr: () => err, exited };
   await Promise.race([
     waitFor(() => /listening/.test(err), 10_000, "daemon to listen"),
@@ -171,8 +173,17 @@ export async function events(env: Env, id: string): Promise<RunEvent[]> {
 
 /** Poll the run until `predicate` holds. */
 export async function waitRun(env: Env, id: string, predicate: (run: Run) => boolean, what: string, ms = 8000): Promise<Run> {
-  let last: Run | null = null;
-  await waitFor(async () => predicate((last = await getRun(env, id))), ms, `${what} (last state ${last === null ? "none" : (last as Run).state})`);
+  let last: Run | undefined;
+  const reached = async (): Promise<boolean> => {
+    last = await getRun(env, id);
+    return predicate(last);
+  };
+  try {
+    await waitFor(reached, ms, what);
+  } catch (err) {
+    const state = (last as Run | undefined)?.state ?? "none";
+    throw new Error(`${err instanceof Error ? err.message : String(err)} (last state ${state})`, { cause: err });
+  }
   return last as unknown as Run;
 }
 

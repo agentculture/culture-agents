@@ -66,7 +66,7 @@ export class FakeRunService implements RunService {
         run.ended_at = event.time;
       }
     }
-    for (const w of [...this.wake]) w();
+    for (const w of this.wake) w();
   }
 
   submit(request: SubmitRequest): Promise<Run> {

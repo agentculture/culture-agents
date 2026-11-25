@@ -68,7 +68,7 @@ export async function drive(
   return seen;
 }
 
-export const lastEvent = (events: DriverEvent[]) => events[events.length - 1];
+export const lastEvent = (events: DriverEvent[]) => events.at(-1);
 
 /** Files on `runs/<id>` in the host repo, or null when the branch does not exist. */
 export function branchFiles(git: (...a: string[]) => string, runId: string): string[] | null {
