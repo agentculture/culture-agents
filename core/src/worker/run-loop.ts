@@ -259,13 +259,37 @@ export class RunWorker {
     if (bad !== null) return invalid(bad);
     if (req.op === "steer") {
       if (state !== "running") return conflict(id, `A steer needs a running run; this run is ${state}.`, state === "queued");
-      this.append({ kind: "run.control", data: { action: req.action } });
-      await this.driver?.steer(req.message);
-      return ok();
+      return this.steer(req.action, req.message, ok);
     }
+    // A cancel is accepted when the worker takes the stop decision, which it enforces itself
+    // (cancelling now, the driver asked to stop, forced down after the grace period), so it is
+    // recorded before the stop starts and holds even when the driver's cancel call fails.
     this.append({ kind: "run.control", data: { action: req.action } });
     const by = `cancel requested by ${req.action.caller.id}`;
     this.requestStop("cancel", req.reason ? `${by}: ${req.reason}` : by);
+    return ok();
+  }
+
+  /**
+   * Deliver a steer, then record it. `run.control` means accepted, so it is written only after the
+   * driver took the steer. A delivery failure is answered `unavailable` and logged as a non-fatal
+   * `run.error` (the contract's `run.refused` carries only `unsupported` or `conflict`). A run that
+   * ended during delivery gets no record (nothing follows a terminal event) and a `conflict`.
+   */
+  private async steer(action: ActionRecord, message: string, ok: () => ControlReply): Promise<ControlReply> {
+    const id = this.record.id;
+    try {
+      if (this.driver === null) throw new Error("the harness driver is not loaded");
+      await this.driver.steer(message);
+    } catch (err) {
+      const why = `The steer ${action.id} could not be delivered to the harness: ${err instanceof Error ? err.message : String(err)}`;
+      const error: ErrorBody = { code: "unavailable", message: clip(why), retryable: true };
+      this.append({ kind: "run.error", data: { error, fatal: false } });
+      return { ok: false, error };
+    }
+    if (this.append({ kind: "run.control", data: { action } }) === null) {
+      return conflict(id, `The run ended (${String(this.writer.state)}) while the steer was being delivered; it was not recorded as accepted.`, false);
+    }
     return ok();
   }
 }

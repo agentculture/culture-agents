@@ -31,6 +31,19 @@ export class SdkLikeError extends Error {
   }
 }
 
+/**
+ * The label-value rules the real gateway enforces (observed live: `invalid_config` "label value
+ * exceeds 63 characters", "must start/end with alphanumeric character").
+ */
+export function checkLabels(labels: Record<string, string>): void {
+  for (const value of Object.values(labels)) {
+    if (value.length > 63) throw new SdkLikeError("invalid_config", `label value exceeds 63 characters: '${value}'`);
+    if (value !== "" && !/^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$/.test(value)) {
+      throw new SdkLikeError("invalid_config", `label value must start and end with alphanumeric character: '${value}'`);
+    }
+  }
+}
+
 /** Interactive session whose output the test drives. */
 export class FakeInteractive implements InteractiveControl {
   readonly written: Buffer[] = [];
@@ -113,6 +126,7 @@ export class FakeOpenShell implements OpenShellClientLike {
   async create(spec: CreateSpec): Promise<SandboxInfo> {
     this.calls.push({ op: "create", name: spec.name, detail: spec });
     if (this.options.createError) throw this.options.createError;
+    checkLabels(spec.labels);
     if (this.sandboxes.has(spec.name)) throw new SdkLikeError("already_exists", "exists");
     this.sandboxes.set(spec.name, { phase: "provisioning", labels: { ...spec.labels }, files: new Map(), spec });
     if (this.options.createThenThrow) throw this.options.createThenThrow;

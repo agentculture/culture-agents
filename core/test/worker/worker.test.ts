@@ -24,6 +24,13 @@ async function start(t: TestContext, steps: FakeStep[], extra: Partial<SpawnWork
   return { ...worker, run, stateDir: dir };
 }
 
+/**
+ * Deadline for tests that expect the harness to start first: worker spawn plus driver import must
+ * fit before it, which takes well over 300 ms on a loaded host (the full suite runs files in
+ * parallel), so the run would correctly go queued -> cancelling and the test would misfire.
+ */
+const START_THEN_DEADLINE_MS = 1500;
+
 const states = (events: RunEvent[]) => events.filter((e) => e.kind === "run.state").map((e) => (e.data as StateData).to);
 
 /** Follow a run's log to its terminal event. */
@@ -116,7 +123,7 @@ test("a worker SIGKILLed mid-run reads unknown, never succeeded, and earlier eve
 });
 
 test("deadline expiry moves the run through cancelling (reason deadline) to timed_out", async (t) => {
-  const run = newRun({ deadline: new Date(Date.now() + 300).toISOString() });
+  const run = newRun({ deadline: new Date(Date.now() + START_THEN_DEADLINE_MS).toISOString() });
   const w = await start(t, [...START, { op: "hang" }], { run });
   const events = await drain(w.runDir, w.run.id);
   assert.deepEqual(states(events), ["queued", "running", "cancelling", "timed_out"]);
@@ -126,7 +133,7 @@ test("deadline expiry moves the run through cancelling (reason deadline) to time
 });
 
 test("a harness that ignores the stop is forced down after the grace period and still ends timed_out", async (t) => {
-  const run = newRun({ deadline: new Date(Date.now() + 200).toISOString() });
+  const run = newRun({ deadline: new Date(Date.now() + START_THEN_DEADLINE_MS).toISOString() });
   const dir = stateDir(t);
   const w = await spawnWorker({ stateDir: dir, run, driver: fakeDriver({ steps: [...START, { op: "hang" }], ignoreCancel: true }), cancelGraceMs: 150 });
   killAfter(t, w.pid, w.runDir);

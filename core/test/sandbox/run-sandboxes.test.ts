@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { sandboxName } from "../../src/sandbox/naming.js";
+import { runKey, sandboxName } from "../../src/sandbox/naming.js";
 import { createRunSandboxes } from "../../src/sandbox/run-sandboxes.js";
 import { CANCELLED_EXIT, WRITE_CHUNK } from "../../src/sandbox/run-sandbox.js";
 import {
@@ -30,7 +30,7 @@ test("create names the sandbox from the run id, labels it and passes the policy"
   assert.equal(sb.home, "/sandbox");
   assert.equal(sb.state, "ready");
   const spec = fake.calls.find((c) => c.op === "create")?.detail as Record<string, unknown>;
-  assert.deepEqual(spec["labels"], { "managed-by": "culture-agents", "run-id": "run-1" });
+  assert.deepEqual(spec["labels"], { "managed-by": "culture-agents", "run-key": runKey("run-1"), "run-id": "run-1" });
   assert.deepEqual(spec["providers"], ["claude-sub"]);
   assert.deepEqual(spec["policy"], TEST_POLICY);
   assert.equal(spec["image"], "img:1");
@@ -241,4 +241,37 @@ test("a not-found during readiness still leaves nothing behind", async () => {
   const { fake, sandboxes } = setup({ waitReadyError: new SdkLikeError("not_found", "gone") });
   await assert.rejects(sandboxes.create("run-1"));
   assert.equal(fake.sandboxes.size, 0);
+});
+
+// The longest contract-valid run id: a 96-character mesh id, ".run.", a 26-character ULID.
+const LONG_RUN_ID = `spark-${"a".repeat(90)}.run.01JD0000000000000000000000`;
+
+test("a 127-character run id gets labels the gateway accepts; resume, destroy and sweep work by run id alone", async () => {
+  assert.equal(LONG_RUN_ID.length, 127);
+  const { fake, sandboxes } = setup();
+  const sb = await sandboxes.create(LONG_RUN_ID);
+  assert.equal(sb.name, sandboxName(LONG_RUN_ID, "t-"));
+  const labels = must(fake.sandboxes.get(sb.name)).labels;
+  assert.equal(labels["run-key"], runKey(LONG_RUN_ID));
+  assert.equal(labels["run-id"], undefined, "the full id does not fit one label value");
+  for (const value of Object.values(labels)) assert.ok(value.length <= 63);
+
+  // A process with no handle resumes it, and a mismatching key is refused.
+  const other = createRunSandboxes(CONFIG, { client: fake, policy: TEST_POLICY });
+  assert.equal((await other.resume(LONG_RUN_ID)).name, sb.name);
+  const crashed = createRunSandboxes(CONFIG, { client: fake, policy: TEST_POLICY });
+  await crashed.create(`${LONG_RUN_ID.slice(0, -1)}1`);
+  // sweep recovers the full run id from the labels and deletes the orphan, not the live one.
+  assert.deepEqual(await sandboxes.sweep(), [`${LONG_RUN_ID.slice(0, -1)}1`]);
+  // destroy by run id alone.
+  await createRunSandboxes(CONFIG, { client: fake, policy: TEST_POLICY }).destroy(LONG_RUN_ID);
+  assert.equal(fake.sandboxes.size, 0);
+});
+
+test("resume refuses a sandbox whose run key belongs to another long run id", async () => {
+  const { fake, sandboxes } = setup();
+  const sb = await sandboxes.create(LONG_RUN_ID);
+  must(fake.sandboxes.get(sb.name)).labels["run-key"] = runKey("someone-else");
+  const other = createRunSandboxes(CONFIG, { client: fake, policy: TEST_POLICY });
+  await assert.rejects(other.resume(LONG_RUN_ID), /belongs to run/);
 });

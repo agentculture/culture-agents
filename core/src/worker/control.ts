@@ -70,19 +70,45 @@ export function parseRequest(line: string): ControlRequest | ControlReply {
   return { op: "refuse", action: action.value };
 }
 
-function serve(socket: Socket, handler: ControlHandler): void {
+/** How long a connection may take to send its request before the worker drops it. */
+const REQUEST_IDLE_MS = 5000;
+/** Default time `closeControl` gives connections with no request in flight. */
+const CLOSE_GRACE_MS = 1000;
+/** Hard cap on `closeControl`: a handler that never answers cannot keep the worker alive. */
+const CLOSE_CAP_MS = 30_000;
+
+/** Open connections of each control server, and which of them have a request in flight. */
+interface Tracked {
+  open: Set<Socket>;
+  busy: Set<Socket>;
+}
+const tracked = new WeakMap<Server, Tracked>();
+
+function serve(socket: Socket, handler: ControlHandler, track: Tracked): void {
   let buf = "";
+  track.open.add(socket);
+  socket.once("close", () => {
+    track.open.delete(socket);
+    track.busy.delete(socket);
+  });
   socket.setEncoding("utf8");
+  socket.setTimeout(REQUEST_IDLE_MS, () => {
+    if (!track.busy.has(socket)) socket.destroy();
+  });
   socket.on("error", () => socket.destroy());
   socket.on("data", (chunk: string) => {
     buf += chunk;
     if (buf.length > MAX_REQUEST) {
+      socket.removeAllListeners("data");
       socket.end(`${JSON.stringify(invalid("The control request is too large."))}\n`);
       return;
     }
     const nl = buf.indexOf("\n");
     if (nl < 0) return;
     socket.removeAllListeners("data");
+    // From here the worker owes this connection a reply; closeControl waits for it.
+    track.busy.add(socket);
+    socket.setTimeout(0);
     const parsed = parseRequest(buf.slice(0, nl));
     const reply = "op" in parsed ? Promise.resolve().then(() => handler(parsed)) : Promise.resolve(parsed);
     reply
@@ -94,7 +120,9 @@ function serve(socket: Socket, handler: ControlHandler): void {
 /** Listen on the run's control socket (replacing a stale socket file). */
 export async function listenControl(dir: string, handler: ControlHandler): Promise<Server> {
   rmSync(join(dir, RUN_FILES.socket), { force: true });
-  const server = createServer((socket) => serve(socket, handler));
+  const track: Tracked = { open: new Set(), busy: new Set() };
+  const server = createServer((socket) => serve(socket, handler, track));
+  tracked.set(server, track);
   await withSocketPath(
     dir,
     (path) =>
@@ -110,15 +138,53 @@ export async function listenControl(dir: string, handler: ControlHandler): Promi
   return server;
 }
 
-/** Stop listening and remove the socket file. */
-export async function closeControl(dir: string, server: Server): Promise<void> {
-  await new Promise<void>((resolve) => server.close(() => resolve()));
+/**
+ * Stop accepting connections, then wait until every accepted request has had its reply written
+ * and its connection closed, and remove the socket file. A connection that has not sent a complete
+ * request within `graceMs` is dropped unanswered: its request never reached the worker, which the
+ * client reports as `no-reply` (see `ControlUnavailableError`).
+ */
+export async function closeControl(dir: string, server: Server, options: { graceMs?: number } = {}): Promise<void> {
+  const track = tracked.get(server);
+  const closed = new Promise<void>((resolve) => server.close(() => resolve()));
+  const timers: NodeJS.Timeout[] = [];
+  if (track) {
+    timers.push(
+      setTimeout(() => {
+        for (const s of track.open) if (!track.busy.has(s)) s.destroy();
+      }, options.graceMs ?? CLOSE_GRACE_MS),
+      setTimeout(() => {
+        for (const s of track.open) s.destroy();
+      }, CLOSE_CAP_MS),
+    );
+  }
+  try {
+    await closed;
+  } finally {
+    for (const t of timers) clearTimeout(t);
+  }
   rmSync(join(dir, RUN_FILES.socket), { force: true });
 }
 
+/**
+ * Why a control request got no reply:
+ * - `unreachable`: no worker accepted the connection (no socket, or nothing listening). The
+ *   request was not delivered.
+ * - `no-reply`: the connection was dropped before any reply byte. A live worker answers every
+ *   request it has read before it closes the channel, so this means the request was not read,
+ *   unless the worker died while handling it.
+ * - `timeout`: the worker did not answer in time; the request may still take effect.
+ * - `bad-reply`: the reply could not be read.
+ * Callers settle the outcome from the run's log (`settleFromLog`), never by retrying.
+ */
+export type ControlFailure = "unreachable" | "no-reply" | "timeout" | "bad-reply";
+
 /** The control socket could not be reached (no worker listening, or it did not answer). */
 export class ControlUnavailableError extends Error {
-  constructor(message: string) {
+  constructor(
+    message: string,
+    readonly failure: ControlFailure = "unreachable",
+  ) {
     super(message);
     this.name = "ControlUnavailableError";
   }
@@ -131,21 +197,36 @@ export async function controlRequest(dir: string, request: ControlRequest, timeo
     (path) =>
       new Promise<ControlReply>((resolve, reject) => {
         let buf = "";
+        let connected = false;
+        let settled = false;
         const socket = createConnection(path);
-        const fail = (message: string) => {
+        const fail = (message: string, failure: ControlFailure) => {
           socket.destroy();
-          reject(new ControlUnavailableError(message));
+          if (settled) return;
+          settled = true;
+          reject(new ControlUnavailableError(message, failure));
         };
-        socket.setTimeout(timeoutMs, () => fail("The worker did not answer on its control socket in time."));
+        socket.setTimeout(timeoutMs, () => fail("The worker did not answer on its control socket in time.", "timeout"));
         socket.setEncoding("utf8");
-        socket.on("error", (err) => fail(`The worker's control socket is unreachable: ${err.message}`));
-        socket.on("connect", () => socket.write(`${JSON.stringify(request)}\n`));
+        socket.on("error", (err) =>
+          connected && buf === ""
+            ? fail(`The worker closed its control socket without answering: ${err.message}`, "no-reply")
+            : fail(`The worker's control socket is unreachable: ${err.message}`, connected ? "bad-reply" : "unreachable"),
+        );
+        socket.on("connect", () => {
+          connected = true;
+          socket.write(`${JSON.stringify(request)}\n`);
+        });
         socket.on("data", (chunk: string) => (buf += chunk));
         socket.on("end", () => {
+          if (buf === "") return fail("The worker closed its control socket without answering.", "no-reply");
           try {
-            resolve(JSON.parse(buf) as ControlReply);
+            const reply = JSON.parse(buf) as ControlReply;
+            settled = true;
+            socket.destroy();
+            resolve(reply);
           } catch {
-            fail("The worker sent an unreadable control reply.");
+            fail("The worker sent an unreadable control reply.", "bad-reply");
           }
         });
       }),

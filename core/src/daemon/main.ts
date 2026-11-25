@@ -1,7 +1,8 @@
+#!/usr/bin/env node
 import { homedir } from "node:os";
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
@@ -91,9 +92,35 @@ export const unwiredService: RunService = (() => {
   };
 })();
 
-// bin target: `node dist/src/daemon/main.js`
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main().then((code) => process.exit(code), (e: unknown) => {
+/** Whether this module is the process entry point, also when started through a symlink (an npm `bin`). */
+function isBinTarget(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The bin target (`culture-agents-core`, or `node dist/src/daemon/main.js`): the run service over the
+ * real harness registry. A harness configuration error stops startup with exit 2 and one line.
+ */
+async function bin(): Promise<number> {
+  let catalog: HarnessCatalog;
+  try {
+    const { loadRegistryCatalog } = await import("./harness-catalog.js");
+    catalog = loadRegistryCatalog(process.env);
+  } catch (e) {
+    process.stderr.write(`culture-agents core: cannot start: harness configuration: ${e instanceof Error ? e.message : String(e)}\n`);
+    return 2;
+  }
+  return main(undefined, { harnessCatalog: () => catalog });
+}
+
+if (isBinTarget()) {
+  bin().then((code) => process.exit(code), (e: unknown) => {
     process.stderr.write(`culture-agents core: ${e instanceof Error ? e.message : String(e)}\n`);
     process.exit(2);
   });

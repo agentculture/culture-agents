@@ -13,7 +13,8 @@ import {
   DEFAULT_PREFIX,
   LABEL_MANAGED_BY,
   LABEL_MANAGED_BY_VALUE,
-  LABEL_RUN_ID,
+  labelsMatchRun,
+  runIdFromLabels,
   runLabels,
   sandboxName,
   validatePrefix,
@@ -169,9 +170,9 @@ class OpenShellRunSandboxes implements RunSandboxes {
       if (isNotFound(error)) throw new SandboxNotFoundError(`no sandbox for run ${runId}`, { cause: error });
       throw error;
     }
-    if (info.labels[LABEL_RUN_ID] !== runId) {
+    if (!labelsMatchRun(info.labels, runId)) {
       throw new SandboxNotFoundError(
-        `sandbox ${name} belongs to run ${JSON.stringify(info.labels[LABEL_RUN_ID] ?? null)}, not ${runId}`,
+        `sandbox ${name} belongs to run ${JSON.stringify(runIdFromLabels(info.labels))}, not ${runId}`,
       );
     }
     if (info.phase !== "ready") {
@@ -218,7 +219,7 @@ class OpenShellRunSandboxes implements RunSandboxes {
     });
     const doomed = new Set<string>(this.#pendingCleanup);
     for (const info of all) {
-      const runId = info.labels[LABEL_RUN_ID];
+      const runId = runIdFromLabels(info.labels);
       if (info.labels[LABEL_MANAGED_BY] !== LABEL_MANAGED_BY_VALUE || !runId) continue;
       if (!info.name.startsWith(this.#prefix)) continue;
       doomed.add(runId);
