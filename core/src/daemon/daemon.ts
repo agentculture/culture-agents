@@ -59,8 +59,12 @@ export const MAX_SOCKET_PATH_BYTES = 107;
 
 /** One stderr line for an `error` event of a server that is already listening; it must never be unhandled. */
 export function logServerError(what: string): (error: unknown) => void {
-  return (error) => void process.stderr.write(`culture-agents core: ${what} reported an error: ${error instanceof Error ? error.message : String(error)}\n`);
+  return (error) => {
+    process.stderr.write(`culture-agents core: ${what} reported an error: ${error instanceof Error ? error.message : String(error)}\n`);
+  };
 }
+
+const asError = (error: unknown): Error => (error instanceof Error ? error : new Error(String(error)));
 
 /** Bind the control socket owner-only (0600). The process umask is restored on every path out. */
 function listen(server: Server, path: string): Promise<void> {
@@ -78,7 +82,7 @@ function listen(server: Server, path: string): Promise<void> {
       restored = true;
       server.off("error", settle);
       if (error === undefined) resolve();
-      else reject(error instanceof Error ? error : new Error(String(error)));
+      else reject(asError(error));
     };
     server.once("error", settle);
     try {

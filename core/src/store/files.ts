@@ -46,7 +46,7 @@ export function defaultStateDir(env: NodeJS.ProcessEnv = process.env): string {
   const override = env["CULTURE_AGENTS_STATE_DIR"];
   if (override) return override;
   const xdg = env["XDG_STATE_HOME"];
-  return join(xdg && xdg.startsWith("/") ? xdg : join(homedir(), ".local", "state"), "culture-agents");
+  return join(xdg?.startsWith("/") ? xdg : join(homedir(), ".local", "state"), "culture-agents");
 }
 
 /** `<stateDir>/runs`. */

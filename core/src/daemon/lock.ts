@@ -59,7 +59,9 @@ function listenAbstract(name: string): Promise<Server> {
     server.listen({ path: name }, () => {
       server.off("error", reject);
       // The lock is held for the life of the process; a later `error` event must never be unhandled.
-      server.on("error", (error: Error) => void process.stderr.write(`culture-agents core: the instance lock socket reported an error: ${error.message}\n`));
+      server.on("error", (error: Error) => {
+        process.stderr.write(`culture-agents core: the instance lock socket reported an error: ${error.message}\n`);
+      });
       resolve(server);
     });
   });
@@ -80,7 +82,12 @@ function acquirePidFile(path: string): HeldLock | null {
       const fd = openSync(path, "wx", 0o600);
       writeFileSync(fd, String(process.pid));
       closeSync(fd);
-      return { release: () => Promise.resolve(void safeUnlink(path)) };
+      return {
+        release: () => {
+          safeUnlink(path);
+          return Promise.resolve();
+        },
+      };
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
       const pid = Number.parseInt(readFileSafe(path) ?? "", 10);

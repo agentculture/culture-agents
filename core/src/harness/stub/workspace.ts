@@ -38,7 +38,9 @@ export class StubWorkspace implements Workspace {
     return [];
   }
 
-  async kill(): Promise<void> {}
+  async kill(): Promise<void> {
+    // The stub starts no process (see `processes`), so there is never anything to kill.
+  }
 
   async commitAll(message: string): Promise<number> {
     await git(this.workdir, ["add", "-A"]);

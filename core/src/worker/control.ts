@@ -113,7 +113,12 @@ function serve(socket: Socket, handler: ControlHandler, track: Tracked): void {
     const reply = "op" in parsed ? Promise.resolve().then(() => handler(parsed)) : Promise.resolve(parsed);
     reply
       .catch((err: unknown) => ({ ok: false as const, error: { code: "internal" as const, message: String(err), retryable: false } }))
-      .then((r) => socket.end(`${JSON.stringify(r)}\n`));
+      .then((r) => socket.end(`${JSON.stringify(r)}\n`))
+      .catch((err: unknown) => {
+        // The reply could not be written. The caller gets no reply instead of a broken one, and the worker's log says why.
+        process.stderr.write(`worker ${process.pid}: could not send a control reply: ${err instanceof Error ? err.message : String(err)}\n`);
+        socket.destroy();
+      });
   });
 }
 
@@ -208,11 +213,10 @@ export async function controlRequest(dir: string, request: ControlRequest, timeo
         };
         socket.setTimeout(timeoutMs, () => fail("The worker did not answer on its control socket in time.", "timeout"));
         socket.setEncoding("utf8");
-        socket.on("error", (err) =>
-          connected && buf === ""
-            ? fail(`The worker closed its control socket without answering: ${err.message}`, "no-reply")
-            : fail(`The worker's control socket is unreachable: ${err.message}`, connected ? "bad-reply" : "unreachable"),
-        );
+        socket.on("error", (err) => {
+          if (connected && buf === "") fail(`The worker closed its control socket without answering: ${err.message}`, "no-reply");
+          else fail(`The worker's control socket is unreachable: ${err.message}`, connected ? "bad-reply" : "unreachable");
+        });
         socket.on("connect", () => {
           connected = true;
           socket.write(`${JSON.stringify(request)}\n`);

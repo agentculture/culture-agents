@@ -19,11 +19,15 @@ export interface Availability {
   labels: Record<string, string>;
 }
 
+function exitCodeOf(error: { code?: unknown } | null): number {
+  if (!error) return 0;
+  return typeof error.code === "number" ? error.code : 127;
+}
+
 function run(file: string, args: string[], timeoutMs = 10_000): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
     execFile(file, args, { timeout: timeoutMs, encoding: "utf8", maxBuffer: 4 * 1024 * 1024 }, (error, stdout, stderr) => {
-      const code = error ? (typeof error.code === "number" ? error.code : 127) : 0;
-      resolve({ code, stdout, stderr: stderr || (error ? error.message : "") });
+      resolve({ code: exitCodeOf(error), stdout, stderr: stderr || (error ? error.message : "") });
     });
   });
 }

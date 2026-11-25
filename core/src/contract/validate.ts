@@ -26,7 +26,8 @@ function instance(): Ajv2020 {
 
 function targetRef(name: string): string {
   const [stem, def] = name.split("#");
-  return `${SCHEMA_BASE}${stem}.json${def === undefined ? "" : `#/$defs/${def}`}`;
+  const fragment = def === undefined ? "" : `#/$defs/${def}`;
+  return `${SCHEMA_BASE}${stem}.json${fragment}`;
 }
 
 function validatorFor(name: SchemaName): ValidateFunction {

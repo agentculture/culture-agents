@@ -50,7 +50,8 @@ export class OpenCodeClient {
     password: string,
     private readonly fetchImpl: FetchLike = (url, init) => fetch(url, init),
   ) {
-    this.auth = `Basic ${Buffer.from(`opencode:${password}`).toString("base64")}`;
+    const credentials = Buffer.from(`opencode:${password}`).toString("base64");
+    this.auth = `Basic ${credentials}`;
   }
 
   private async call(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<Response> {
@@ -122,6 +123,71 @@ export class OpenCodeClient {
   }
 }
 
+const BLOCK_SEPARATOR = /\r?\n\r?\n/;
+const LEADING_SEPARATOR = /^\r?\n\r?\n/;
+
+/** The text of an event stream, cut into blocks at blank lines, with the cap on a block's size. */
+class SseBlocks {
+  private buf = "";
+  /** Inside a block that went over the cap: discard up to its blank line. */
+  private skipping = false;
+
+  constructor(private readonly maxBlock: number) {}
+
+  /** Add decoded text. False while the text is still inside a block that is being discarded. */
+  add(text: string): boolean {
+    this.buf += text;
+    if (!this.skipping) return true;
+    const end = this.buf.search(BLOCK_SEPARATOR);
+    if (end < 0) {
+      this.buf = this.buf.slice(-3); // a separator may be split across reads
+      return false;
+    }
+    this.buf = this.buf.slice(end).replace(LEADING_SEPARATOR, "");
+    this.skipping = false;
+    return true;
+  }
+
+  /** The next complete block, or null when none is buffered. */
+  take(): string | null {
+    const cut = this.buf.search(BLOCK_SEPARATOR);
+    if (cut < 0) return null;
+    const block = this.buf.slice(0, cut);
+    this.buf = this.buf.slice(cut).replace(LEADING_SEPARATOR, "");
+    return block;
+  }
+
+  /** Whether the unfinished block is over the cap; if so, it is discarded from here on. */
+  overflowed(): boolean {
+    if (this.buf.length <= this.maxBlock) return false;
+    this.buf = this.buf.slice(-3);
+    this.skipping = true;
+    return true;
+  }
+}
+
+/** The event in one block, or null. A block over the cap or whose payload is not JSON is reported through `onDropped`. */
+function parseBlock(block: string, maxBlock: number, onDropped?: () => void): V2Event | null {
+  if (block.length > maxBlock) {
+    onDropped?.();
+    return null;
+  }
+  const data = block
+    .split(/\r?\n/)
+    .filter((l) => l.startsWith("data:"))
+    .map((l) => l.slice(5).replace(/^ /, ""))
+    .join("\n");
+  if (!data) return null;
+  try {
+    const event = JSON.parse(data) as V2Event;
+    return event && typeof event.type === "string" ? event : null;
+  } catch {
+    // A payload that is not JSON is skipped (the stream is best-effort), but not silently.
+    onDropped?.();
+    return null;
+  }
+}
+
 /**
  * Parse a `text/event-stream` body into JSON `data` payloads. The server is inside the sandbox,
  * so the buffer is capped: an event block over `maxBlock` characters is dropped whole, reported
@@ -131,52 +197,18 @@ export class OpenCodeClient {
 export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: AbortSignal, onDropped?: () => void, maxBlock: number = MAX_STREAM_UNIT): AsyncGenerator<V2Event> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
-  const separator = /\r?\n\r?\n/;
-  let buf = "";
-  /** Inside a block that went over the cap: discard up to its blank line. */
-  let skipping = false;
+  const blocks = new SseBlocks(maxBlock);
   try {
     for (;;) {
       if (signal?.aborted) return;
       const { value, done } = await reader.read();
       if (done) return;
-      buf += decoder.decode(value, { stream: true });
-      if (skipping) {
-        const end = buf.search(separator);
-        if (end < 0) {
-          buf = buf.slice(-3); // a separator may be split across reads
-          continue;
-        }
-        buf = buf.slice(end).replace(/^\r?\n\r?\n/, "");
-        skipping = false;
+      if (!blocks.add(decoder.decode(value, { stream: true }))) continue;
+      for (let block = blocks.take(); block !== null; block = blocks.take()) {
+        const event = parseBlock(block, maxBlock, onDropped);
+        if (event) yield event;
       }
-      let cut: number;
-      while ((cut = buf.search(separator)) >= 0) {
-        const block = buf.slice(0, cut);
-        buf = buf.slice(cut).replace(/^\r?\n\r?\n/, "");
-        if (block.length > maxBlock) {
-          onDropped?.();
-          continue;
-        }
-        const data = block
-          .split(/\r?\n/)
-          .filter((l) => l.startsWith("data:"))
-          .map((l) => l.slice(5).replace(/^ /, ""))
-          .join("\n");
-        if (!data) continue;
-        try {
-          const event = JSON.parse(data) as V2Event;
-          if (event && typeof event.type === "string") yield event;
-        } catch {
-          // A payload that is not JSON is skipped (the stream is best-effort), but not silently.
-          onDropped?.();
-        }
-      }
-      if (buf.length > maxBlock) {
-        buf = buf.slice(-3);
-        skipping = true;
-        onDropped?.();
-      }
+      if (blocks.overflowed()) onDropped?.();
     }
   } finally {
     await reader.cancel().catch(() => undefined);

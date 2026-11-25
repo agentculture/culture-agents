@@ -17,6 +17,7 @@ import type {
   StopReport,
   TurnEvent,
   TurnHandle,
+  TurnOutcome,
   Workspace,
   WorkspaceFactory,
 } from "./types.js";
@@ -81,6 +82,8 @@ export class RunDriver<W extends Workspace> implements Driver {
   /** The workspace is kept for recovery (a retention): nothing in this driver deletes it any more. */
   private kept = false;
   private stopTimer: NodeJS.Timeout | undefined;
+  /** What `run` is doing, for the message of a failure there. */
+  private stage = "open the workspace";
   /** Set after a cancel: what the process checks saw. */
   stopReport: StopReport | null = null;
   /** Set after a completed turn: the commits brought to the host, if any. */
@@ -151,20 +154,20 @@ export class RunDriver<W extends Workspace> implements Driver {
   }
 
   private async run(): Promise<void> {
-    let stage = "open the workspace";
+    this.stage = "open the workspace";
     try {
       this.workspace = await this.factory.open(this.abort.signal);
       if (this.stopping) return await this.stopAll();
-      stage = "list the workspace processes";
+      this.stage = "list the workspace processes";
       this.baseline = await this.workspace.processes();
-      stage = "start the harness";
+      this.stage = "start the harness";
       this.session = await this.backend.open(this.workspace, this.abort.signal, (e) => this.onTurnEvent(e));
       if (this.stopping) return await this.stopAll();
-      stage = "start the turn";
+      this.stage = "start the turn";
       this.turn = await this.session.startTurn(this.options.task);
       this.queue.push({ type: "started" });
       if (this.stopping) void this.turn.interrupt().catch(() => this.forceStop());
-      stage = "stream the turn";
+      this.stage = "stream the turn";
       for await (const event of until(this.turn.events, this.forced)) this.onTurnEvent(event);
       if (this.stopping) return await this.stopAll();
       const outcome = await this.turn.outcome;
@@ -172,44 +175,70 @@ export class RunDriver<W extends Workspace> implements Driver {
       if (this.stopping) return await this.stopAll();
       if (outcome.kind !== "completed") {
         await this.release();
-        const error =
-          outcome.kind === "failed"
-            ? outcome.error
-            : this.error("internal", "The harness ended the turn as interrupted without a cancel request.", false);
-        return this.finish({ type: "failed", error });
+        return this.finish({ type: "failed", error: this.turnFailure(outcome) });
       }
-      stage = "close the harness";
+      this.stage = "close the harness";
       await this.session.close();
       if (this.stopping) return await this.stopAll();
-      try {
-        stage = "commit the run's changes";
-        const commits = await this.workspace.commitAll(this.options.commitMessage);
-        if (this.stopping) return await this.stopAll();
-        stage = "collect the run's commits";
-        this.collected = commits > 0 ? await this.workspace.collect() : null;
-      } catch (err) {
-        if (this.stopping) return await this.stopAll();
-        return await this.failAfterTurn(stage, err);
-      }
-      this.queue.push(
-        diagnostic(this.collected ? `collected ${this.collected.commits} commit(s) on ${this.collected.branch}` : "the run made no commits"),
-      );
-      // A stop that arrives once the commits are on the host no longer changes the outcome: the
-      // work is done and collected, so the run completes and reports its branch.
-      if (!(await this.destroyWorkspace())) {
-        this.queue.push({ type: "error", error: this.error("unavailable", "The run's sandbox could not be deleted.", true) });
-      }
-      this.finish({
-        type: "completed",
-        ...(outcome.summary === undefined ? {} : { summary: outcome.summary }),
-        ...(this.collected ? { collected: { branch: this.collected.branch, commits: this.collected.shas } } : {}),
-      });
+      if (!(await this.commitAndCollect(this.workspace))) return;
+      await this.complete(outcome.summary);
     } catch (err) {
-      if (this.stopping) return await this.stopAll();
-      await this.release();
-      const environment = stage === "open the workspace";
-      this.finish({ type: "failed", error: this.error(environment ? "unavailable" : "internal", `Could not ${stage}: ${errorMessage(err)}`, environment) });
+      await this.failRun(err);
     }
+  }
+
+  /** The error of a turn that ended without completing. */
+  private turnFailure(outcome: Exclude<TurnOutcome, { kind: "completed" }>): ErrorBody {
+    return outcome.kind === "failed"
+      ? outcome.error
+      : this.error("internal", "The harness ended the turn as interrupted without a cancel request.", false);
+  }
+
+  /**
+   * Commit what the harness left and bring the run's commits to the host. False when the run has
+   * ended here instead: stopped, or failed with its work kept in the workspace.
+   */
+  private async commitAndCollect(workspace: W): Promise<boolean> {
+    try {
+      this.stage = "commit the run's changes";
+      const commits = await workspace.commitAll(this.options.commitMessage);
+      if (this.stopping) {
+        await this.stopAll();
+        return false;
+      }
+      this.stage = "collect the run's commits";
+      this.collected = commits > 0 ? await workspace.collect() : null;
+      return true;
+    } catch (err) {
+      if (this.stopping) await this.stopAll();
+      else await this.failAfterTurn(this.stage, err);
+      return false;
+    }
+  }
+
+  /** The turn completed and its commits are on the host: report them, delete the workspace, finish. */
+  private async complete(summary: string | undefined): Promise<void> {
+    this.queue.push(
+      diagnostic(this.collected ? `collected ${this.collected.commits} commit(s) on ${this.collected.branch}` : "the run made no commits"),
+    );
+    // A stop that arrives once the commits are on the host no longer changes the outcome: the
+    // work is done and collected, so the run completes and reports its branch.
+    if (!(await this.destroyWorkspace())) {
+      this.queue.push({ type: "error", error: this.error("unavailable", "The run's sandbox could not be deleted.", true) });
+    }
+    this.finish({
+      type: "completed",
+      ...(summary === undefined ? {} : { summary }),
+      ...(this.collected ? { collected: { branch: this.collected.branch, commits: this.collected.shas } } : {}),
+    });
+  }
+
+  /** `run` threw: stop when a stop was asked for, otherwise release everything and fail naming the stage. */
+  private async failRun(err: unknown): Promise<void> {
+    if (this.stopping) return await this.stopAll();
+    await this.release();
+    const environment = this.stage === "open the workspace";
+    this.finish({ type: "failed", error: this.error(environment ? "unavailable" : "internal", `Could not ${this.stage}: ${errorMessage(err)}`, environment) });
   }
 
   /**
@@ -233,8 +262,9 @@ export class RunDriver<W extends Workspace> implements Driver {
     if (left.failed === null && left.procs.length > 0) await this.workspace.kill(left.procs.map((p) => p.pid)).catch(() => undefined);
     await this.workspace.keep?.().catch(() => undefined);
     const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
+    const shortWhy = why.length > 900 ? `${why.slice(0, 897)}...` : why;
     const message =
-      `${why.length > 900 ? `${why.slice(0, 897)}...` : why}. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
+      `${shortWhy}. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
       `with the run's work in it. To get the work out: ${retention.recover}`;
     this.finish({ type: "failed", error: this.error("internal", message, false), retained: { sandbox: retention.sandbox, until } });
   }

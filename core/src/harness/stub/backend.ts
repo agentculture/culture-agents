@@ -29,26 +29,29 @@ export function parseFiles(text: string): string[] | null {
     .filter((f) => f !== "" && f !== "." && f !== "..");
 }
 
+/**
+ * A line that holds only `hang`. The space around the word stays on that line (no line break), so
+ * each line is looked at once.
+ */
+const HANG_LINE = /^[^\S\n\r\u2028\u2029]*hang[^\S\n\r\u2028\u2029]*$/im;
+
 class StubTurn {
   readonly queue = new EventQueue<TurnEvent>();
   private readonly abort = new AbortController();
   private pending: string[] = [];
   private readonly written: string[] = [];
-  readonly outcome: Promise<TurnOutcome>;
 
   constructor(
     private readonly workdir: string,
-    task: string,
     private readonly stepMs: number,
-  ) {
-    this.outcome = this.play(task);
-  }
+  ) {}
 
   private out(channel: "text" | "tool_call" | "tool_result" | "diagnostic", text: string, tool?: string): void {
     this.queue.push({ type: "output", data: tool ? { channel, text, tool } : { channel, text } });
   }
 
-  private async play(task: string): Promise<TurnOutcome> {
+  /** Play `task` to its outcome. Called once, right after construction. */
+  async play(task: string): Promise<TurnOutcome> {
     const outcome = await this.steps(task);
     this.queue.end();
     return outcome;
@@ -59,7 +62,7 @@ class StubTurn {
     this.out("text", `stub: ${task.split("\n")[0]?.slice(0, 200) ?? ""}`);
     const fail = /fail:\s*([^\n]+)/i.exec(task);
     if (fail) return { kind: "failed", error: { code: "internal", message: `stub failure: ${fail[1] as string}`, retryable: false } };
-    if (/^\s*hang\s*$/im.test(task)) {
+    if (HANG_LINE.test(task)) {
       await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
       return { kind: "interrupted" };
     }
@@ -102,11 +105,12 @@ export class StubBackend implements HarnessBackend<Workspace> {
     let turn: StubTurn | null = null;
     return {
       startTurn: async (task): Promise<TurnHandle> => {
-        const t = new StubTurn(workspace.workdir, task, this.behaviour.stepMs ?? 150);
+        const t = new StubTurn(workspace.workdir, this.behaviour.stepMs ?? 150);
+        const outcome = t.play(task);
         turn = t;
         return {
           events: t.queue,
-          outcome: t.outcome,
+          outcome,
           steer: async (text) => {
             if (t.ended) throw new Error("The stub turn has ended.");
             t.steer(text);

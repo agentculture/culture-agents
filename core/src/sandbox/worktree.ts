@@ -139,8 +139,9 @@ export async function prepare(sandbox: RunSandbox, options: PrepareOptions): Pro
         `git config user.email ${shellQuote(options.identity.email)} && `
       : "";
     // A bundle made from a branch carries no HEAD, so the clone names the branch.
+    const checksumLine = `${digest}  ${posix.join(sandbox.home, SANDBOX_BUNDLE)}`;
     const script =
-      `set -e; echo ${shellQuote(`${digest}  ${posix.join(sandbox.home, SANDBOX_BUNDLE)}`)} | sha256sum -c --quiet; ` +
+      `set -e; echo ${shellQuote(checksumLine)} | sha256sum -c --quiet; ` +
       `rm -rf ${w}; git clone --quiet -b ${shellQuote(branch)} ${b} ${w}; cd ${w}; ` +
       `git remote remove origin; ${identity}rm -f ${b}; git rev-parse HEAD`;
     const res = await sandbox.exec(script, options.signal ? { signal: options.signal } : {});

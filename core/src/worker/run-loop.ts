@@ -39,6 +39,7 @@ export interface WorkerOptions {
 
 const MAX_TIMER = 2 ** 31 - 1;
 const clip = (text: string) => (text.length > 2000 ? `${text.slice(0, 1997)}...` : text);
+const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
 const internal = (message: string): ErrorBody => ({ code: "internal", message, retryable: false });
 const conflict = (runId: RunId, message: string, retryable: boolean): ControlReply => ({
   ok: false,
@@ -93,11 +94,7 @@ export class RunWorker {
   async run(): Promise<RunState> {
     this.armDeadline();
     try {
-      const selection = JSON.parse(readFileSync(runFile(this.dir, "driver"), "utf8")) as DriverSelection;
-      const url = selection.module.startsWith("file:") ? selection.module : pathToFileURL(selection.module).href;
-      const mod = (await import(url)) as { createDriver?: DriverFactory };
-      if (typeof mod.createDriver !== "function") throw new Error("the driver module does not export createDriver");
-      this.driver = await mod.createDriver({ run: this.record, runDir: this.dir, options: selection.options });
+      this.driver = await this.loadDriver();
       // A stop that arrived before the harness started: it never ran, so it has stopped.
       if (this.writer.state === "cancelling") this.finishStop(null);
       if (!this.terminal()) {
@@ -110,9 +107,18 @@ export class RunWorker {
       if (!this.terminal()) this.fail(internal("The harness driver ended without reporting an outcome."));
     } catch (err) {
       if (this.forcing) await this.forcing;
-      if (!this.terminal()) this.fail(internal(`The harness driver failed: ${err instanceof Error ? err.message : String(err)}`));
+      if (!this.terminal()) this.fail(internal(`The harness driver failed: ${messageOf(err)}`));
     }
     return this.done;
+  }
+
+  /** Create the run's driver from the module its `driver` file names. */
+  private async loadDriver(): Promise<Driver> {
+    const selection = JSON.parse(readFileSync(runFile(this.dir, "driver"), "utf8")) as DriverSelection;
+    const url = selection.module.startsWith("file:") ? selection.module : pathToFileURL(selection.module).href;
+    const mod = (await import(url)) as { createDriver?: DriverFactory };
+    if (typeof mod.createDriver !== "function") throw new Error("the driver module does not export createDriver");
+    return await mod.createDriver({ run: this.record, runDir: this.dir, options: selection.options });
   }
 
   /** Release the driver, timers and socket. The log and record stay. */
@@ -296,7 +302,7 @@ export class RunWorker {
       if (this.driver === null) throw new Error("the harness driver is not loaded");
       await this.driver.steer(message);
     } catch (err) {
-      const why = `The steer ${action.id} could not be delivered to the harness: ${err instanceof Error ? err.message : String(err)}`;
+      const why = `The steer ${action.id} could not be delivered to the harness: ${messageOf(err)}`;
       const error: ErrorBody = { code: "unavailable", message: clip(why), retryable: true };
       this.append({ kind: "run.error", data: { error, fatal: false } });
       return { ok: false, error };

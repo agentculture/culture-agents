@@ -75,7 +75,11 @@ function watchFatal(err: (line: string) => void): { fatal: Promise<void>; dispos
  * detached processes: no path through here signals them.
  */
 export async function main(service?: RunService, options: MainOptions = {}): Promise<number> {
-  const err = options.stderr ?? ((line: string) => void process.stderr.write(`${line}\n`));
+  const err =
+    options.stderr ??
+    ((line: string) => {
+      process.stderr.write(`${line}\n`);
+    });
   if (!options.fatalHandlers) return serve(service, options, err, null);
   const watch = watchFatal(err);
   try {
@@ -147,7 +151,13 @@ async function serve(service: RunService | undefined, options: MainOptions, err:
   // After a fatal error the stop is best effort and bounded: the process exits 2 either way.
   let timer: NodeJS.Timeout | undefined;
   const stopped = await Promise.race([
-    stop.then(() => true, (e: unknown) => (err(`culture-agents core: could not stop cleanly: ${e instanceof Error ? e.message : String(e)}`), true)),
+    stop.then(
+      () => true,
+      (e: unknown) => {
+        err(`culture-agents core: could not stop cleanly: ${e instanceof Error ? e.message : String(e)}`);
+        return true;
+      },
+    ),
     new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), options.fatalStopTimeoutMs ?? 5000))),
   ]);
   clearTimeout(timer);
@@ -205,8 +215,12 @@ async function bin(): Promise<number> {
 }
 
 if (isBinTarget()) {
-  bin().then((code) => process.exit(code), (e: unknown) => {
+  let code: number;
+  try {
+    code = await bin();
+  } catch (e) {
     process.stderr.write(`culture-agents core: ${e instanceof Error ? e.message : String(e)}\n`);
-    process.exit(2);
-  });
+    code = 2;
+  }
+  process.exit(code);
 }

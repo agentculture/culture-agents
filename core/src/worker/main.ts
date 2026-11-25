@@ -46,10 +46,11 @@ async function main(): Promise<number> {
   return 0;
 }
 
-main().then(
-  (code) => process.exit(code),
-  (err: unknown) => {
-    process.stderr.write(`worker ${process.pid}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
-    process.exit(1);
-  },
-);
+let exitCode: number;
+try {
+  exitCode = await main();
+} catch (err) {
+  process.stderr.write(`worker ${process.pid}: ${err instanceof Error ? (err.stack ?? err.message) : String(err)}\n`);
+  exitCode = 1;
+}
+process.exit(exitCode);
