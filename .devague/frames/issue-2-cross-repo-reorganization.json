@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T09:02:50Z",
+  "updated": "2026-11-25T09:10:08Z",
   "claims": [
     {
       "id": "c1",
@@ -1547,6 +1547,17 @@
       "skipped_check": "test-first: a failing test observed before the fix",
       "refs": [
         "runs/fix-cli 396e324"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l12",
+      "code": "control-absent",
+      "what": "The sandbox/harness fix agent did not observe most of its new tests failing before the fix (the new exports would not compile)",
+      "skipped_check": "test-first: a failing test observed before the fix",
+      "refs": [
+        "runs/fix-sandbox 661c86f"
       ],
       "origin": "llm",
       "status": "proposed"
