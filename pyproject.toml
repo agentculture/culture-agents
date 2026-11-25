@@ -77,3 +77,22 @@ skips = ["B101", "B404", "B603"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+
+# The npm package in core/ carries the same version as this one. While it is
+# still the 0.0.0 placeholder (before its first publish) the bump leaves it
+# alone; once it holds the real version, every bump moves the files together.
+[tool.version-bump]
+placeholder = "0.0.0"
+
+[[tool.version-bump.mirror]]
+path = "core/package.json"
+kind = "json"
+
+[[tool.version-bump.mirror]]
+path = "core/package-lock.json"
+kind = "npm-lock"
+
+[[tool.version-bump.mirror]]
+path = "core/src/index.ts"
+kind = "text"
+pattern = 'export const version = "{version}";'
