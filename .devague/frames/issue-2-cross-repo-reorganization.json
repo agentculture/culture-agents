@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T13:16:01Z",
+  "updated": "2026-11-25T13:58:47Z",
   "claims": [
     {
       "id": "c1",
@@ -1571,7 +1571,7 @@
         "PR #4 SonarCloud round"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l14",
@@ -1582,7 +1582,7 @@
         "PR #4 SonarCloud round"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l15",
@@ -1593,7 +1593,7 @@
         "commit 5bba691"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ],
   "obligations": [
