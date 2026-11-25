@@ -6,7 +6,7 @@
  * machine; this class only reports `DriverEvent`s, ending with exactly one outcome.
  */
 import type { ErrorBody } from "../../contract/index.js";
-import type { Driver, DriverEvent } from "../../worker/driver.js";
+import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent } from "../../worker/driver.js";
 import { describeProcs, newProcesses } from "./processes.js";
 import { EventQueue, errorMessage, sleep } from "./queue.js";
 import type {
@@ -29,7 +29,17 @@ export interface RunDriverOptions {
   stopSettleMs?: number;
   /** Pause before each process listing after a stop (lets exiting processes go). Default 1.5 s. */
   processSettleMs?: number;
+  /**
+   * Days the workspace is kept when the turn completed but its work could not be committed or
+   * brought to the host. Default RETAIN_FAILED_SANDBOX_DAYS (7); 0 keeps nothing.
+   */
+  retainFailedDays?: number;
+  /** The clock for the retention's end (tests). */
+  now?: () => number;
 }
+
+export { RETAIN_FAILED_SANDBOX_DAYS };
+const DAY_MS = 86_400_000;
 
 /** One process check: what was found, or why the check could not look. */
 interface Listing {
@@ -68,6 +78,8 @@ export class RunDriver<W extends Workspace> implements Driver {
   private forceStop!: () => void;
   private readonly forced = new Promise<void>((resolve) => (this.forceStop = resolve));
   private destroying: Promise<boolean> | null = null;
+  /** The workspace is kept for recovery (a retention): nothing in this driver deletes it any more. */
+  private kept = false;
   private stopTimer: NodeJS.Timeout | undefined;
   /** Set after a cancel: what the process checks saw. */
   stopReport: StopReport | null = null;
@@ -169,11 +181,16 @@ export class RunDriver<W extends Workspace> implements Driver {
       stage = "close the harness";
       await this.session.close();
       if (this.stopping) return await this.stopAll();
-      stage = "commit the run's changes";
-      const commits = await this.workspace.commitAll(this.options.commitMessage);
-      if (this.stopping) return await this.stopAll();
-      stage = "collect the run's commits";
-      this.collected = commits > 0 ? await this.workspace.collect() : null;
+      try {
+        stage = "commit the run's changes";
+        const commits = await this.workspace.commitAll(this.options.commitMessage);
+        if (this.stopping) return await this.stopAll();
+        stage = "collect the run's commits";
+        this.collected = commits > 0 ? await this.workspace.collect() : null;
+      } catch (err) {
+        if (this.stopping) return await this.stopAll();
+        return await this.failAfterTurn(stage, err);
+      }
       this.queue.push(
         diagnostic(this.collected ? `collected ${this.collected.commits} commit(s) on ${this.collected.branch}` : "the run made no commits"),
       );
@@ -195,6 +212,33 @@ export class RunDriver<W extends Workspace> implements Driver {
     }
   }
 
+  /**
+   * The turn completed but its work could not be committed or brought to the host. The workspace
+   * then holds the only copy of that work, so where it can be kept it is: the harness is closed
+   * and what it left running is killed as usual, the workspace is not destroyed, and the run
+   * fails saying where the work is, until when, and how to get it out. A cancelled run and a run
+   * whose turn failed never come here.
+   */
+  private async failAfterTurn(stage: string, err: unknown): Promise<void> {
+    const why = `Could not ${stage}: ${errorMessage(err)}`;
+    const days = this.options.retainFailedDays ?? RETAIN_FAILED_SANDBOX_DAYS;
+    const retention = days > 0 ? (this.workspace?.retention?.() ?? null) : null;
+    if (!this.workspace || retention === null) {
+      await this.release();
+      return this.finish({ type: "failed", error: this.error("internal", why, false) });
+    }
+    this.kept = true; // from here no path of this driver deletes the workspace, a late dispose included
+    // The harness was closed before the commit; what it left running is killed, since this sandbox is not deleted.
+    const left = await this.settled(this.options.processSettleMs ?? 1500);
+    if (left.failed === null && left.procs.length > 0) await this.workspace.kill(left.procs.map((p) => p.pid)).catch(() => undefined);
+    await this.workspace.keep?.().catch(() => undefined);
+    const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
+    const message =
+      `${why.length > 900 ? `${why.slice(0, 897)}...` : why}. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
+      `with the run's work in it. To get the work out: ${retention.recover}`;
+    this.finish({ type: "failed", error: this.error("internal", message, false), retained: { sandbox: retention.sandbox, until } });
+  }
+
   /** Close the harness and destroy the workspace, swallowing errors (failure paths). */
   private async release(): Promise<void> {
     await this.session?.close().catch(() => undefined);
@@ -202,7 +246,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   }
 
   private destroyWorkspace(): Promise<boolean> {
-    if (!this.workspace) return Promise.resolve(true);
+    if (!this.workspace || this.kept) return Promise.resolve(true);
     this.destroying ??= this.workspace.destroy().then(
       () => true,
       () => false,

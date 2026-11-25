@@ -40,11 +40,13 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { RETAIN_FAILED_SANDBOX_DAYS } from "../worker/driver.js";
+
 export const CLAUDE_MODELS = ["haiku", "sonnet", "opus"] as const;
 export type ClaudeModel = (typeof CLAUDE_MODELS)[number];
 
 /** Days a sandbox is kept when a completed turn's commit or collect failed (owner decision: 7). */
-export const DEFAULT_RETAIN_FAILED_SANDBOX_DAYS = 7;
+export const DEFAULT_RETAIN_FAILED_SANDBOX_DAYS = RETAIN_FAILED_SANDBOX_DAYS;
 export const MAX_RETAIN_FAILED_SANDBOX_DAYS = 90;
 
 /** An environment variable name. */

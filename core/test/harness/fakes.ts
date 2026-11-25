@@ -23,6 +23,9 @@ export class FakeWorkspace implements Workspace {
   killed: number[] = [];
   /** When set, every listing after the baseline fails with this message. */
   procFailure: string | null = null;
+  /** When true, the workspace can be kept after a failed commit or collect (a sandbox); false models the stub. */
+  retainable = false;
+  kept = 0;
 
   constructor(private readonly failAt: FailAt) {}
 
@@ -51,6 +54,15 @@ export class FakeWorkspace implements Workspace {
     return { branch: "runs/x", commit: "abc", commits: 1, shas: ["abc"] };
   }
 
+  retention(): { sandbox: string; recover: string } | null {
+    return this.retainable ? { sandbox: "t-abc123", recover: "openshell sandbox ssh-config t-abc123, then git fetch runs/x" } : null;
+  }
+
+  async keep(): Promise<void> {
+    this.calls.push("keep");
+    this.kept += 1;
+  }
+
   async destroy(): Promise<void> {
     this.calls.push("destroy");
     this.destroyed += 1;
@@ -60,11 +72,15 @@ export class FakeWorkspace implements Workspace {
 
 export class FakeFactory implements WorkspaceFactory<FakeWorkspace> {
   workspace: FakeWorkspace | null = null;
-  constructor(private readonly failAt: FailAt) {}
+  constructor(
+    private readonly failAt: FailAt,
+    private readonly retainable = false,
+  ) {}
   async open(signal: AbortSignal): Promise<FakeWorkspace> {
     if (this.failAt === "open") throw new Error("gateway unreachable");
     signal.throwIfAborted();
     this.workspace = new FakeWorkspace(this.failAt);
+    this.workspace.retainable = this.retainable;
     return this.workspace;
   }
 }

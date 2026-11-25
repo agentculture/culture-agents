@@ -30,6 +30,8 @@ export const RUN_FILES = {
   driver: "driver.json",
   /** Where a completed run's commits landed: `{ branch, commits }` with full SHAs, oldest first. */
   collected: "collected.json",
+  /** A sandbox kept after a completed turn's work could not be brought to the host: `{ sandbox, until }`. */
+  retained: "retained.json",
   /** The worker's own stdout/stderr (diagnostics only, never parsed). */
   log: "worker.log",
 } as const;

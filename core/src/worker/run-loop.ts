@@ -25,6 +25,7 @@ import { identityOf, writeHeartbeat, writeWorkerIdentity } from "../store/livene
 import { readRecord, writeRecord } from "../store/run-store.js";
 import { closeControl, listenControl, type ControlReply, type ControlRequest } from "./control.js";
 import type { Driver, DriverEvent, DriverFactory, DriverSelection } from "./driver.js";
+import { writeRetained } from "./retained.js";
 
 export interface WorkerOptions {
   stateDir: string;
@@ -187,6 +188,8 @@ export class RunWorker {
         this.transition("succeeded", null);
         return;
       case "failed":
+        // Before the terminal event: once the run reads `failed`, the reclaim already finds the retention.
+        if (event.retained) writeRetained(this.dir, event.retained);
         this.fail(event.error);
         return;
       case "stopped":

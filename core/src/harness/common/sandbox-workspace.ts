@@ -33,6 +33,8 @@ export interface SandboxSettings {
   /** Host ref the run starts from. */
   ref: string;
   identity: { name: string; email: string };
+  /** Days the sandbox is kept when a completed turn's commit or collect fails; 0 keeps nothing. Default 7. */
+  retainFailedSandboxDays?: number;
 }
 
 /** Injectable sandbox-layer calls (tests replace them). */
@@ -127,6 +129,23 @@ export class SandboxWorkspace implements Workspace {
     const count = `cd ${shq(this.workdir)} && git rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`;
     const res = await withTimeout("counting the run's commits in the sandbox", COMMIT_TIMEOUT_MS, (signal) => this.sandbox.exec(count, { signal }));
     return res.exitCode === 0 ? Number(text(res.stdout).trim()) : 0;
+  }
+
+  retention(): { sandbox: string; recover: string } {
+    const gateway = this.settings.gateway.name ? `-g ${this.settings.gateway.name} ` : "";
+    const branch = this.prepared.branch;
+    return {
+      sandbox: this.sandbox.name,
+      recover:
+        `run \`${this.settings.openshellBin} ${gateway}sandbox ssh-config ${this.sandbox.name} > ca-ssh.cfg\`, then in ${this.hostRepo} ` +
+        `\`GIT_SSH_COMMAND='ssh -F ca-ssh.cfg' git fetch ssh://<the Host name in ca-ssh.cfg>${this.prepared.path} ${branch}:${branch}\`. ` +
+        `Changes that were never committed are in the sandbox's working tree ${this.prepared.path}.`,
+    };
+  }
+
+  /** Close the forwards and tracked processes; the sandbox stays on the gateway. */
+  async keep(): Promise<void> {
+    await this.sandbox.stop();
   }
 
   destroy(): Promise<void> {

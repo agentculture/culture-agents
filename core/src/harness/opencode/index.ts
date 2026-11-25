@@ -23,6 +23,7 @@ export function createDriver(context: DriverContext): Driver {
     task: run.task,
     commitMessage: `run ${run.id}: changes by opencode`,
     ...(options.stopSettleMs === undefined ? {} : { stopSettleMs: options.stopSettleMs }),
+    ...(options.sandbox.retainFailedSandboxDays === undefined ? {} : { retainFailedDays: options.sandbox.retainFailedSandboxDays }),
   });
   const doc = capabilityDocument({ harness: "opencode", available: true, version: null, transport: OPENCODE_TRANSPORT, core: openCodeCore() });
   return guardDriver(driver, doc);
