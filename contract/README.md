@@ -284,8 +284,10 @@ After a restart, the core rebuilds every run from disk:
     the stream is idle, the core sends a comment line `: keepalive` at least
     every 15 seconds.
   - If `after` is absent, the core uses the `Last-Event-ID` header. If both
-    are absent, it uses 0. To reconnect, a client attaches again with
-    `after` set to the last cursor it received.
+    are absent, it uses 0. A `Last-Event-ID` that is not an integer of 0 or
+    more gets `invalid` with `field: "Last-Event-ID"`. It is never read as 0.
+    To reconnect, a client attaches again with `after` set to the last cursor
+    it received.
   - Errors that happen before the stream starts are ordinary JSON error
     responses. If the stream breaks after it starts, the client reconnects.
 - **Logs** (`GET .../events?after=N&limit=M`): returns events with cursor

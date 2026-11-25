@@ -184,11 +184,20 @@ test("pause, resume and answer are always unsupported, after id, existence and b
   const bodies = { pause: { caller }, resume: { caller }, answer: { caller, question_id: "q1", answer: "yes" } };
   for (const [verb, body] of Object.entries(bodies)) {
     const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body });
-    assert.equal(expectError(reply, "unsupported").capability, verb);
+    const refusal = expectError(reply, "unsupported");
+    assert.equal(refusal.capability, verb);
+    // The route hands the refusal to the service, which records it when the run is live and controlled.
+    assert.deepEqual(service.refusals.at(-1), { runId: RUN, kind: verb, caller, error: refusal });
     expectError(await call(env.socket, "POST", `/v1/runs/${OTHER_RUN}/${verb}`, { body }), "not_found");
     expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body: { nope: true } }), "invalid");
     expectError(await call(env.socket, "POST", `/v1/runs/bad/${verb}`, { body }), "invalid");
   }
+  assert.equal(service.refusals.length, 3, "only a refusal at step 4 is handed over, never an earlier one");
+  // A service that fails to record changes nothing for the caller.
+  const original = service.recordRefusal.bind(service);
+  service.recordRefusal = () => Promise.reject(new Error("the worker is gone"));
+  assert.equal(expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/pause`, { body: bodies.pause }), "unsupported").capability, "pause");
+  service.recordRefusal = original;
 });
 
 test("steer and cancel validate then reach the service", async () => {
@@ -273,6 +282,14 @@ test("attach on a terminal run: Last-Event-ID is the fallback, full replay from 
   const resumed = attach(`/v1/runs/${RUN}/attach`, { "Last-Event-ID": String(total - 1) });
   await resumed.closed;
   assert.deepEqual(resumed.frames.map((f) => f.id), [String(total)]);
+  // A Last-Event-ID that is not a cursor is refused, never read as 0; a valid `after` still wins over it.
+  for (const bad of ["abc", "1.5", "-1", "", "2,3", "99999999999999999999"]) {
+    const reply = await call(env.socket, "GET", `/v1/runs/${RUN}/attach`, { headers: { "Last-Event-ID": bad } });
+    assert.equal(expectError(reply, "invalid").field, "Last-Event-ID", JSON.stringify(bad));
+  }
+  const wins = attach(`/v1/runs/${RUN}/attach?after=${total - 1}`, { "Last-Event-ID": "abc" });
+  await wins.closed;
+  assert.deepEqual(wins.frames.map((f) => f.id), [String(total)]);
   const done = attach(`/v1/runs/${RUN}/attach?after=${total}`);
   await done.closed;
   assert.equal(done.frames.length, 0);

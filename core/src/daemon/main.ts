@@ -169,6 +169,7 @@ export const unwiredService: RunService = (() => {
     getResult: no,
     steer: no,
     cancel: no,
+    recordRefusal: no,
     listAgents: no,
     getAgent: no,
     listHarnesses: no,

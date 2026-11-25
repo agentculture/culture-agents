@@ -44,6 +44,8 @@ test("a worker survives a daemon SIGKILL: reported from disk, no live control, b
   assert.equal(steer.capability, "reconnect");
   const cancel = await refused(env, "POST", `/v1/runs/${run.id}/cancel`, "unsupported", { caller: CALLER });
   assert.equal(cancel.capability, "reconnect");
+  // A deferred action is still refused at step 4, naming itself; without live control it is not recorded.
+  assert.equal((await refused(env, "POST", `/v1/runs/${run.id}/pause`, "unsupported", { caller: CALLER })).capability, "pause");
   const busy = await refused(env, "POST", "/v1/runs", "busy", submitBody("fake-timed", env.repoA));
   assert.equal(busy.active_run_id, run.id);
   assert.ok(processExists(pid), "the restart never signalled the worker");

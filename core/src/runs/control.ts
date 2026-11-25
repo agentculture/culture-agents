@@ -8,15 +8,17 @@
  * 8. delivery over the worker's control channel, else `unavailable`;
  * 9. the accepted action record (the worker appends it to the log as `run.control`).
  *
- * Refusals at 5 and 6 against a non-terminal run whose worker this core controls are also written
- * to the run's log as `run.refused`, by the worker (the log's only writer while it lives). A refused
- * action is never forwarded to the harness.
+ * Refusals at 4, 5 and 6 against a non-terminal run whose worker this core controls are also
+ * written to the run's log as `run.refused`, by the worker (the log's only writer while it lives).
+ * The server decides step 4 (`pause`, `resume`, `answer`) and hands the refusal to
+ * `recordDeferredRefusal`. A refused action is never forwarded to the harness.
  */
 import {
   buildActionId,
   type AcceptedResponse,
   isActive,
   newUlid,
+  type ActionKind,
   type ActionRecord,
   type CancelRequest,
   type Capabilities,
@@ -25,6 +27,7 @@ import {
   type SteerRequest,
 } from "../contract/index.js";
 import { ControlError, unavailable, unsupported } from "../daemon/errors.js";
+import type { DeferredKind, DeferredRequest } from "../daemon/ports.js";
 import { ControlUnavailableError, type ControlReply } from "../worker/control.js";
 import type { WorkerControl } from "../worker/spawn.js";
 
@@ -39,7 +42,7 @@ export interface ControlTarget {
   now: () => Date;
 }
 
-function record(run: Run, kind: ControlKind, request: SteerRequest | CancelRequest, now: () => Date): ActionRecord {
+function record(run: Run, kind: ActionKind, request: SteerRequest | CancelRequest | DeferredRequest, now: () => Date): ActionRecord {
   return {
     id: buildActionId(run.agent_id, newUlid(now().getTime())),
     run_id: run.id,
@@ -71,14 +74,22 @@ function stateRefusal(kind: ControlKind, run: Run): ControlError | null {
   return null;
 }
 
-/** Have the worker write `run.refused`; a failure to record never changes the refusal itself. */
-async function recordRefusal(target: ControlTarget, action: ActionRecord, error: ControlError): Promise<void> {
-  if (target.worker === null || target.run.terminal) return;
+/**
+ * Have the worker write `run.refused`; a failure to record never changes the refusal itself.
+ * Nothing is written for a terminal run or a run this core holds no live control of.
+ */
+async function recordRefusal(target: Pick<ControlTarget, "run" | "worker">, action: ActionRecord, error: ErrorBody): Promise<void> {
+  if (target.worker === null || target.run.terminal || !target.run.live_control) return;
   try {
-    await target.worker.refuse({ ...action, outcome: "refused", error: error.body });
+    await target.worker.refuse({ ...action, outcome: "refused", error });
   } catch {
     // The worker is unreachable or already done; the caller still gets the typed refusal.
   }
+}
+
+/** Step 4: record the server's refusal of a deferred action (`pause`, `resume`, `answer`). Never throws. */
+export async function recordDeferredRefusal(kind: DeferredKind, target: Pick<ControlTarget, "run" | "worker" | "now">, request: DeferredRequest, error: ErrorBody): Promise<void> {
+  await recordRefusal(target, record(target.run, kind, request, target.now), error);
 }
 
 function replyError(run: Run, reply: ControlReply): ControlError | null {
@@ -95,7 +106,7 @@ export async function control(kind: ControlKind, target: ControlTarget, request:
   const action = record(run, kind, request, target.now);
   const refusal = capabilityRefusal(kind, target) ?? stateRefusal(kind, run);
   if (refusal !== null) {
-    await recordRefusal(target, action, refusal);
+    await recordRefusal(target, action, refusal.body);
     throw refusal;
   }
   if (!run.live_control || target.worker === null) {
