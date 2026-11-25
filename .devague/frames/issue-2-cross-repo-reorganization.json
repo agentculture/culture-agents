@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T06:58:42Z",
+  "updated": "2026-11-25T09:01:27Z",
   "claims": [
     {
       "id": "c1",
@@ -1525,6 +1525,17 @@
       "skipped_check": "isolating why the short-deadline tests failed before changing them",
       "refs": [
         "integration fixes (runs/join)"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l10",
+      "code": "control-absent",
+      "what": "The store/daemon fix agent wrote the fixes for the liveness and event-log items before their tests; the liveness tests' failure on the original code is by reasoning only (they import the new error class)",
+      "skipped_check": "test-first: a failing test observed before the fix",
+      "refs": [
+        "runs/fix-store a1c9218"
       ],
       "origin": "llm",
       "status": "proposed"
