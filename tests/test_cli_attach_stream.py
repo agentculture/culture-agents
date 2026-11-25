@@ -50,7 +50,9 @@ def test_attach_resumes_after_the_core_went_away_and_came_back(core, monkeypatch
     got += [event["cursor"] for event in stream]
     assert got == CURSORS  # no gap, no duplicate
     assert _afters(core) == ["0", "2"]
-    assert len(naps) == 3 and all(0 < n <= 2 for n in naps) and naps[0] < naps[2]
+    assert len(naps) == 3
+    assert all(0 < n <= 2 for n in naps)
+    assert naps[0] < naps[2]
 
 
 def test_attach_gives_up_when_the_core_stays_away_for_the_whole_window(core, naps) -> None:
@@ -89,20 +91,24 @@ def test_a_non_retryable_error_on_reconnect_ends_the_attach_at_once(
     with pytest.raises(CoreError) as exc:
         next(stream)
     assert (exc.value.error_code, exc.value.code) == (code, exit_code)
-    assert naps == [] and len(_afters(core)) == 2
+    assert naps == []
+    assert len(_afters(core)) == 2
 
 
 def test_a_first_connect_that_fails_exits_2_at_once(no_core, naps, capsys) -> None:
     r = run(capsys, "runs", "attach", RUN_ID)
-    assert r.rc == 2 and r.err.startswith("error: cannot reach the core")
+    assert r.rc == 2
+    assert r.err.startswith("error: cannot reach the core")
     assert naps == []
 
 
 def test_a_first_stream_that_is_refused_as_unavailable_is_not_retried(core, naps, capsys) -> None:
     core.attach_cutoffs = [UNAVAILABLE]
     r = run(capsys, "runs", "attach", RUN_ID, "--json")
-    assert r.rc == 2 and r.err_json()["error_code"] == "unavailable"
-    assert naps == [] and len(_afters(core)) == 1
+    assert r.rc == 2
+    assert r.err_json()["error_code"] == "unavailable"
+    assert naps == []
+    assert len(_afters(core)) == 1
 
 
 def test_attach_through_the_cli_survives_a_restart(core, monkeypatch, capsys) -> None:
@@ -114,7 +120,8 @@ def test_attach_through_the_cli_survives_a_restart(core, monkeypatch, capsys) ->
     core.attach_cutoffs = [2]
     core.stop_after_attach = True  # the core dies right after the first stream breaks
     r = run(capsys, "runs", "attach", RUN_ID)
-    assert r.rc == 0 and r.err == ""
+    assert r.rc == 0
+    assert r.err == ""
     assert [line.split()[0] for line in r.out.splitlines()] == [f"#{c}" for c in CURSORS]
 
 
@@ -148,11 +155,13 @@ def test_a_cursor_gap_is_an_internal_error_naming_both_cursors(
     assert r.rc == 2
     err = r.err_json()
     assert err["error_code"] == "internal"
-    assert f"cursor {bad}" in err["message"] and f"cursor {last}" in err["message"]
+    assert f"cursor {bad}" in err["message"]
+    assert f"cursor {last}" in err["message"]
     assert len(r.out.splitlines()) == len(sent) - 1  # nothing at or past the gap is printed
 
 
 def test_data_that_is_not_json_is_an_internal_error(core, capsys) -> None:
     core.attach_cutoffs = [_frames(EVENTS[0]) + b"data: not json\n\n"]
     r = run(capsys, "runs", "attach", RUN_ID, "--json")
-    assert r.rc == 2 and r.err_json()["error_code"] == "internal"
+    assert r.rc == 2
+    assert r.err_json()["error_code"] == "internal"

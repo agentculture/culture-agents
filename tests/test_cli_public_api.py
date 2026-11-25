@@ -42,15 +42,19 @@ def test_meta_verbs_are_registered_through_the_public_hook() -> None:
 
 def test_help_returns_zero_and_does_not_raise(capsys: pytest.CaptureFixture[str]) -> None:
     r = run(capsys, "runs", "attach", "--help")
-    assert r.rc == 0 and "usage: agents runs attach" in r.out
+    assert r.rc == 0
+    assert "usage: agents runs attach" in r.out
 
 
 def test_a_parse_error_is_structured_in_both_modes(capsys: pytest.CaptureFixture[str]) -> None:
     text = run(capsys, "runs", "show")
-    assert text.rc == 1 and text.out == ""
-    assert text.err.startswith("error: ") and "\nhint: " in text.err
+    assert text.rc == 1
+    assert text.out == ""
+    assert text.err.startswith("error: ")
+    assert "\nhint: " in text.err
     j = run(capsys, "runs", "show", "--json")
-    assert j.rc == 1 and j.out == ""
+    assert j.rc == 1
+    assert j.out == ""
     assert {"code", "message", "remediation"} <= set(j.err_json())
 
 
@@ -64,7 +68,8 @@ def test_an_unexpected_exception_is_wrapped_without_a_traceback(
 
     monkeypatch.setattr(whoami, "report", boom)
     r = run(capsys, "whoami", "--json")
-    assert r.rc == 1 and r.out == ""
+    assert r.rc == 1
+    assert r.out == ""
     assert "kaput" in r.err_json()["message"]
     assert "Traceback" not in r.err
 
@@ -139,5 +144,6 @@ def test_output_that_cannot_be_written_is_an_environment_error_not_a_traceback(
     monkeypatch.setattr(sys, "stdout", FullDisk())
     assert main(["whoami", "--json"]) == 2
     err = json.loads(capsys.readouterr().err)
-    assert err["code"] == 2 and "No space left on device" in err["message"]
+    assert err["code"] == 2
+    assert "No space left on device" in err["message"]
     assert err["remediation"]

@@ -109,7 +109,8 @@ def test_live_submit_is_fast_and_the_harness_completes_a_task(live_core: Core) -
         **net,
     )
     assert done["state"] == "succeeded", result["error"]
-    assert result["branch"] == f"runs/{run['id']}" and result["commits"]
+    assert result["branch"] == f"runs/{run['id']}"
+    assert result["commits"]
     assert "hello.txt" in branch_files(repo, run["id"])
     assert host_untouched(repo)
 

@@ -62,14 +62,16 @@ def test_every_object_is_closed_except_the_extension(name):
 def test_extension_is_the_only_open_object_and_is_opaque():
     ext = SCHEMAS["common.json"]["$defs"]["extension"]
     assert ext["type"] == "object"
-    assert "additionalProperties" not in ext and "properties" not in ext
+    assert "additionalProperties" not in ext
+    assert "properties" not in ext
 
 
 def test_extension_is_only_referenced_by_a_property_named_extension():
     for name, schema in SCHEMAS.items():
         for path, node in cs.iter_subschemas(schema):
             if str(node.get("$ref", "")).endswith("common.json#/$defs/extension"):
-                assert path[-2:-1] == ("properties",) and path[-1] == "extension", (name, path)
+                assert path[-2:-1] == ("properties",), (name, path)
+                assert path[-1] == "extension", (name, path)
 
 
 @pytest.mark.parametrize("name", sorted(SCHEMAS))
@@ -95,14 +97,16 @@ def test_deny_list_catches_a_planted_name(planted):
 
 def test_harness_ids_are_free_strings_not_an_enum():
     harness = SCHEMAS["common.json"]["$defs"]["harness_id"]
-    assert harness["type"] == "string" and "enum" not in harness
+    assert harness["type"] == "string"
+    assert "enum" not in harness
 
 
 # --- fixtures -----------------------------------------------------------------
 
 
 def test_fixture_kit_is_not_empty():
-    assert len(VALID) >= 20 and len(INVALID) >= 20
+    assert len(VALID) >= 20
+    assert len(INVALID) >= 20
 
 
 @pytest.mark.parametrize("path", VALID, ids=_rel)

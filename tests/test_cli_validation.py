@@ -109,7 +109,8 @@ def test_an_invalid_run_inside_a_list_is_refused(core, capsys) -> None:
     runs = fixture("run", "run_list.two-runs")["runs"]
     core.respond("GET /v1/runs", 200, {"runs": [runs[0], {**runs[1], "state": "paused"}]})
     r = run(capsys, "runs", "list", "--json")
-    assert r.rc == 2 and r.out == ""
+    assert r.rc == 2
+    assert r.out == ""
     assert r.err_json()["error_code"] == "internal"
 
 
@@ -119,7 +120,8 @@ def test_an_invalid_capability_document_is_refused(core, capsys) -> None:
     listing = {**fixture("agent", "agent_list.two-agents"), "harnesses": [broken]}
     core.respond("GET /v1/agents", 200, listing)
     r = run(capsys, "agents", "list")
-    assert r.rc == 2 and r.out == ""
+    assert r.rc == 2
+    assert r.out == ""
     assert r.err.startswith("error: the core sent an invalid agent_list payload")
 
 
@@ -150,4 +152,5 @@ def test_missing_schemas_are_an_environment_error(
     monkeypatch.setattr(_contract, "_CANDIDATES", (tmp_path / "a", tmp_path / "b"))
     with pytest.raises(CliError) as exc:
         _contract.schema_dir()
-    assert exc.value.code == 2 and exc.value.remediation
+    assert exc.value.code == 2
+    assert exc.value.remediation
