@@ -32,7 +32,9 @@ def _argv_has_json(argv: list[str] | None) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = derive_parser(get_app())
-    _propagate_raw_argv(parser, argv)  # lets parse errors honour --json
+    # Lets parse errors honour --json. agentfront peeks at this list and does not read
+    # sys.argv itself, so the real command line is passed when no argv was given.
+    _propagate_raw_argv(parser, argv if argv is not None else sys.argv[1:])
     json_mode = _argv_has_json(argv)
     prior = _mode.JSON_MODE.set(json_mode)
     try:

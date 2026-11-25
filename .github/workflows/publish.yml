@@ -79,7 +79,19 @@ jobs:
 
       - run: uv sync
 
+      # A release is gated on the core as well: build it, run its checks, and make the
+      # D1 acceptance mock stage (real CLI against the real core) run rather than skip.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: install, build, type-check, lint and test the core
+        working-directory: core
+        run: npm ci && npm run build && npm run typecheck && npm run lint && npm test
+
       - run: uv run pytest -n auto -v
+        env:
+          CULTURE_AGENTS_ACCEPTANCE_REQUIRE: "1"
 
   npm-dry-run:
     # Same-repo and fork PRs alike: no OIDC is needed, nothing is published.
