@@ -1,6 +1,6 @@
 /** A run whose stored state cannot be read is reported as such; it is never treated as absent. */
 import assert from "node:assert/strict";
-import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
@@ -33,11 +33,11 @@ test("a live worker whose liveness evidence cannot be read is never settled as u
   const run = await submit(env, "fake", env.repoA);
   await waitRun(env, run.id, (r) => r.state === "running" && r.cursor >= 3, "running");
   const stream = await attach(env, run.id, 0);
-  // The identity file exists but reading it fails (EISDIR): that is not "no worker".
+  // The identity file exists but reading it fails (EACCES): that is not "no worker". The mode
+  // change is one step, so no reader ever sees the file missing (replacing it with a directory
+  // left a moment without it, in which the attach follower rightly settled the run as unknown).
   const identity = join(env.stateDir, "runs", run.id, "worker.json");
-  const saved = readFileSync(identity, "utf8");
-  rmSync(identity);
-  mkdirSync(identity);
+  chmodSync(identity, 0o000);
 
   const shown = await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
   assert.match(shown.message, /liveness cannot be established/);
@@ -46,8 +46,7 @@ test("a live worker whose liveness evidence cannot be read is never settled as u
   await new Promise((resolve) => setTimeout(resolve, 600)); // several orphan checks of the attach follower
   assert.ok(processExists(run.worker_pid as number), "the worker is still running");
 
-  rmSync(identity, { recursive: true });
-  writeFileSync(identity, saved, { mode: 0o600 });
+  chmodSync(identity, 0o600);
   assert.equal((await getRun(env, run.id)).state, "running");
   assert.deepEqual((await events(env, run.id)).filter((e) => e.kind === "run.state").map((e) => (e.data as StateData).to), ["queued", "running"]);
   // The stream stayed open through the failed checks and still ends with the real outcome.
