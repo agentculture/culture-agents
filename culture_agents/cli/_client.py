@@ -188,7 +188,7 @@ class CoreClient:
             conn.close()
         try:
             parsed = json.loads(raw.decode("utf-8")) if raw else None
-        except (UnicodeDecodeError, ValueError):
+        except ValueError:  # bytes that are not UTF-8 (UnicodeDecodeError), or not JSON
             parsed = None
         if not 200 <= status < 300:
             raise error_from_body(status, parsed)
@@ -271,5 +271,5 @@ def _query(params: dict[str, Any] | None) -> str:
 def _loads(raw: bytes) -> Any:
     try:
         return json.loads(raw.decode("utf-8")) if raw else None
-    except (UnicodeDecodeError, ValueError):
+    except ValueError:  # bytes that are not UTF-8 (UnicodeDecodeError), or not JSON
         return None

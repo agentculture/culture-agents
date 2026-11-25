@@ -98,6 +98,7 @@ def test_unreachable_socket_raises_unavailable(no_core) -> None:
 def test_attach_gives_up_after_repeated_empty_reconnects(core, monkeypatch) -> None:
     monkeypatch.setattr(_stream.time, "sleep", lambda _s: None)
     core.attach_cutoffs = [0] * 20  # every connection closes without an event
+    events = CoreClient().attach(fixture("run", "root.running")["id"])  # lazy: nothing runs yet
     with pytest.raises(CoreError) as exc:
-        list(CoreClient().attach(fixture("run", "root.running")["id"]))
+        list(events)
     assert exc.value.error_code == "unavailable"
