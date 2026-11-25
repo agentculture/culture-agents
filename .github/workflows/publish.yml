@@ -88,7 +88,7 @@ jobs:
 
       - name: install, build, type-check, lint and test the core
         working-directory: core
-        run: npm ci && npm run build && npm run typecheck && npm run lint && npm test
+        run: npm ci --ignore-scripts && npm run build && npm run typecheck && npm run lint && npm test
 
       - run: uv run pytest -n auto -v
         env:
@@ -111,7 +111,7 @@ jobs:
         with:
           node-version: '24'
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - run: npm run build
 
@@ -182,7 +182,7 @@ jobs:
       - name: Use an npm that supports trusted publishing (11.5.1 or later)
         run: npm install -g npm@11.21.1 --ignore-scripts
 
-      - run: npm ci
+      - run: npm ci --ignore-scripts
 
       - run: npm run build
 

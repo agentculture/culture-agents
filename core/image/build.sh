@@ -17,7 +17,7 @@ opencode_bin="${OPENCODE_BIN:-}"
 compat=1
 want_version="${OPENCODE_VERSION:-2.3.2}"
 
-while [ $# -gt 0 ]; do
+while [[ $# -gt 0 ]]; do
   case "$1" in
     --tag) tag="$2"; shift 2 ;;
     --opencode) opencode_bin="$2"; shift 2 ;;
@@ -27,15 +27,15 @@ while [ $# -gt 0 ]; do
 done
 
 bridge="$core/node_modules/@ai-sdk/harness-claude-code/dist/bridge"
-[ -f "$bridge/package.json" ] || { echo "missing $bridge: run npm ci in core/ first" >&2; exit 2; }
+[[ -f "$bridge/package.json" ]] || { echo "missing $bridge: run npm ci in core/ first" >&2; exit 2; }
 
-if [ -z "$opencode_bin" ]; then
+if [[ -z "$opencode_bin" ]]; then
   opencode_bin="$(command -v opencode || true)"
 fi
-[ -n "$opencode_bin" ] || { echo "no opencode binary: pass --opencode PATH" >&2; exit 2; }
+[[ -n "$opencode_bin" ]] || { echo "no opencode binary: pass --opencode PATH" >&2; exit 2; }
 opencode_bin="$(readlink -f "$opencode_bin")"
 got_version="$("$opencode_bin" --version | sed 's/^opencode v//')"
-if [ "$got_version" != "$want_version" ]; then
+if [[ "$got_version" != "$want_version" ]]; then
   echo "opencode is $got_version, expected $want_version (set OPENCODE_VERSION to override)" >&2
   exit 2
 fi

@@ -45,7 +45,7 @@ jobs:
         working-directory: core
         run: |
           set -euo pipefail
-          npm ci
+          npm ci --ignore-scripts
           npm run test:coverage
           sed -i 's|^SF:|SF:core/|' coverage.lcov
 
@@ -139,7 +139,7 @@ jobs:
           node-version: '22'
 
       - name: install (frozen lockfile)
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: build
         run: npm run build
