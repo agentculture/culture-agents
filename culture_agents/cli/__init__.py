@@ -1,52 +1,112 @@
 """Unified CLI entry point for ``agents`` (the culture-agents control plane).
 
-The CLI is built on agentfront: :mod:`culture_agents.cli._app` declares every
-verb once into an ``App``, and agentfront derives the parser, ``--json``, and
-the nested noun groups (``agents agents ...``, ``agents runs ...``, ``agents
-cli ...``) from that registry.
+The CLI is built on agentfront's public API: :mod:`culture_agents.cli._app`
+declares every verb once into an ``App``, and ``App.run_cli`` derives the
+parser, ``--json``, ``--version`` and the nested noun groups (``agents agents
+...``, ``agents runs ...``, ``agents cli ...``) from that registry, parses the
+command line and dispatches.
 
 Error propagation contract
 --------------------------
 Every handler raises :class:`culture_agents.cli._errors.CliError` on failure;
-the dispatcher routes it through :mod:`culture_agents.cli._output` (``error:`` /
-``hint:`` on stderr, or a JSON object with ``--json``). Unknown exceptions are
-wrapped so no Python traceback leaks. Argparse errors (unknown verb, missing
-argument) take the same path and exit 1; whether they render as text or JSON
-depends on whether ``--json`` appears in the raw argv.
+``run_cli`` renders it (``error:`` / ``hint:`` on stderr, or a JSON object with
+``--json``) and returns its code. Unknown exceptions are wrapped so no Python
+traceback leaks. Argparse errors (unknown verb, missing argument) take the same
+path and exit 1; they render as JSON when ``--json`` is on the command line.
+``run_cli`` never raises ``SystemExit`` for ``--help``, ``--version`` or a parse
+error.
+
+A closed stdout
+---------------
+``agents runs attach <id> | head -1`` closes our stdout while we still write.
+That is the reader's choice and not an error: :func:`main` ends quietly with
+exit 0 (see :class:`_PipeGuard`). Any other failure to write the output (a full
+disk behind a redirect) is an environment error: one ``error:`` line, exit 2.
 """
 
 from __future__ import annotations
 
+import os
 import sys
-
-from agentfront.cli_surface import _CliParser, _dispatch, _propagate_raw_argv
+from typing import Any
 
 from culture_agents.cli import _mode
-from culture_agents.cli._app import derive_parser, get_app
+from culture_agents.cli._app import get_app
+from culture_agents.cli._errors import EXIT_ENV_ERROR, CliError
+from culture_agents.cli._output import emit_error
 
 
-def _argv_has_json(argv: list[str] | None) -> bool:
-    tokens = argv if argv is not None else sys.argv[1:]
-    return any(t == "--json" or t.startswith("--json=") for t in tokens)
+class _StdoutClosed(BaseException):
+    """The reader of stdout went away.
+
+    A ``BaseException`` on purpose: ``run_cli`` wraps every ``Exception`` a
+    handler raises as an "unexpected" error, and this is not one.
+    """
+
+
+class _PipeGuard:
+    """Stands in for ``sys.stdout`` and turns ``BrokenPipeError`` into :class:`_StdoutClosed`."""
+
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+
+    def write(self, text: str) -> int:
+        try:
+            return self._stream.write(text)
+        except BrokenPipeError:
+            raise _StdoutClosed from None
+
+    def flush(self) -> None:
+        try:
+            self._stream.flush()
+        except BrokenPipeError:
+            raise _StdoutClosed from None
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
+
+
+def _discard_stdout(stream: Any) -> None:
+    """Point the stdout file descriptor at the null device.
+
+    What is still buffered is then dropped quietly when the interpreter
+    flushes at exit, instead of raising ``BrokenPipeError`` a second time.
+    """
+    try:
+        null = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(null, stream.fileno())
+        finally:
+            os.close(null)
+    except (OSError, ValueError, AttributeError):
+        pass  # not a real file (a test double, an embedded interpreter): nothing to redirect
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = derive_parser(get_app())
-    # Lets parse errors honour --json. agentfront peeks at this list and does not read
-    # sys.argv itself, so the real command line is passed when no argv was given.
-    _propagate_raw_argv(parser, argv if argv is not None else sys.argv[1:])
-    json_mode = _argv_has_json(argv)
-    prior = _mode.JSON_MODE.set(json_mode)
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    # A streaming verb prints as it goes, so it needs the mode before dispatch.
+    prior = _mode.JSON_MODE.set("--json" in tokens)
+    stdout = sys.stdout
+    sys.stdout = _PipeGuard(stdout)
     try:
+        code = get_app().run_cli(tokens)
         try:
-            args = parser.parse_args(argv)
-        except _CliParser._Exit as stop:  # --help, --version, or a structured parse error
-            return stop.code
-        if getattr(args, "command", None) is None:
-            parser.print_help()
-            return 0
-        return _dispatch(args, json_mode=bool(getattr(args, "json", False)))
+            sys.stdout.flush()
+        except OSError as exc:  # for example a full disk behind a redirected stdout
+            _discard_stdout(stdout)
+            failure = CliError(
+                code=EXIT_ENV_ERROR,
+                message=f"cannot write the output to stdout: {exc.strerror or exc}",
+                remediation="check where stdout is redirected to (disk full?), then retry",
+            )
+            emit_error(failure, json_mode=_mode.JSON_MODE.get())
+            return failure.code
+        return code
+    except _StdoutClosed:
+        _discard_stdout(stdout)
+        return 0
     finally:
+        sys.stdout = stdout
         _mode.JSON_MODE.reset(prior)
 
 

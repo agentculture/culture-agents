@@ -125,9 +125,9 @@ from guildmaster instead.
 
 - **Every PR bumps the version** — even docs/config/CI. Use the
   `version-bump` skill; the `version-check` CI job blocks merge otherwise.
-- **Dependencies:** `agentfront` is the one approved Python runtime
-  dependency; any other needs the owner's approval. `teken` and `pyyaml` are
-  dev-only. Every npm dependency in `core/package.json` is an exact pin.
+- **Dependencies:** `agentfront` and `jsonschema` are the approved Python
+  runtime dependencies; any other needs the owner's approval. `teken` and
+  `pyyaml` are dev-only. Every npm dependency in `core/package.json` is an exact pin.
 - **Every tracked Python and TypeScript file stays at or under 400 lines**
   (`spikes/` and vendored skills are exempt). Split modules before crossing
   the cap.

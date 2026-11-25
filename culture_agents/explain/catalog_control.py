@@ -115,10 +115,33 @@ _ATTACH = f"""\
 
 Streams a run's events: replays those after `--after` (default 0), then follows
 live, and returns when the run reaches a terminal state. Text mode prints one
-line per event; `--json` prints one event JSON object per line. A broken stream
-is reopened from the last cursor received, with no gap and no duplicate. The
-exit code is 0 once the stream completes, whatever state the run ended in; use
+line per event; `--json` prints one event JSON object per line. The exit code
+is 0 once the stream completes, whatever state the run ended in; use
 `runs result` for the outcome.
+
+Every event is validated against the contract and printed exactly once, in
+cursor order. In text mode, control characters in harness output and other
+text from the run are shown escaped (`\\x1b`, `\\n`), never sent to the
+terminal; `--json` carries the exact data.
+
+## Reconnecting
+
+- A broken stream is reopened at once from the last cursor received, with no
+  gap and no duplicate.
+- If the core is gone when reopening (the connection fails, or the core
+  answers `unavailable`), the reopen is retried after 0.2 s, 0.5 s, 1 s, then
+  every 2 s. A core restart is survived this way. If no stream opens again
+  within 30 seconds, the verb exits 2 and names the last cursor, so
+  `--after <cursor>` resumes it.
+- Any other error on a reopen (`not_found`, `invalid`,
+  `incompatible_version`, `internal`) ends the verb at once with that error.
+- A first connect that fails is not retried: exit 2 at once.
+- A stream that opens and closes without an event six times in a row ends
+  the verb with exit 2, unless the run is terminal with nothing left to send
+  (exit 0).
+- An event that breaks the contract, or a cursor that skips ahead, is a core
+  fault: exit 2 (`internal`). A closed stdout (`| head -1`) ends the verb
+  quietly with exit 0.
 
 ## Usage
 

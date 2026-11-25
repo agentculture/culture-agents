@@ -9,9 +9,9 @@ Implements the transport, version and error rules of ``contract/README.md``:
 * ``Agents-Api-Version`` on every request;
 * typed error bodies mapped to CLI exit codes (0 ok, 1 user, 2 environment);
 * a missing or refused socket reported as ``unavailable`` (exit 2);
-* a response that does not match its shape reported as ``internal`` (exit 2);
-* the ``attach`` server-sent-event stream, parsed by hand, with a cursor so a
-  broken stream resumes without a gap or a duplicate.
+* a response that does not validate against its contract schema reported as
+  ``internal`` (exit 2) and never passed on (:mod:`culture_agents.cli._contract`);
+* the ``attach`` server-sent-event stream (:mod:`culture_agents.cli._stream`).
 """
 
 from __future__ import annotations
@@ -21,12 +21,11 @@ import json
 import os
 import re
 import socket
-import time
 from collections.abc import Iterator
 from typing import Any
-from urllib.parse import quote, urlencode
+from urllib.parse import urlencode
 
-from culture_agents.cli import _shapes
+from culture_agents.cli import _contract
 from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CoreError
 
 #: The contract's ``api.json`` -> ``api_version``. ``tests/test_cli_client.py``
@@ -70,9 +69,8 @@ _START_HINT = (
     "start the core daemon, or point CULTURE_AGENTS_SOCKET at its socket "
     "(see 'agents explain agents')"
 )
-_STREAM_TIMEOUT = 45.0  # the core sends a keepalive at least every 15 s
-_MAX_STALLED_RECONNECTS = 5
-_TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled", "timed_out", "unknown"})
+#: How long ``attach`` keeps trying to reconnect, with no reconnect succeeding, before it gives up.
+RECONNECT_WINDOW = 30.0
 
 
 def socket_path(env: dict[str, str] | None = None) -> str:
@@ -135,9 +133,13 @@ class _UnixConnection(http.client.HTTPConnection):
 
 def error_from_body(status: int, body: Any) -> CoreError:
     """Map a non-2xx response to the CLI error it stands for."""
-    found = _shapes.check("error", body) if isinstance(body, dict) else "not an object"
-    if found or body["error"]["code"] not in EXIT_FOR_CODE:
-        return _internal(f"the core answered HTTP {status} with an unrecognised error body")
+    found = _contract.problem("error", body)
+    if found is None and body["error"]["code"] not in EXIT_FOR_CODE:
+        found = "an error code this client does not know"
+    if found:
+        return _internal(
+            f"the core answered HTTP {status} with an unrecognised error body ({found})"
+        )
     err = body["error"]
     code = err["code"]
     extra = {k: v for k, v in err.items() if k not in ("code", "message")}
@@ -190,7 +192,7 @@ class CoreClient:
             parsed = None
         if not 200 <= status < 300:
             raise error_from_body(status, parsed)
-        found = _shapes.check(shape, parsed)
+        found = _contract.problem(shape, parsed)
         if found:
             raise _internal(f"the core sent an invalid {shape} payload ({found})")
         return parsed
@@ -235,49 +237,18 @@ class CoreClient:
         return self._json("POST", route, shape, body)
 
     # -- attach ------------------------------------------------------------
-    def attach(self, run_id: str, after: int = 0) -> Iterator[dict[str, Any]]:
-        """Yield events after cursor *after* until the run's terminal state event.
+    def attach(
+        self, run_id: str, after: int = 0, *, reconnect_window: float = RECONNECT_WINDOW
+    ) -> Iterator[dict[str, Any]]:
+        """Yield the run's events after cursor *after* until its terminal state event.
 
-        A stream that breaks is reopened with ``after`` set to the last cursor
-        received (the contract's reconnect rule), so nothing is skipped or
-        repeated. Gives up with ``unavailable`` after repeated reconnects that
-        make no progress.
+        Every event is validated against the contract and arrives exactly once,
+        in cursor order. See :func:`culture_agents.cli._stream.follow` for what
+        happens when the stream breaks or the core goes away.
         """
-        self.connect()
-        cursor, stalled = after, 0
-        route = f"/v1/runs/{quote(run_id, safe='')}"
-        while True:
-            progressed = False
-            try:
-                for event in self._stream_once(f"{route}/attach{_query({'after': cursor})}"):
-                    cursor, progressed = event["cursor"], True
-                    yield event
-                    if _is_terminal(event):
-                        return
-            except CoreError:
-                raise
-            except (OSError, http.client.HTTPException):
-                pass  # a broken stream is retried below
-            if not progressed:
-                run = self._json("GET", route, "run")
-                if run["terminal"] and run["cursor"] <= cursor:
-                    return  # already finished and fully replayed: nothing more to send
-                stalled += 1
-                if stalled > _MAX_STALLED_RECONNECTS:
-                    raise _unavailable(self.path, "the event stream keeps closing without events")
-                time.sleep(min(0.2 * stalled, 1.0))
-            else:
-                stalled = 0
+        from culture_agents.cli import _stream
 
-    def _stream_once(self, route: str) -> Iterator[dict[str, Any]]:
-        conn, resp = self._open("GET", route, timeout=_STREAM_TIMEOUT)
-        try:
-            if resp.status != 200:
-                parsed = _loads(resp.read())
-                raise error_from_body(resp.status, parsed)
-            yield from _parse_sse(resp)
-        finally:
-            conn.close()
+        return _stream.follow(self, run_id, after, reconnect_window=reconnect_window)
 
 
 def _describe(exc: BaseException) -> str:
@@ -302,34 +273,3 @@ def _loads(raw: bytes) -> Any:
         return json.loads(raw.decode("utf-8")) if raw else None
     except (UnicodeDecodeError, ValueError):
         return None
-
-
-def _is_terminal(event: dict[str, Any]) -> bool:
-    data = event["data"]
-    return event["kind"] == "run.state" and data.get("to") in _TERMINAL_STATES
-
-
-def _parse_sse(resp: http.client.HTTPResponse) -> Iterator[dict[str, Any]]:
-    """Parse ``id:/event:/data:`` messages separated by blank lines.
-
-    Comment lines (``: keepalive``) are ignored. The payload is the ``data``
-    JSON, whose own ``kind`` and ``cursor`` are authoritative.
-    """
-    data_lines: list[str] = []
-    while True:
-        line = resp.readline()
-        if not line:
-            return  # EOF; a half-received message is dropped and replayed on reconnect
-        text = line.decode("utf-8", "replace").rstrip("\r\n")
-        if text == "":
-            if data_lines:
-                event = _loads("\n".join(data_lines).encode("utf-8"))
-                found = _shapes.check("event", event)
-                if found:
-                    raise _internal(f"the core sent an invalid event ({found})")
-                yield event
-            data_lines = []
-        elif text.startswith(":"):
-            continue
-        elif text.startswith("data:"):
-            data_lines.append(text[5:].removeprefix(" "))

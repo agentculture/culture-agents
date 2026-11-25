@@ -1,8 +1,9 @@
 """Shared loaders and checkers for the control-plane contract tests.
 
-Test-only: ``jsonschema`` is a dev dependency and is never imported from
-``culture_agents/``. Everything here reads ``contract/`` from disk; nothing
-touches the network, a socket or a chat server.
+Test-only helpers. They build their own validators from ``contract/`` on disk,
+independently of ``culture_agents.cli._contract`` (the CLI's runtime
+validation), so the tests can check one against the other. Nothing here touches
+the network, a socket or a chat server.
 """
 
 from __future__ import annotations
