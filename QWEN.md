@@ -133,7 +133,9 @@ from guildmaster instead.
   the cap.
 - **Deploy**: pushing to `main` publishes npm and then PyPI via Trusted Publishing
   (`.github/workflows/publish.yml`); `core/package.json` carries the same
-  version as `pyproject.toml`. PRs do an npm dry-run and a TestPyPI dry-run.
+  version as `pyproject.toml`. PRs do an npm dry-run; same-repo PRs also stage
+  a development version on npm (`<version>-dev.<run>.<attempt>`, tag `dev`) and
+  publish a dev build to TestPyPI.
 
 ## Commands
 

@@ -2,9 +2,16 @@ name: Publish to npm and PyPI
 
 # Two registries, trusted publishing only (OIDC; no registry token is stored).
 #
-# Pull request (same-repo): test -> npm-dry-run (build core/ with `npm ci`,
-#   pack, `npm publish --dry-run`; nothing is published) and test-publish
-#   (TestPyPI dev build).
+# Pull request: test -> npm-dry-run (build core/ with `npm ci`, pack,
+#   `npm publish --dry-run`; nothing leaves the runner; runs on forks too).
+# Pull request (same-repo only): also npm-stage (stages a development version
+#   `<version>-dev.<run number>.<run attempt>` on npm with `npm stage publish
+#   --tag dev`, through the trusted publisher) and test-publish (TestPyPI dev
+#   build). A staged version is not publicly installable. It shares npm's
+#   version index with published versions, which is why a pull request never
+#   stages the real version: main could not publish it afterwards. CI cannot
+#   approve or reject a staged version (both need the maintainer's 2FA), so
+#   staged development versions stay until the maintainer rejects them.
 # Push to main: test + version-gate -> publish-npm (provenance) -> publish (PyPI).
 #   The PyPI job `needs` the npm job, so a failed npm publish leaves nothing
 #   on PyPI.
@@ -120,6 +127,62 @@ jobs:
           set -euo pipefail
           TARBALL="$(npm pack --silent)"
           npm publish "$TARBALL" --dry-run --access public
+
+  npm-stage:
+    # Same-repo pull requests only: a fork has no OIDC or environment context.
+    # Trusted publishing: the npm trusted publisher for @culture.dev/agents
+    # names this workflow file (publish.yml) and the `npm` environment, and
+    # allows `npm stage publish`.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: test
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+
+      - name: Use an npm that supports staged publishing (11.15.0 or later)
+        run: npm install -g npm@11.21.1 --ignore-scripts
+
+      - run: npm ci --ignore-scripts
+
+      # The run attempt is part of the version because a staged version cannot
+      # be staged twice: a re-run of the same workflow run needs its own.
+      - name: Set dev version
+        env:
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          BASE="$(node -p "require('./package.json').version")"
+          DEV_VERSION="${BASE}-dev.${RUN_NUMBER}.${RUN_ATTEMPT}"
+          npm version "$DEV_VERSION" --no-git-tag-version --ignore-scripts
+          sed -i "s/^export const version = .*/export const version = \"${DEV_VERSION}\";/" src/index.ts
+          grep -qF "\"${DEV_VERSION}\"" src/index.ts
+          echo "DEV_VERSION=${DEV_VERSION}" >> "$GITHUB_ENV"
+          echo "Staging @culture.dev/agents@${DEV_VERSION} on npm"
+
+      - run: npm run build
+
+      - name: Stage the dev version on npm
+        run: |
+          set -euo pipefail
+          TARBALL="$(npm pack --silent)"
+          npm stage publish "$TARBALL" --tag dev --provenance --access public
+
+      - name: Print what was staged
+        run: |
+          echo "::notice::Staged @culture.dev/agents@${DEV_VERSION} (not publicly installable). The maintainer can inspect it with 'npm stage list @culture.dev/agents' and remove it with 'npm stage reject <stage-id>'."
 
   test-publish:
     # Skip on fork PRs — no OIDC/environment context is available there, so the
