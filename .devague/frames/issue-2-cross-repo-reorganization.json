@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-24T23:44:16Z",
+  "updated": "2026-11-25T00:51:52Z",
   "claims": [
     {
       "id": "c1",
@@ -1514,6 +1514,17 @@
       "skipped_check": "failing tests written before the implementation",
       "refs": [
         "t9"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l9",
+      "code": "instrument-changed-mid-series",
+      "what": "The integration-fix task loosened two worker tests' deadlines from 200/300 ms to 1.5 s and added cleanup retries after they failed 4 of 10 full-suite runs; the cause (possibly load from the added tests) was not established, and the base commit had passed only 6 of 6.",
+      "skipped_check": "isolating why the short-deadline tests failed before changing them",
+      "refs": [
+        "integration fixes (runs/join)"
       ],
       "origin": "llm",
       "status": "proposed"

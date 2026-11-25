@@ -15,7 +15,7 @@ out of scope and tracked by issues on the sibling repos.
 
 ## Where the work is
 
-- Repo `/home/ori/git/culture-agents`, local branch `runs/d0-d1-spec`, 42
+- Repo `/home/ori/git/culture-agents`, local branch `runs/d0-d1-spec`, about 50
   commits ahead of `main`. **Nothing is pushed.** No PR exists for this repo.
 - One file is modified and deliberately never committed:
   `.eidetic/memory/default__public.jsonl` (a recall counter bumped by `/recall`).
@@ -72,37 +72,32 @@ lapses and deviations the moment they surface. Briefs quote the task from
 | t13 CLI on agentfront | merged |
 | t14 prompt files | merged |
 | t15 release workflow | merged |
-| integration fixes | **running** in worktree `join`, branch `runs/join` |
+| integration fixes | merged (control-channel delivery, truthful steer records, long run ids, real registry in the daemon bin `culture-agents-core`) |
 | t16 D1 acceptance suite and live run | not started; owned by the main agent |
 | t17 boundary audit | not started |
 
-Last measured on the branch: 918 Python tests pass; 328 TypeScript tests pass
-with 7 skipped (opt-in live checks).
+Last measured on the branch: 918 Python tests pass; 343 TypeScript tests pass,
+with the opt-in live checks skipped.
 
-## In flight when this was written
+## In flight
 
-The `join` subagent (Opus) is fixing: (1) an intermittent failure, about one
-run in four, where a cancel over the worker control socket returns
-`ECONNRESET` because the worker can exit before replying; (2) a steer logged
-as accepted before delivery; (3) run ids longer than 63 characters breaking
-sandbox labels; and (4) wiring the real harness registry into the daemon bin
-with an end-to-end test through the real daemon using the stub driver, plus a
-`bin` entry `culture-agents-core`. When it reports: test, merge, remove the
-worktree, and re-run `npm test` several times to confirm the flake is gone.
+Nothing. No subagent is running and the only worktree is the primary checkout.
+After the integration fixes merged, `npm test` passed 6 of 6 consecutive runs
+(343 pass). Lapse l9 records that two worker tests had their deadlines
+loosened without the cause of their earlier failures being isolated.
 
 ## Next steps
 
-1. Merge `runs/join` as above.
-2. t16: `tests/acceptance/d1/` driving the real CLI against the real core with
+1. t16: `tests/acceptance/d1/` driving the real CLI against the real core with
    the culture server stopped; mock stage always, live stage reported NOT
    VERIFIED when unavailable; record the live run in
    `docs/d0/d1-acceptance.md`. Targets: submit returns a run id in under 2 s;
    two harnesses complete a task; steer changes output; cancel reaches
    `cancelled` in under 10 s; after `kill -9` and restart every run reports a
    state and none an invented success.
-3. t17: boundary audit against `docs/d0/sibling-baseline.txt`, written to
+2. t17: boundary audit against `docs/d0/sibling-baseline.txt`, written to
    `docs/d0/boundary-audit.md`.
-4. Version bump, `ask-colleague review`, then the PR through the `cicd` skill.
+3. Version bump, `ask-colleague review`, then the PR through the `cicd` skill.
    Then `/validate-delivery` and `/summarize-delivery`.
 
 ## Open items for the owner
@@ -114,7 +109,7 @@ worktree, and re-run `npm test` several times to confirm the flake is gone.
   made to send the subagent back; no answer yet.
 - Obligation o15 names the old package `@culture.dev/agents-core`; o18 is the
   corrected one. Both are pending: reject o15, confirm o18.
-- Eight lapses (l1 to l8) are filed and await adjudication.
+- Nine lapses (l1 to l9) are filed and await adjudication.
 - Whether to delete the unused `codex`, `claude-code` and `claude-npm`
   providers on the OpenShell gateway.
 
