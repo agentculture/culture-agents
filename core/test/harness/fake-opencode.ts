@@ -17,6 +17,8 @@ export class FakeOpenCode {
   private readonly waiters: (() => void)[] = [];
   private server: Server | null = null;
   readonly sessionId = "ses_fake1";
+  /** Routes that accept the request and never answer (a stalled server). */
+  readonly stalled = new Set<"create" | "session" | "prompt">();
 
   constructor(readonly password = "pw") {}
 
@@ -28,6 +30,7 @@ export class FakeOpenCode {
 
   async close(): Promise<void> {
     for (const s of this.streams) s.destroy();
+    this.server?.closeAllConnections();
     await new Promise<void>((resolve) => this.server?.close(() => resolve()));
   }
 
@@ -80,9 +83,11 @@ export class FakeOpenCode {
     }
     if (req.method === "POST" && url === "/api/session") {
       await this.body(req);
+      if (this.stalled.has("create")) return;
       return this.json(res, 200, { data: { id, time: { created: 1, updated: 1 } } });
     }
     if (req.method === "GET" && url === `/api/session/${id}`) {
+      if (this.stalled.has("session")) return;
       const time: Record<string, number> = { created: 1, updated: 2 };
       if (this.idle !== undefined) time["idle"] = this.idle;
       return this.json(res, 200, { data: { id, time, ...(this.outcome ? { outcome: this.outcome } : {}) } });
@@ -90,6 +95,7 @@ export class FakeOpenCode {
     if (req.method === "GET" && url === "/api/session/active") return this.json(res, 200, { data: this.busy ? { [id]: {} } : {} });
     if (req.method === "POST" && url === `/api/session/${id}/prompt`) {
       const body = (await this.body(req)) as { text: string; delivery?: string };
+      if (this.stalled.has("prompt")) return;
       this.prompts.push(body);
       if (!body.delivery) {
         this.busy = true;

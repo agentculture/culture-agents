@@ -4,6 +4,7 @@
  * signal. The agent is created by an injectable factory so the sequencing can be tested without
  * the AI SDK; the real factory is in `agent.ts`.
  */
+import { withTimeout } from "../../sandbox/timeout.js";
 import { EventQueue, errorMessage } from "../common/queue.js";
 import { tapWriter } from "../common/text.js";
 import type { HarnessBackend, HarnessSession, Sink, TurnEvent, TurnHandle, TurnOutcome, Workspace } from "../common/types.js";
@@ -30,6 +31,13 @@ export interface AgentFactoryInput<W> {
 
 export type AgentFactory<W> = (input: AgentFactoryInput<W>) => AgentLike;
 
+/**
+ * Longest closing the adapter's session (its bridge in the sandbox) may take, on the stop path
+ * and after a completed turn alike. Past it the run moves on: the bridge is a process in the
+ * sandbox, and the process check and the sandbox's deletion deal with what is left.
+ */
+export const SESSION_CLOSE_TIMEOUT_MS = 15_000;
+
 /** A session id the adapter accepts, derived from the run id. */
 export const sessionIdFor = (runId: string) => runId.replace(/[^A-Za-z0-9-]/g, "-").slice(0, 64);
 
@@ -40,6 +48,7 @@ export class ClaudeCodeBackend<W extends Workspace> implements HarnessBackend<W>
     private readonly agentFactory: AgentFactory<W>,
     /** Optional file that receives every raw stream part (live-test recording). */
     private readonly tap?: string,
+    private readonly closeTimeoutMs: number = SESSION_CLOSE_TIMEOUT_MS,
   ) {}
 
   async open(workspace: W, signal: AbortSignal, sink: Sink): Promise<HarnessSession> {
@@ -53,7 +62,10 @@ export class ClaudeCodeBackend<W extends Workspace> implements HarnessBackend<W>
     let closed: Promise<void> | null = null;
     return {
       startTurn: (task) => startTurn(agent, session, task, tapWriter(this.tap)),
-      close: () => (closed ??= session.destroy().catch(() => undefined)),
+      close: () =>
+        (closed ??= withTimeout("closing the Claude Code session", this.closeTimeoutMs, () => session.destroy()).catch((err: unknown) => {
+          sink({ type: "output", data: { channel: "diagnostic", text: `claude-code: ${errorMessage(err).slice(0, 500)}` } });
+        })),
     };
   }
 }

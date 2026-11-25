@@ -105,6 +105,8 @@ export interface RunSandboxesConfig {
   readonly policyPath?: string;
   readonly readyTimeoutSecs?: number;
   readonly deleteTimeoutSecs?: number;
+  /** Overall bound on one deletion, every attempt and wait together (default 90 s). */
+  readonly deleteDeadlineMs?: number;
   /** Diagnostics hook; receives no secrets. */
   readonly log?: (message: string) => void;
 }

@@ -4,6 +4,7 @@
  * ended. The authority is the wait route (the session loop is idle) confirmed by the session
  * route (a new idle time and an `outcome`) and the active-session list.
  */
+import { withTimeout } from "../../sandbox/timeout.js";
 import { EventQueue, errorMessage, sleep, within } from "../common/queue.js";
 import type { Sink, TurnEvent, TurnHandle, TurnOutcome } from "../common/types.js";
 import type { OpenCodeClient } from "./client.js";
@@ -18,9 +19,14 @@ export interface TurnTiming {
   connectMs?: number;
   /** Consecutive failed authority checks before the turn fails. Default 30. */
   maxFailures?: number;
+  /** Longest a session read, a prompt or a steer may take. Default 30 s. */
+  callMs?: number;
   /** Receives every raw server event (live-test recording). */
   tap?: (raw: unknown) => void;
 }
+
+/** Longest one request to the OpenCode server may take when it should answer at once (not the long-poll wait). */
+export const OPENCODE_CALL_TIMEOUT_MS = 30_000;
 
 type Client = Pick<OpenCodeClient, "prompt" | "interrupt" | "wait" | "getSession" | "activeSessions" | "events">;
 
@@ -46,7 +52,7 @@ export async function startOpenCodeTurn(
   const dropped = (): void => {
     droppedBlocks += 1;
     // Say so once, then at each tenfold step: a harness output event was lost, the run goes on.
-    if (/^10*$/.test(String(droppedBlocks))) queue.push(diag(`${droppedBlocks} OpenCode event(s) could not be parsed and were not recorded`));
+    if (/^10*$/.test(String(droppedBlocks))) queue.push(diag(`${droppedBlocks} OpenCode event(s) could not be parsed or were over the size limit and were not recorded`));
   };
 
   const pump = async () => {
@@ -71,9 +77,18 @@ export async function startOpenCodeTurn(
   void pump();
   await within(timing.connectMs ?? 5000, connected);
 
-  const before = await client.getSession(sessionId);
-  const idleBefore = before.time.idle ?? 0;
-  await client.prompt(sessionId, task);
+  // These answer at once on a healthy server. Each is bounded, and released when the backend closes.
+  const callMs = timing.callMs ?? OPENCODE_CALL_TIMEOUT_MS;
+  let idleBefore: number;
+  try {
+    const before = await withTimeout("reading the OpenCode session", callMs, (bound) => client.getSession(sessionId, bound), stop);
+    idleBefore = before.time.idle ?? 0;
+    await withTimeout("sending the task to OpenCode", callMs, (bound) => client.prompt(sessionId, task, undefined, bound), stop);
+  } catch (err) {
+    turnAbort.abort(); // no turn: stop the event stream opened above
+    queue.end();
+    throw err;
+  }
 
   const authority = async (): Promise<SessionOutcome> => {
     let failures = 0;
@@ -111,7 +126,7 @@ export async function startOpenCodeTurn(
   return {
     events: queue,
     outcome,
-    steer: (text) => client.prompt(sessionId, text, "steer"),
+    steer: (text) => withTimeout("delivering the steer to OpenCode", callMs, (bound) => client.prompt(sessionId, text, "steer", bound), stop),
     interrupt: async () => {
       const interrupted = await client.interrupt(sessionId);
       if (!interrupted) sink(diag("interrupt: the OpenCode session had no active execution"));

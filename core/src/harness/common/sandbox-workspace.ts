@@ -37,11 +37,19 @@ export interface SandboxSettings {
 
 /** Injectable sandbox-layer calls (tests replace them). */
 export interface SandboxDeps {
+  /** Overall bound on deleting the run's sandbox (tests shorten it). Default DESTROY_DEADLINE_MS. */
+  destroyDeadlineMs?: number;
   openRunSandboxes(config: RunSandboxesConfig, gateway: GatewayOptions): Promise<RunSandboxes>;
   prepare(sandbox: RunSandbox, options: PrepareOptions): Promise<PreparedTree>;
   collect(sandbox: RunSandbox, options: CollectOptions): Promise<CollectedTree>;
 }
 
+/**
+ * Longest deleting the run's sandbox may take in all, the fallback by run id included. The run
+ * waits in `cancelling` (or short of its terminal event) for this, so it is one deadline. A
+ * sandbox that outlives it is deleted later by the daemon's periodic reclaim of finished runs.
+ */
+export const DESTROY_DEADLINE_MS = 90_000;
 /** Longest a commit or a commit count inside the sandbox may take. */
 const COMMIT_TIMEOUT_MS = 120_000;
 /** Longest a process listing or kill inside the sandbox may take. */
@@ -122,12 +130,14 @@ export class SandboxWorkspace implements Workspace {
   }
 
   destroy(): Promise<void> {
-    this.destroyed ??= this.sandbox.destroy().catch(async (err: unknown) => {
-      // The handle failed; delete by run id alone, which needs no handle.
-      await this.sandboxes.destroy(this.runId).catch(() => {
-        throw err;
-      });
-    });
+    this.destroyed ??= withTimeout(`deleting sandbox ${this.sandbox.name}`, this.deps.destroyDeadlineMs ?? DESTROY_DEADLINE_MS, () =>
+      this.sandbox.destroy().catch(async (err: unknown) => {
+        // The handle failed; delete by run id alone, which needs no handle.
+        await this.sandboxes.destroy(this.runId).catch(() => {
+          throw err;
+        });
+      }),
+    );
     return this.destroyed;
   }
 }
@@ -155,7 +165,8 @@ export class SandboxWorkspaceFactory implements WorkspaceFactory<SandboxWorkspac
       });
       return new SandboxWorkspace(sandboxes, sandbox, prepared, this.runId, this.hostRepo, s, this.deps);
     } catch (err) {
-      await sandbox.destroy().catch(() => sandboxes.destroy(this.runId).catch(() => undefined));
+      const deadline = this.deps.destroyDeadlineMs ?? DESTROY_DEADLINE_MS;
+      await withTimeout(`deleting sandbox ${sandbox.name}`, deadline, () => sandbox.destroy().catch(() => sandboxes.destroy(this.runId))).catch(() => undefined);
       throw err;
     }
   }

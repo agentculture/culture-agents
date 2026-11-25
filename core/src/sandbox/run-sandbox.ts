@@ -3,7 +3,7 @@
 // exec / execInteractive / forward / delete; no `openshell` CLI calls.
 import { posix } from "node:path";
 
-import type { ForwardRef, OpenShellClientLike } from "./openshell-client.js";
+import type { ForwardRef, InteractiveControl, OpenShellClientLike } from "./openshell-client.js";
 import type {
   ExecOptions,
   ExecResult,
@@ -68,6 +68,41 @@ function pushStream(): PushStream {
       }
     },
   };
+}
+
+/**
+ * Wait for a process the gateway is starting, but not past an abort. The caller is released when
+ * `signal` aborts; a process that starts afterwards, or one whose start and the abort arrive
+ * together, is stopped. (A listener added after the await would miss both: it never fires on a
+ * signal that is already aborted.)
+ */
+async function startAbortable(starting: Promise<InteractiveControl>, signal: AbortSignal | undefined): Promise<InteractiveControl> {
+  if (!signal) return starting;
+  const reason = (): Error => (signal.reason instanceof Error ? signal.reason : new Error("aborted"));
+  let onAbort!: () => void;
+  const aborted = new Promise<never>((_, reject) => {
+    onAbort = () => reject(reason());
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  let ctl: InteractiveControl;
+  try {
+    ctl = await Promise.race([starting, aborted]);
+  } catch (error) {
+    if (signal.aborted) {
+      void starting.then(
+        (late) => late.cancel(),
+        () => undefined,
+      );
+    }
+    throw error;
+  } finally {
+    signal.removeEventListener("abort", onAbort);
+  }
+  if (signal.aborted) {
+    ctl.cancel();
+    throw reason();
+  }
+  return ctl;
 }
 
 export class OpenShellRunSandbox implements RunSandbox {
@@ -146,12 +181,15 @@ export class OpenShellRunSandbox implements RunSandbox {
     this.#assertUsable();
     options.signal?.throwIfAborted();
     const env = scrubEnv(options.env);
-    const ctl = await this.client.execInteractive(this.name, ["sh", "-c", command], {
-      workdir: options.cwd ? this.resolve(options.cwd) : this.home,
-      tty: false,
-      noLoginShell: true,
-      ...(env ? { environment: env } : {}),
-    });
+    const ctl = await startAbortable(
+      this.client.execInteractive(this.name, ["sh", "-c", command], {
+        workdir: options.cwd ? this.resolve(options.cwd) : this.home,
+        tty: false,
+        noLoginShell: true,
+        ...(env ? { environment: env } : {}),
+      }),
+      options.signal,
+    );
     if (!options.stdin) ctl.closeInput();
     const out = pushStream();
     const err = pushStream();

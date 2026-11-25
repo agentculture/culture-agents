@@ -56,14 +56,17 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/** Run `fn` with a time limit; resolves `undefined` on timeout (the work is left to finish). */
-export async function within<T>(ms: number, work: Promise<T>): Promise<T | undefined> {
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<undefined>((resolve) => (timer = setTimeout(() => resolve(undefined), ms)));
+/**
+ * Wait for `work` with a time limit; resolves `undefined` on timeout, or as soon as `signal`
+ * aborts (the work is left to finish).
+ */
+export async function within<T>(ms: number, work: Promise<T>, signal?: AbortSignal): Promise<T | undefined> {
+  const stop = new AbortController();
+  const limit = sleep(ms, signal ? AbortSignal.any([signal, stop.signal]) : stop.signal).then(() => undefined);
   try {
-    return await Promise.race([work, timeout]);
+    return await Promise.race([work, limit]);
   } finally {
-    clearTimeout(timer);
+    stop.abort(); // clears the timer
   }
 }
 

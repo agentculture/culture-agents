@@ -8,11 +8,13 @@ import { randomBytes } from "node:crypto";
 import { posix } from "node:path";
 
 import type { RunProcess, RunSandbox } from "../../sandbox/index.js";
+import { withTimeout } from "../../sandbox/timeout.js";
 import { errorMessage, within } from "../common/queue.js";
 import { tapWriter } from "../common/text.js";
 import type { HarnessBackend, HarnessSession, Sink, Workspace } from "../common/types.js";
-import { OpenCodeClient, type FetchLike } from "./client.js";
-import { startOpenCodeTurn, type TurnTiming } from "./turn.js";
+import { MAX_STREAM_UNIT, OpenCodeClient, type FetchLike } from "./client.js";
+import { drain, waitForLine } from "./lines.js";
+import { OPENCODE_CALL_TIMEOUT_MS, startOpenCodeTurn, type TurnTiming } from "./turn.js";
 
 /** JSON-serializable OpenCode settings (part of the driver options). */
 export interface OpenCodeSettings {
@@ -39,6 +41,8 @@ export const CONFIG_PATH = ".culture-agents/opencode.json";
 
 /** The OpenCode config for the model gateway. The key is a `{env:...}` reference, never a value. */
 export function openCodeConfig(settings: OpenCodeSettings): Record<string, unknown> {
+  // The file is written inside the sandbox: only a variable name may go in, so a key value cannot (the message does not echo it).
+  if (!ENV_NAME.test(settings.keyEnv)) throw new Error("the OpenCode key setting must be the name of an environment variable, never a key value");
   const [providerId, ...rest] = settings.model.split("/");
   const modelId = rest.join("/");
   return {
@@ -59,42 +63,12 @@ export function openCodeConfig(settings: OpenCodeSettings): Record<string, unkno
 
 const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
 
-/** Read `stream` until `pattern` matches a line; keep draining afterwards into `tail`. */
-async function waitForLine(stream: ReadableStream<Uint8Array>, pattern: RegExp, tail: string[]): Promise<boolean> {
-  const reader = stream.getReader();
-  const decoder = new TextDecoder();
-  let buf = "";
-  let found = false;
-  let notify!: (v: boolean) => void;
-  const result = new Promise<boolean>((resolve) => (notify = resolve));
-  void (async () => {
-    try {
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split("\n");
-        buf = lines.pop() ?? "";
-        for (const line of lines) {
-          tail.push(line);
-          if (tail.length > 40) tail.shift();
-          if (!found && pattern.test(line)) {
-            found = true;
-            notify(true);
-          }
-        }
-      }
-    } catch {
-      // the process ended or was cancelled
-    }
-    notify(found);
-  })();
-  return result;
-}
+/** How long `opencode serve` may take to report that it listens. */
+export const START_TIMEOUT_MS = 30_000;
+/** How long opening the port forward to the server may take. */
+export const FORWARD_TIMEOUT_MS = 30_000;
 
-function drain(stream: ReadableStream<Uint8Array>, tail: string[]): void {
-  void waitForLine(stream, /$^/, tail);
-}
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export class OpenCodeBackend<W extends SandboxBacked> implements HarnessBackend<W> {
   constructor(
@@ -110,9 +84,11 @@ export class OpenCodeBackend<W extends SandboxBacked> implements HarnessBackend<
     await sb.writeFile(configPath, new TextEncoder().encode(JSON.stringify(openCodeConfig(s), null, 2)), { signal });
     const password = randomBytes(24).toString("base64url");
     const binary = s.binary ?? "/usr/local/bin/opencode";
+    if (!Number.isInteger(s.port) || s.port < 1 || s.port > 65535) throw new Error("the OpenCode port must be a TCP port");
     const proc: RunProcess = await sb.spawn(`exec ${shq(binary)} serve --hostname 127.0.0.1 --port ${s.port}`, {
       cwd: workspace.workdir,
       env: { OPENCODE_CONFIG: configPath, OPENCODE_SERVER_PASSWORD: password },
+      signal,
     });
     const closer = new AbortController();
     let closed: Promise<void> | null = null;
@@ -124,13 +100,27 @@ export class OpenCodeBackend<W extends SandboxBacked> implements HarnessBackend<
     try {
       const stdout: string[] = [];
       const stderr: string[] = [];
-      drain(proc.stderr, stderr);
-      const ready = await within(s.startTimeoutMs ?? 30_000, waitForLine(proc.stdout, /server listening on /, stdout));
+      let overlong = false;
+      const lines = {
+        onOverlong: () => {
+          if (overlong) return;
+          overlong = true;
+          sink({ type: "output", data: { channel: "diagnostic", text: `opencode serve printed a line over ${MAX_STREAM_UNIT} characters; it was dropped` } });
+        },
+      };
+      drain(proc.stderr, stderr, lines);
+      const ready = await within(s.startTimeoutMs ?? START_TIMEOUT_MS, waitForLine(proc.stdout, /server listening on /, stdout, lines), signal);
+      signal.throwIfAborted();
       if (!ready) throw new Error(`opencode serve did not report listening: ${[...stdout, ...stderr].slice(-5).join(" | ").slice(0, 800)}`);
-      const ep = await sb.endpoint(s.port);
+      const ep = await withTimeout("forwarding the OpenCode server's port", FORWARD_TIMEOUT_MS, () => sb.endpoint(s.port), signal);
       const client = new OpenCodeClient(`http://${ep.host}:${ep.port}`, password, this.fetchImpl);
       const [providerID, ...rest] = s.model.split("/");
-      const session = await client.createSession({ directory: workspace.workdir, providerID: providerID as string, modelID: rest.join("/") });
+      const session = await withTimeout(
+        "creating the OpenCode session",
+        this.timing.callMs ?? OPENCODE_CALL_TIMEOUT_MS,
+        (bound) => client.createSession({ directory: workspace.workdir, providerID: providerID as string, modelID: rest.join("/") }, bound),
+        signal,
+      );
       void proc.wait().then(({ exitCode }) => {
         if (!closer.signal.aborted) sink({ type: "error", error: { code: "internal", message: `opencode serve exited (${exitCode}): ${stderr.slice(-3).join(" | ").slice(0, 500)}`, retryable: false } });
       });
