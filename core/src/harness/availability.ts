@@ -2,6 +2,8 @@
  * Whether a sandboxed harness can start right now: the gateway's mTLS material is present, the
  * run image exists locally (Docker compute driver), and every credential provider the harness
  * attaches exists on the gateway. Each check is a short host command; none reads a credential.
+ * Names are validated when the configuration is loaded and are passed after `--` as well, so a
+ * name can never be read as an option (docker and the openshell CLI 0.1.10 both accept `--`).
  */
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -36,7 +38,7 @@ export async function checkSandboxHarness(config: HarnessConfig, providers: read
   else if (!["ca.crt", join("client", "tls.crt"), join("client", "tls.key")].every((f) => existsSync(join(tls, f)))) {
     reasons.push(`the OpenShell TLS directory ${tls} lacks ca.crt or client/tls.{crt,key}`);
   }
-  const image = await run(config.dockerBin, ["image", "inspect", "--format", "{{json .Config.Labels}}", config.image]);
+  const image = await run(config.dockerBin, ["image", "inspect", "--format", "{{json .Config.Labels}}", "--", config.image]);
   if (image.code !== 0) reasons.push(`run image ${config.image} is not present: ${firstLine(image.stderr)} (build it with core/image/build.sh)`);
   else {
     try {
@@ -46,7 +48,7 @@ export async function checkSandboxHarness(config: HarnessConfig, providers: read
     }
   }
   const gw = config.gateway.name ? ["-g", config.gateway.name] : [];
-  const checks = await Promise.all(providers.map((p) => run(config.openshellBin, [...gw, "provider", "get", p])));
+  const checks = await Promise.all(providers.map((p) => run(config.openshellBin, [...gw, "provider", "get", "--", p])));
   checks.forEach((res, i) => {
     if (res.code !== 0) reasons.push(`provider ${providers[i] as string} is not available on the gateway: ${firstLine(res.stderr || res.stdout)}`);
   });
