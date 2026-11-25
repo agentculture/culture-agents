@@ -19,6 +19,7 @@ import {
 } from "../contract/index.js";
 import { readLog } from "../store/event-log.js";
 import { runDir, runFile } from "../store/files.js";
+import { checkLiveness } from "../store/liveness.js";
 import { listRunIds, showRunAt } from "../store/run-store.js";
 
 export interface ScanOptions {
@@ -29,17 +30,66 @@ export interface ScanOptions {
   warn: (line: string) => void;
 }
 
-/** One run as stored now, settling it when orphaned; null when unknown or not established. */
-export function readRun(options: ScanOptions, runId: string): Run | null {
+/** A run directory exists but its record or log cannot be read. The run is not "absent": it is unreadable. */
+export class UnreadableRunError extends Error {
+  override readonly name = "UnreadableRunError";
+  constructor(
+    readonly runId: string,
+    readonly detail: string,
+  ) {
+    super(`run ${runId} cannot be read: ${detail}`);
+  }
+}
+
+/**
+ * One run as stored now, settling it when orphaned; null when unknown or not established. A run
+ * whose stored state cannot be read is skipped with a warning, or thrown as `UnreadableRunError`
+ * with `strict` (a caller asking for that one run must not be told it does not exist).
+ */
+export function readRun(options: ScanOptions, runId: string, strict = false): Run | null {
   if (!isRunId(runId)) return null;
   const dir = runDir(options.stateDir, runId);
   if (!existsSync(dir)) return null;
   try {
     return showRunAt(dir, { controllable: options.controllable(runId), settle: true })?.run ?? null;
   } catch (err) {
-    options.warn(`culture-agents core: run ${runId} cannot be read: ${err instanceof Error ? err.message : String(err)}`);
+    const detail = err instanceof Error ? err.message : String(err);
+    if (strict) throw new UnreadableRunError(runId, detail);
+    options.warn(`culture-agents core: run ${runId} cannot be read: ${detail}`);
     return null;
   }
+}
+
+/**
+ * An unreadable run that may still be working in `repo`: its worker is alive, and its record names
+ * this repository or cannot be read either. Such a run keeps the repository busy; treating it as
+ * absent would let a second worker into the same repository.
+ */
+export function unreadableRunHolding(options: ScanOptions, repo: string): string | null {
+  for (const id of listRunIds(options.stateDir)) {
+    const dir = runDir(options.stateDir, id);
+    try {
+      showRunAt(dir, { controllable: false, settle: false });
+      continue;
+    } catch {
+      // unreadable: decided below
+    }
+    let alive = true;
+    try {
+      alive = checkLiveness(dir).alive;
+    } catch {
+      // liveness unknown counts as alive
+    }
+    if (!alive) continue;
+    let recorded: unknown;
+    try {
+      recorded = (JSON.parse(readFileSync(runFile(dir, "record"), "utf8")) as { repo?: unknown }).repo;
+    } catch {
+      return id;
+    }
+    if (typeof recorded !== "string" || recorded === repo) return id;
+  }
+  return null;
 }
 
 /** Every established run in the store, newest first by `created_at` (README: runs.list). */

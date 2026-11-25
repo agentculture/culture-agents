@@ -19,6 +19,7 @@ import {
   type RunSandboxes,
   type RunSandboxesConfig,
 } from "../../sandbox/index.js";
+import { withTimeout } from "../../sandbox/timeout.js";
 import { PS_SCRIPT, parsePs } from "./processes.js";
 import type { Collected, Proc, Workspace, WorkspaceFactory } from "./types.js";
 
@@ -40,6 +41,11 @@ export interface SandboxDeps {
   prepare(sandbox: RunSandbox, options: PrepareOptions): Promise<PreparedTree>;
   collect(sandbox: RunSandbox, options: CollectOptions): Promise<CollectedTree>;
 }
+
+/** Longest a commit or a commit count inside the sandbox may take. */
+const COMMIT_TIMEOUT_MS = 120_000;
+/** Longest a process listing or kill inside the sandbox may take. */
+const PROCESS_TIMEOUT_MS = 30_000;
 
 export const realSandboxDeps: SandboxDeps = { openRunSandboxes, prepare: prepareTree, collect: collectTree };
 
@@ -69,23 +75,25 @@ export class SandboxWorkspace implements Workspace {
   }
 
   async processes(): Promise<Proc[]> {
-    const res = await this.sandbox.exec(PS_SCRIPT);
+    const res = await withTimeout("listing the sandbox's processes", PROCESS_TIMEOUT_MS, (signal) => this.sandbox.exec(PS_SCRIPT, { signal }));
     if (res.exitCode !== 0) throw new Error(`ps failed (exit ${res.exitCode}): ${text(res.stderr).trim()}`);
     return parsePs(text(res.stdout));
   }
 
   async kill(pids: readonly number[]): Promise<void> {
     const list = pids.filter((p) => Number.isInteger(p) && p > 1).join(" ");
-    if (list) await this.sandbox.exec(`kill -9 ${list} 2>/dev/null; true`);
+    if (list) await withTimeout("killing processes in the sandbox", PROCESS_TIMEOUT_MS, (signal) => this.sandbox.exec(`kill -9 ${list} 2>/dev/null; true`, { signal }));
   }
 
   async commitAll(message: string): Promise<number> {
     const w = shq(this.workdir);
     const script =
-      `set -e; cd ${w}; git add -A; ` +
-      `if ! git diff --cached --quiet; then git commit -q --no-verify -m ${shq(message)}; fi; ` +
-      `git rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`;
-    const res = await this.sandbox.exec(script);
+      // The clone's git config belongs to the harness: hooks (`--no-verify` skips only two of them)
+      // and a file-system monitor it left behind must not run, or hang, in the core's own commit.
+      `set -e; cd ${w}; g() { git -c core.hooksPath=/dev/null -c core.fsmonitor=false "$@"; }; g add -A; ` +
+      `if ! g diff --cached --quiet; then g commit -q --no-verify -m ${shq(message)}; fi; ` +
+      `g rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`;
+    const res = await withTimeout("committing the run's changes in the sandbox", COMMIT_TIMEOUT_MS, (signal) => this.sandbox.exec(script, { signal }));
     if (res.exitCode !== 0) throw new Error(`commit in sandbox failed (exit ${res.exitCode}): ${text(res.stderr).trim()}`);
     const count = Number(text(res.stdout).trim().split("\n").pop());
     if (!Number.isInteger(count)) throw new Error("could not count the run's commits");
@@ -108,7 +116,8 @@ export class SandboxWorkspace implements Workspace {
   }
 
   private async commitCount(): Promise<number> {
-    const res = await this.sandbox.exec(`cd ${shq(this.workdir)} && git rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`);
+    const count = `cd ${shq(this.workdir)} && git rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`;
+    const res = await withTimeout("counting the run's commits in the sandbox", COMMIT_TIMEOUT_MS, (signal) => this.sandbox.exec(count, { signal }));
     return res.exitCode === 0 ? Number(text(res.stdout).trim()) : 0;
   }
 

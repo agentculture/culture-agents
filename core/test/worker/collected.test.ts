@@ -48,3 +48,13 @@ test("a completed run that collected nothing has no branch and no collected.json
   assert.equal(readRecord(dir).branch, null);
   assert.equal(existsSync(runFile(dir, "collected")), false);
 });
+
+test("a driver failure with a very long message still ends the run failed, with the message clipped", async (t) => {
+  const long = "x".repeat(5000);
+  for (const steps of [[{ op: "started" }, { op: "throw", message: long }], [{ op: "started" }, { op: "failed", error: { code: "internal", message: long, retryable: false } }]] as FakeStep[][]) {
+    const { dir } = await finish(t, steps);
+    const record = readRecord(dir);
+    assert.equal(record.state, "failed", "an established failure is never reported as unknown");
+    assert.ok((record.state_reason ?? "").length <= 2000);
+  }
+});

@@ -9,7 +9,12 @@ import type { HarnessCatalog } from "../runs/ports.js";
 /** A catalog over the registry for one configuration. Capability documents are measured per call. */
 export function registryCatalog(config: HarnessConfig): HarnessCatalog {
   const entries = listHarnesses(config);
-  return { list: () => entries, get: (id) => entries.find((entry) => entry.id === id) };
+  return {
+    list: () => entries,
+    get: (id) => entries.find((entry) => entry.id === id),
+    // Loaded on first use: the gateway client is not part of the daemon's start-up.
+    reclaim: async (finishedRunIds) => (await import("../harness/reclaim.js")).reclaimSandboxes(config, finishedRunIds),
+  };
 }
 
 /** Load the harness configuration and build the catalog; throws `HarnessConfigError` on a bad configuration. */

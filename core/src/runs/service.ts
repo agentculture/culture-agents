@@ -36,7 +36,7 @@ import { WorkerSpawnError, spawnWorker, type WorkerControl } from "../worker/spa
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { control, type ControlKind } from "./control.js";
 import type { HarnessCatalog } from "./ports.js";
-import { activeRunFor, readRun, resultOf, scanRuns, type ScanOptions } from "./scan.js";
+import { activeRunFor, readRun, resultOf, scanRuns, unreadableRunHolding, UnreadableRunError, type ScanOptions } from "./scan.js";
 
 export interface RunServiceOptions {
   /** The run store's state directory. */
@@ -79,6 +79,14 @@ export class StoreRunService implements RunService {
     return scanRuns(this.scan);
   }
 
+  /** Ask the harnesses to delete what finished runs of this store left behind (README: cancel, sandbox). */
+  async reclaim(): Promise<string[]> {
+    const reclaim = this.options.catalog.reclaim;
+    if (!reclaim) return [];
+    const finished = scanRuns(this.scan).filter((run) => run.terminal).map((run) => run.id);
+    return finished.length === 0 ? [] : reclaim.call(this.options.catalog, finished);
+  }
+
   submit(request: SubmitRequest): Promise<Run> {
     const next = this.submitChain.then(() => this.submitNow(request));
     this.submitChain = next.catch(() => undefined);
@@ -98,6 +106,10 @@ export class StoreRunService implements RunService {
     if (request.session_id !== undefined) throw unsupported("continue_session", "Continuing a session is not supported in this API version.");
     if (request.parent_run_id !== undefined) throw unsupported("delegate", "Delegating from a parent run is not supported in this API version.");
     // Step 6: one active run per canonical repository (the server passes `repo` canonicalized).
+    const unreadable = unreadableRunHolding(this.scan, request.repo);
+    if (unreadable !== null) {
+      throw new ControlError("internal", `Run ${unreadable} has a live worker but its stored state cannot be read, so ${request.repo} may be in use; resolve that run before submitting here.`);
+    }
     const active = activeRunFor(this.scan, request.repo);
     if (active !== null) {
       throw new ControlError("busy", `Repository ${request.repo} already has the active run ${active.id}; wait for it to end or cancel it.`, {
@@ -163,7 +175,13 @@ export class StoreRunService implements RunService {
   }
 
   async getRun(runId: string): Promise<Run | null> {
-    const run = readRun(this.scan, runId);
+    let run: Run | null;
+    try {
+      run = readRun(this.scan, runId, true);
+    } catch (err) {
+      if (err instanceof UnreadableRunError) throw new ControlError("internal", `Run ${runId} exists but its stored state cannot be read (${err.detail.slice(0, 300)}).`);
+      throw err;
+    }
     if (run?.terminal) this.controls.delete(run.id);
     return run;
   }

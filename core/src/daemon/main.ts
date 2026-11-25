@@ -9,7 +9,7 @@ import { defaultStateDir } from "../store/files.js";
 import { loadAllowlist } from "./allowlist.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
 import { unavailable } from "./errors.js";
-import { LockHeldError } from "./lock.js";
+import { acquireStateLock, LockHeldError, type HeldLock } from "./lock.js";
 import { resolveAllowlistPath, resolveServerYamlPath } from "./paths.js";
 import type { RunService } from "./ports.js";
 
@@ -32,6 +32,8 @@ export interface MainOptions extends Partial<Omit<DaemonOptions, "service">> {
   harnessCatalog?: () => HarnessCatalog;
   /** Run store directory of the built-in run service. Default: `defaultStateDir(env)`. */
   stateDir?: string;
+  /** How often sandboxes of finished runs are reclaimed. Default: 5 minutes. */
+  reclaimIntervalMs?: number;
 }
 
 /**
@@ -47,11 +49,22 @@ export async function main(service?: RunService, options: MainOptions = {}): Pro
   }
   const env = options.env ?? process.env;
   const allowlistPath = options.allowlistPath ?? resolveAllowlistPath(env);
-  const runs = service ? null : createRunService({ stateDir: options.stateDir ?? defaultStateDir(env), node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath) });
+  const stateDir = options.stateDir ?? defaultStateDir(env);
+  let stateLock: HeldLock | null = null;
+  if (!service) {
+    try {
+      stateLock = await acquireStateLock(stateDir); // before anything reads or settles the store
+    } catch (e) {
+      err(`culture-agents core: cannot start: ${(e as Error).message}`);
+      return 2;
+    }
+  }
+  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath) });
   let daemon;
   try {
     daemon = await startDaemon({ ...options, service: service ?? (runs as RunService), node });
   } catch (e) {
+    await stateLock?.release();
     err(e instanceof LockHeldError ? `culture-agents core: ${e.message}` : `culture-agents core: cannot start: ${(e as Error).message}`);
     return 2;
   }
@@ -60,6 +73,16 @@ export async function main(service?: RunService, options: MainOptions = {}): Pro
   } catch (e) {
     err(`culture-agents core: startup reconciliation failed (runs settle when read): ${(e as Error).message}`);
   }
+  // Sandboxes of finished runs that their workers could not delete: at startup, then periodically.
+  const reclaim = (): void => {
+    runs?.reclaim().then(
+      (ids) => ids.length > 0 && err(`culture-agents core: reclaimed the sandbox of ${ids.length} finished run(s): ${ids.join(", ")}`),
+      (e: unknown) => err(`culture-agents core: could not reclaim sandboxes of finished runs: ${e instanceof Error ? e.message : String(e)}`),
+    );
+  };
+  reclaim();
+  const reclaimTimer = setInterval(reclaim, options.reclaimIntervalMs ?? 300_000);
+  reclaimTimer.unref();
   const state = daemon.allowlistState();
   err(`culture-agents core: listening on ${daemon.paths.socket} (pid ${process.pid}); allow-list ${state.status}, ${state.entries.length} entries`);
   await new Promise<void>((resolve) => {
@@ -67,7 +90,9 @@ export async function main(service?: RunService, options: MainOptions = {}): Pro
     process.once("SIGTERM", done);
     process.once("SIGINT", done);
   });
+  clearInterval(reclaimTimer);
   await daemon.stop();
+  await stateLock?.release();
   return 0;
 }
 

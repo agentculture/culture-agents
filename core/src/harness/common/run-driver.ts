@@ -56,6 +56,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   private turn: TurnHandle | null = null;
   private baseline: Proc[] = [];
   private begun = false;
+  private turnOver = false;
   private cancelRequested = false;
   private disposed = false;
   private forceStop!: () => void;
@@ -81,7 +82,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   }
 
   async steer(message: string): Promise<void> {
-    if (!this.turn || this.cancelRequested || this.disposed) throw new Error("The run has no running turn to steer.");
+    if (!this.turn || this.turnOver || this.cancelRequested || this.disposed) throw new Error("The run has no running turn to steer.");
     await this.turn.steer(message);
   }
 
@@ -92,7 +93,7 @@ export class RunDriver<W extends Workspace> implements Driver {
     // through its own control, so the measurements after the stop see what it left behind.
     if (!this.turn) this.abort.abort(new Error("cancelled"));
     this.stopTimer = setTimeout(() => this.forceStop(), this.options.stopSettleMs ?? 15_000);
-    if (this.turn) {
+    if (this.turn && !this.turnOver) {
       try {
         await this.turn.interrupt();
       } catch (err) {
@@ -149,6 +150,7 @@ export class RunDriver<W extends Workspace> implements Driver {
       for await (const event of until(this.turn.events, this.forced)) this.onTurnEvent(event);
       if (this.stopping) return await this.stopAll();
       const outcome = await this.turn.outcome;
+      this.turnOver = true; // from here a steer is refused and a cancel has no turn to interrupt
       if (this.stopping) return await this.stopAll();
       if (outcome.kind !== "completed") {
         await this.release();
@@ -160,14 +162,17 @@ export class RunDriver<W extends Workspace> implements Driver {
       }
       stage = "close the harness";
       await this.session.close();
+      if (this.stopping) return await this.stopAll();
       stage = "commit the run's changes";
       const commits = await this.workspace.commitAll(this.options.commitMessage);
+      if (this.stopping) return await this.stopAll();
       stage = "collect the run's commits";
       this.collected = commits > 0 ? await this.workspace.collect() : null;
       this.queue.push(
         diagnostic(this.collected ? `collected ${this.collected.commits} commit(s) on ${this.collected.branch}` : "the run made no commits"),
       );
-      if (this.stopping) return await this.stopAll();
+      // A stop that arrives once the commits are on the host no longer changes the outcome: the
+      // work is done and collected, so the run completes and reports its branch.
       if (!(await this.destroyWorkspace())) {
         this.queue.push({ type: "error", error: this.error("unavailable", "The run's sandbox could not be deleted.", true) });
       }

@@ -21,6 +21,12 @@ export interface HarnessEntry {
 export interface HarnessCatalog {
   list(): HarnessEntry[];
   get(id: string): HarnessEntry | undefined;
+  /**
+   * Delete whatever the harnesses left running for these finished runs (a sandbox whose deletion
+   * failed, or whose worker was killed). Returns the run ids something was deleted for. Optional:
+   * a catalog without workspaces of its own has nothing to reclaim.
+   */
+  reclaim?(finishedRunIds: string[]): Promise<string[]>;
 }
 
 /** A catalog with no harness: every submit is refused with `not_found` for an unknown harness. */
