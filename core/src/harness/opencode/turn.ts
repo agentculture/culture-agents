@@ -42,12 +42,19 @@ export async function startOpenCodeTurn(
   let markConnected!: () => void;
   const connected = new Promise<void>((resolve) => (markConnected = resolve));
 
+  let droppedBlocks = 0;
+  const dropped = (): void => {
+    droppedBlocks += 1;
+    // Say so once, then at each tenfold step: a harness output event was lost, the run goes on.
+    if (/^10*$/.test(String(droppedBlocks))) queue.push(diag(`${droppedBlocks} OpenCode event(s) could not be parsed and were not recorded`));
+  };
+
   const pump = async () => {
     let attempt = 0;
     while (!stop.aborted) {
       try {
         // The server sends `server.connected` first, so the first event marks the subscription live.
-        for await (const event of client.events(stop)) {
+        for await (const event of client.events(stop, dropped)) {
           markConnected();
           timing.tap?.(event);
           for (const e of mapper.map(event)) queue.push(e);

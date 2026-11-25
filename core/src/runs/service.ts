@@ -174,33 +174,37 @@ export class StoreRunService implements RunService {
       .slice(0, query.limit);
   }
 
-  async getRun(runId: string): Promise<Run | null> {
-    let run: Run | null;
+  /** One run, or null when there is none. A run that exists but cannot be read is `internal` on every route, never "no such run". */
+  private read(runId: string): Run | null {
     try {
-      run = readRun(this.scan, runId, true);
+      return readRun(this.scan, runId, true);
     } catch (err) {
       if (err instanceof UnreadableRunError) throw new ControlError("internal", `Run ${runId} exists but its stored state cannot be read (${err.detail.slice(0, 300)}).`);
       throw err;
     }
+  }
+
+  async getRun(runId: string): Promise<Run | null> {
+    const run = this.read(runId);
     if (run?.terminal) this.controls.delete(run.id);
     return run;
   }
 
   async readEvents(runId: string, after: number, limit: number): Promise<EventPage | null> {
-    const run = readRun(this.scan, runId);
+    const run = this.read(runId);
     if (run === null) return null;
     const page = readEvents(runDir(this.options.stateDir, run.id), run.id, after, limit);
     return { run_id: run.id, events: page.events, last_cursor: page.lastCursor, more: page.more };
   }
 
   async *streamEvents(runId: string, after: number, signal: AbortSignal): AsyncIterable<RunEvent> {
-    const run = readRun(this.scan, runId);
+    const run = this.read(runId);
     if (run === null) throw notFound(`No run ${runId}.`, { run_id: runId });
     yield* followEvents(runDir(this.options.stateDir, run.id), run.id, after, { signal, pollMs: this.options.followPollMs ?? 20 });
   }
 
   async getResult(runId: string): Promise<RunResult> {
-    const run = readRun(this.scan, runId);
+    const run = this.read(runId);
     if (run === null) throw notFound(`No run ${runId}.`, { run_id: runId });
     if (!run.terminal) throw new ControlError("conflict", `Run ${run.id} is ${run.state}; its result exists once it is terminal.`, { run_id: run.id, retryable: true });
     return resultOf(this.scan, run);
@@ -215,7 +219,7 @@ export class StoreRunService implements RunService {
   }
 
   private async act(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse["action"]> {
-    const run = readRun(this.scan, runId);
+    const run = this.read(runId);
     if (run === null) throw notFound(`No run ${runId}.`, { run_id: runId });
     const entry = this.options.catalog.get(run.harness);
     const capabilities = entry ? await entry.capabilities() : null;

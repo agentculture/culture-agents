@@ -15,6 +15,10 @@ test("an active run with a corrupt log keeps its repository busy and is not repo
 
   const shown = await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
   assert.match(shown.message, /cannot be read/);
+  // Every route that names the run says the same thing; none reports it as missing.
+  await refused(env, "GET", `/v1/runs/${run.id}/events`, "internal");
+  await refused(env, "GET", `/v1/runs/${run.id}/result`, "internal");
+  await refused(env, "GET", `/v1/runs/${run.id}/attach`, "internal");
   assert.ok(processExists(run.worker_pid as number), "its worker is still running");
   const second = await refused(env, "POST", "/v1/runs", "internal", submitBody("fake", env.repoA));
   assert.match(second.message, /may be in use/);

@@ -1,4 +1,4 @@
-import { chmodSync, lstatSync, mkdirSync, statSync, unlinkSync } from "node:fs";
+import { chmodSync, lstatSync, mkdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 
 import { apiVersion } from "../contract/index.js";
@@ -86,22 +86,26 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     node: options.node,
     coreVersion,
     now: options.now ?? (() => new Date()),
-    keepaliveMs: options.keepaliveMs ?? 15_000,
+    keepaliveMs: Math.max(1, options.keepaliveMs ?? 15_000), // never a zero-delay interval
     shutdown: shutdown.signal,
   };
   const server = createServer((req, res) => {
     handle(ctx, req, res).catch((e: unknown) => sendError(res, e));
   });
 
+  let bound = false;
   try {
     removeStaleSocket(paths.socket);
     removeInstanceInfo(paths);
     await listen(server, paths.socket);
+    bound = true;
     chmodSync(paths.socket, 0o600);
     if ((statSync(paths.socket).mode & 0o777) !== 0o600) throw new Error(`could not set ${paths.socket} to mode 0600`);
     writeInstanceInfo(paths, { pid: process.pid, api_version: apiVersion, socket: paths.socket });
   } catch (e) {
     server.close();
+    // Still under the lock: a socket this start bound is ours to remove, so no stale file is left.
+    if (bound) rmSync(paths.socket, { force: true });
     await lock.release();
     throw e;
   }

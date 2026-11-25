@@ -89,21 +89,33 @@ commits, and a cancel waited a fixed 4.5 s before recording `cancelled`
 ## In flight
 
 PR [agentculture/culture-agents#4](https://github.com/agentculture/culture-agents/pull/4)
-is open and its checks pass. The branch is pushed. A colleague review
-(GLM-5.3-Flash through the colleague CLI) led to three fixes: the collected
-branch must descend from the run's base commit, a malformed path is `invalid`,
-and finished runs release their worker channel. An OpenCode review with the
-`gateway/cortex` model covers the remaining core files; its output goes to
-`opencode-review.txt` in the session scratch directory.
+is open and pushed. Reviews so far, all acted on:
+
+- colleague CLI (GLM-5.3-Flash): three fixes.
+- `/code-review` of PR #4 by three independent reviewers: one must-fix and
+  eleven should-fix, all twelve fixed with tests (sandbox reclaim, unreadable
+  runs, control races, state-directory lock, CLI and contract fixes), and the
+  live stage re-run afterwards (16 of 16).
+- OpenCode with `gateway/cortex`, session `ses_dee4a93efffeSMHElqr4XqBXtD`:
+  nine nits, four fixed. Its report is `opencode-review3.txt` in the session
+  scratch directory.
+
+Not taken from those reviews, about 30 lower-severity items. The larger ones:
+every request re-reads whole event logs; the host fetch from the sandbox has no
+object check or size bound; the process check after a cancel can be blinded
+from inside the sandbox; the portability waiver is per file; the CLI imports
+private agentfront symbols.
+
+Local-model runs (OpenCode cortex, colleague) get no hard timeout and are
+continued in their session when interrupted (owner instruction, 2026-11-25).
 
 agentculture/agentfront#60 has a second commit (`b7d15e8`) that clears the
 seven SonarCloud issues and the three review findings; its checks pass.
 
 ## Next steps
 
-1. Read the OpenCode review and fix what is real.
-2. Wait for the owner to merge PR #4.
-3. After the merge: `/validate-delivery`, then `/summarize-delivery`.
+1. Wait for the owner to merge PR #4.
+2. After the merge: `/validate-delivery`, then `/summarize-delivery`.
 
 ## Open items for the owner
 

@@ -8,7 +8,7 @@ import { test, type TestContext } from "node:test";
 import { setTimeout as delay } from "node:timers/promises";
 
 import type { TurnEvent, TurnOutcome } from "../../src/harness/common/types.js";
-import { OpenCodeApiError, OpenCodeClient } from "../../src/harness/opencode/client.js";
+import { OpenCodeApiError, OpenCodeClient, parseSse } from "../../src/harness/opencode/client.js";
 import { startOpenCodeTurn } from "../../src/harness/opencode/turn.js";
 import { FakeOpenCode } from "./fake-opencode.js";
 
@@ -136,4 +136,20 @@ test("the client sends basic auth and surfaces a refusal", async (t) => {
   });
   const good = new OpenCodeClient(base, server.password);
   assert.equal((await good.createSession({ directory: "/w", providerID: "gateway", modelID: "worker" })).id, server.sessionId);
+});
+
+test("parseSse reports a block whose data is not JSON; it does not drop it silently", async () => {
+  const enc = new TextEncoder();
+  const body = new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(enc.encode('data: {"type":"a"}\r'));
+      c.enqueue(enc.encode('\n\r\ndata: {"type":"session.tex\r\ndata: t.updated"}\r\n\r\ndata: {"type":"b"}\n\n'));
+      c.close();
+    },
+  });
+  let dropped = 0;
+  const seen: string[] = [];
+  for await (const event of parseSse(body, undefined, () => (dropped += 1))) seen.push(event.type);
+  assert.deepEqual(seen, ["a", "b"], "a line ending split across chunks is handled");
+  assert.equal(dropped, 1, "the block split inside a JSON string is counted");
 });

@@ -109,15 +109,15 @@ export class OpenCodeClient {
    * volatile (events during a disconnect are lost), so callers never take it as the authority
    * on whether a turn ended.
    */
-  async *events(signal: AbortSignal): AsyncGenerator<V2Event> {
+  async *events(signal: AbortSignal, onDropped?: () => void): AsyncGenerator<V2Event> {
     const res = await this.call("GET", "/api/event", undefined, signal);
     if (!res.body) return;
-    yield* parseSse(res.body, signal);
+    yield* parseSse(res.body, signal, onDropped);
   }
 }
 
 /** Parse a `text/event-stream` body into JSON `data` payloads. */
-export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: AbortSignal): AsyncGenerator<V2Event> {
+export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: AbortSignal, onDropped?: () => void): AsyncGenerator<V2Event> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -141,7 +141,8 @@ export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: Abort
           const event = JSON.parse(data) as V2Event;
           if (event && typeof event.type === "string") yield event;
         } catch {
-          // A malformed payload is skipped; the stream is best-effort by design.
+          // A payload that is not JSON is skipped (the stream is best-effort), but not silently.
+          onDropped?.();
         }
       }
     }
