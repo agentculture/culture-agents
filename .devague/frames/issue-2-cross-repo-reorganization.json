@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T09:10:08Z",
+  "updated": "2026-11-25T09:20:21Z",
   "claims": [
     {
       "id": "c1",
@@ -1538,7 +1538,7 @@
         "runs/fix-store a1c9218"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l11",
@@ -1549,7 +1549,7 @@
         "runs/fix-cli 396e324"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l12",
@@ -1560,7 +1560,7 @@
         "runs/fix-sandbox 661c86f"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ],
   "obligations": [
