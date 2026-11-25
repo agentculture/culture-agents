@@ -71,9 +71,16 @@ export function stepUntil<T>(step: () => Step<T> | Promise<Step<T>>, options: St
         stop();
         return;
       }
-      // The executor runs the step now and turns a throw into a rejection; `settle` always runs
-      // from a fresh microtask, so steps that ask for no wait do not nest on the stack.
-      new Promise<Step<T>>((ran) => ran(step())).then(settle).catch(reject);
+      // The step runs now and a throw becomes a rejection; `settle` always runs from a fresh
+      // microtask, so steps that ask for no wait do not nest on the stack.
+      let ran: Promise<Step<T>>;
+      try {
+        ran = Promise.resolve(step());
+      } catch (err) {
+        reject(err as Error);
+        return;
+      }
+      ran.then(settle).catch(reject);
     }
     tick();
   });
