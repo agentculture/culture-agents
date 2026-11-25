@@ -34,14 +34,58 @@ export interface MainOptions extends Partial<Omit<DaemonOptions, "service">> {
   stateDir?: string;
   /** How often sandboxes of finished runs are reclaimed. Default: 5 minutes. */
   reclaimIntervalMs?: number;
+  /**
+   * Install process-level `uncaughtException` and `unhandledRejection` handlers for the life of
+   * `main` (the bin does). Either one is logged, the daemon is stopped as on SIGTERM and `main`
+   * resolves to 2. Off by default, so a host process keeps its own handlers.
+   */
+  fatalHandlers?: boolean;
+  /** How long a stop after a fatal error may take before `main` gives up waiting. Default: 5 s. */
+  fatalStopTimeoutMs?: number;
+}
+
+/** Process-level failures, turned into one promise. `dispose` removes the handlers. */
+function watchFatal(err: (line: string) => void): { fatal: Promise<void>; dispose: () => void } {
+  let signal: () => void = () => undefined;
+  const fatal = new Promise<void>((resolve) => (signal = resolve));
+  const handler = (what: string) => (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    // One line first; the stack follows for whoever reads the core's stderr. No client sees either.
+    err(`culture-agents core: fatal: ${what}: ${message.split("\n")[0] ?? ""}; stopping (workers keep running).`);
+    if (error instanceof Error && error.stack) err(error.stack);
+    signal();
+  };
+  const onException = handler("uncaught exception");
+  const onRejection = handler("unhandled promise rejection");
+  process.on("uncaughtException", onException);
+  process.on("unhandledRejection", onRejection);
+  return {
+    fatal,
+    dispose: () => {
+      process.off("uncaughtException", onException);
+      process.off("unhandledRejection", onRejection);
+    },
+  };
 }
 
 /**
  * Run the daemon until SIGTERM or SIGINT, then clean up. Resolves to the process exit code: 0 after a
- * clean stop, 2 for an environment error (another instance running, no node name, bind failure).
+ * clean stop, 2 for an environment error (another instance running, no node name, bind failure) or,
+ * with `fatalHandlers`, after an uncaught exception or unhandled rejection. Workers are separate
+ * detached processes: no path through here signals them.
  */
 export async function main(service?: RunService, options: MainOptions = {}): Promise<number> {
   const err = options.stderr ?? ((line: string) => void process.stderr.write(`${line}\n`));
+  if (!options.fatalHandlers) return serve(service, options, err, null);
+  const watch = watchFatal(err);
+  try {
+    return await serve(service, options, err, watch.fatal);
+  } finally {
+    watch.dispose();
+  }
+}
+
+async function serve(service: RunService | undefined, options: MainOptions, err: (line: string) => void, fatal: Promise<void> | null): Promise<number> {
   const node = options.node ?? readNodeName(options.env ?? process.env);
   if (!node) {
     err(`culture-agents core: no node name; set server.name in ${resolveServerYamlPath(options.env ?? process.env)} or ${join(homedir(), ".culture", "server.yaml")}.`);
@@ -85,15 +129,30 @@ export async function main(service?: RunService, options: MainOptions = {}): Pro
   reclaimTimer.unref();
   const state = daemon.allowlistState();
   err(`culture-agents core: listening on ${daemon.paths.socket} (pid ${process.pid}); allow-list ${state.status}, ${state.entries.length} entries`);
-  await new Promise<void>((resolve) => {
-    const done = (): void => resolve();
+  const code = await new Promise<number>((resolve) => {
+    const done = (): void => resolve(0);
     process.once("SIGTERM", done);
     process.once("SIGINT", done);
+    void fatal?.then(() => resolve(2));
   });
   clearInterval(reclaimTimer);
-  await daemon.stop();
-  await stateLock?.release();
-  return 0;
+  const stop = (async () => {
+    await daemon.stop();
+    await stateLock?.release();
+  })();
+  if (code === 0) {
+    await stop;
+    return 0;
+  }
+  // After a fatal error the stop is best effort and bounded: the process exits 2 either way.
+  let timer: NodeJS.Timeout | undefined;
+  const stopped = await Promise.race([
+    stop.then(() => true, (e: unknown) => (err(`culture-agents core: could not stop cleanly: ${e instanceof Error ? e.message : String(e)}`), true)),
+    new Promise<boolean>((resolve) => (timer = setTimeout(() => resolve(false), options.fatalStopTimeoutMs ?? 5000))),
+  ]);
+  clearTimeout(timer);
+  if (!stopped) err("culture-agents core: the stop did not finish in time; exiting anyway.");
+  return 2;
 }
 
 /** Placeholder until the run logic is wired: every call says so, with `unavailable`. */
@@ -141,7 +200,7 @@ async function bin(): Promise<number> {
     process.stderr.write(`culture-agents core: cannot start: harness configuration: ${e instanceof Error ? e.message : String(e)}\n`);
     return 2;
   }
-  return main(undefined, { harnessCatalog: () => catalog });
+  return main(undefined, { harnessCatalog: () => catalog, fatalHandlers: true });
 }
 
 if (isBinTarget()) {

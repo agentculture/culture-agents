@@ -58,6 +58,8 @@ function listenAbstract(name: string): Promise<Server> {
     server.once("error", reject);
     server.listen({ path: name }, () => {
       server.off("error", reject);
+      // The lock is held for the life of the process; a later `error` event must never be unhandled.
+      server.on("error", (error: Error) => void process.stderr.write(`culture-agents core: the instance lock socket reported an error: ${error.message}\n`));
       resolve(server);
     });
   });

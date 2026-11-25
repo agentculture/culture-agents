@@ -58,6 +58,25 @@ test("a worker survives a daemon SIGKILL: reported from disk, no live control, b
   assert.equal((await submit(env, "fake-timed", env.repoA)).state, "queued", "the repository is free again");
 });
 
+test("a fatal error in the daemon stops it with exit 2 and never touches the worker", async (t) => {
+  const env = makeEnv(t, [HANG]);
+  const first = await startDaemon(t, env);
+  const run = await submit(env, "fake", env.repoA);
+  await waitRun(env, run.id, (r) => r.state === "running", "running");
+  const pid = run.worker_pid as number;
+  first.proc.kill("SIGUSR2"); // the test child throws from a callback: an uncaught exception
+  const exit = await first.exited;
+  assert.equal(exit.code, 2, first.stderr());
+  assert.match(first.stderr(), /fatal: uncaught exception: boom from a callback/);
+  assert.ok(processExists(pid), "the worker outlived the daemon");
+
+  await startDaemon(t, env); // the socket, the info file and both locks were released
+  const shown = await getRun(env, run.id);
+  assert.equal(shown.state, "running");
+  assert.equal(shown.live_control, false);
+  assert.ok(processExists(pid));
+});
+
 test("a worker killed with the daemon leaves its run unknown after restart, history kept", async (t) => {
   const env = makeEnv(t, [HANG]);
   const first = await startDaemon(t, env);

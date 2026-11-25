@@ -54,16 +54,38 @@ function removeStaleSocket(path: string): void {
   unlinkSync(path);
 }
 
+/** The longest Unix socket path every supported platform accepts (`sun_path` less its terminator), in bytes. */
+export const MAX_SOCKET_PATH_BYTES = 107;
+
+/** One stderr line for an `error` event of a server that is already listening; it must never be unhandled. */
+export function logServerError(what: string): (error: unknown) => void {
+  return (error) => void process.stderr.write(`culture-agents core: ${what} reported an error: ${error instanceof Error ? error.message : String(error)}\n`);
+}
+
+/** Bind the control socket owner-only (0600). The process umask is restored on every path out. */
 function listen(server: Server, path: string): Promise<void> {
+  const bytes = Buffer.byteLength(path);
+  if (bytes > MAX_SOCKET_PATH_BYTES) {
+    return Promise.reject(
+      new Error(`the control socket path is ${bytes} bytes, but a Unix socket path can be at most ${MAX_SOCKET_PATH_BYTES} bytes (${path}); set CULTURE_AGENTS_SOCKET to a shorter path.`),
+    );
+  }
   return new Promise((resolve, reject) => {
-    server.once("error", reject);
     const previous = process.umask(0o177); // socket is created 0600
-    server.listen(path, () => {
-      process.umask(previous);
-      server.off("error", reject);
-      resolve();
-    });
-    server.once("error", () => process.umask(previous));
+    let restored = false;
+    const settle = (error?: unknown): void => {
+      if (!restored) process.umask(previous);
+      restored = true;
+      server.off("error", settle);
+      if (error === undefined) resolve();
+      else reject(error instanceof Error ? error : new Error(String(error)));
+    };
+    server.once("error", settle);
+    try {
+      server.listen(path, () => settle());
+    } catch (e) {
+      settle(e); // `listen` can also throw instead of emitting `error`
+    }
   });
 }
 
@@ -99,6 +121,8 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     removeInstanceInfo(paths);
     await listen(server, paths.socket);
     bound = true;
+    // From here on an `error` event has no one waiting for it: log it instead of crashing the core.
+    server.on("error", logServerError("the control socket server"));
     chmodSync(paths.socket, 0o600);
     if ((statSync(paths.socket).mode & 0o777) !== 0o600) throw new Error(`could not set ${paths.socket} to mode 0600`);
     writeInstanceInfo(paths, { pid: process.pid, api_version: apiVersion, socket: paths.socket });

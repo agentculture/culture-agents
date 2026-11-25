@@ -1,6 +1,7 @@
 // Child process for run-service tests: the real `main` with the built-in run service. The harness
 // catalog is a fake built from FAKE_CATALOG (JSON list of FakeHarness); its entries point at the
 // worker's fake driver module. Without FAKE_CATALOG the daemon uses its default (empty) catalog.
+// SIGUSR2 throws from a callback, so a test can drive the fatal-error handlers.
 import { fileURLToPath } from "node:url";
 
 import type { Capabilities, Capability } from "../../src/contract/index.js";
@@ -46,10 +47,15 @@ function fakeCatalog(harnesses: FakeHarness[]): HarnessCatalog {
   return { list: () => entries, get: (id) => entries.find((e) => e.id === id) };
 }
 
+process.on("SIGUSR2", () => {
+  throw new Error("boom from a callback");
+});
+
 const spec = process.env["FAKE_CATALOG"];
 const code = await main(undefined, {
   node: "spark",
   stderr: (line) => process.stderr.write(`${line}\n`),
+  fatalHandlers: true,
   ...(spec !== undefined && { harnessCatalog: () => fakeCatalog(JSON.parse(spec) as FakeHarness[]) }),
 });
 process.exit(code);

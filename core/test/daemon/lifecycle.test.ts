@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import { after, test } from "node:test";
 
 import { apiVersion } from "../../src/contract/index.js";
@@ -101,4 +101,36 @@ test("a regular file at the socket path is never removed", async () => {
   assert.equal(exit.code, 2);
   assert.match(child.stderr(), /not a socket/);
   assert.equal(readFileSync(env.socket, "utf8"), "not a socket");
+});
+
+for (const [signal, what] of [
+  ["SIGUSR2", /fatal: uncaught exception: boom from a callback/],
+  ["SIGUSR1", /fatal: unhandled promise rejection: rejected and never handled/],
+] as const) {
+  test(`a fatal error (${signal} in the test child) is logged, the daemon stops cleanly and exits 2`, async () => {
+    const env = fresh();
+    const first = start(env);
+    await ready(env, first);
+    first.proc.kill(signal);
+    const exit = await first.exited;
+    assert.equal(exit.code, 2, first.stderr());
+    assert.equal(first.stderr().split("\n").filter((line) => /culture-agents core: fatal:/.test(line)).length, 1);
+    assert.match(first.stderr(), what);
+    assert.equal(existsSync(env.socket), false, "the socket was removed");
+    assert.equal(existsSync(`${env.socket}.pid`), false, "the info file was removed");
+    const second = start(env);
+    await ready(env, second);
+    assert.equal((await call(env.socket, "GET", "/v1/version")).status, 200);
+  });
+}
+
+test("a socket path longer than a Unix socket allows is refused with exit 2, naming the limit and the variable", async () => {
+  const env = fresh();
+  env.vars["CULTURE_AGENTS_SOCKET"] = join(env.root, "run", `${"s".repeat(120)}.sock`);
+  const child = start(env);
+  const exit = await child.exited;
+  assert.equal(exit.code, 2);
+  assert.match(child.stderr(), /cannot start: the control socket path is \d+ bytes, but a Unix socket path can be at most 107 bytes/);
+  assert.match(child.stderr(), /CULTURE_AGENTS_SOCKET/);
+  assert.doesNotMatch(child.stderr(), /EINVAL/);
 });
