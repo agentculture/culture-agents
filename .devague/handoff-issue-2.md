@@ -17,7 +17,7 @@ out of scope and tracked by issues on the sibling repos.
 ## Where the work is
 
 - Repo `~/git/culture-agents`, local branch `runs/d0-d1-spec`, about 55
-  commits ahead of `main`, version 0.13.0. **Nothing is pushed.** No PR exists for this repo.
+  commits ahead of `main`, version 0.13.0. Pushed; PR #4 is open.
 - One file is modified and deliberately never committed:
   `.eidetic/memory/default__public.jsonl` (a recall counter bumped by `/recall`).
 - Commits use `git -c user.name="Ori Nachum" -c user.email=<the owner's email>`
@@ -52,8 +52,7 @@ lapses and deviations the moment they surface. Briefs quote the task from
   sets up Trusted Publishing. Never publish without an explicit go-ahead.
 - Sibling repos may be changed by branch and PR for this work only.
   culture-nodes is out of scope; embodiment's opencode-subagent plan is paused.
-- Deviations d1 to d4 are approved. d5 is proposed and awaits the owner (see
-  open items).
+- Deviations d1 to d5 are approved.
 
 ## Plan status
 
@@ -89,33 +88,28 @@ commits, and a cancel waited a fixed 4.5 s before recording `cancelled`
 
 ## In flight
 
-A colleague review of the safety-critical core files was started in the
-background; its output goes to `colleague-review.txt` in the session scratch
-directory. Treat it as a second opinion to verify.
+PR [agentculture/culture-agents#4](https://github.com/agentculture/culture-agents/pull/4)
+is open and its checks pass. The branch is pushed. A colleague review
+(GLM-5.3-Flash through the colleague CLI) led to three fixes: the collected
+branch must descend from the run's base commit, a malformed path is `invalid`,
+and finished runs release their worker channel. An OpenCode review with the
+`gateway/cortex` model covers the remaining core files; its output goes to
+`opencode-review.txt` in the session scratch directory.
+
+agentculture/agentfront#60 has a second commit (`b7d15e8`) that clears the
+seven SonarCloud issues and the three review findings; its checks pass.
 
 ## Next steps
 
-1. Read the colleague review and fix what is real.
-2. Open the PR through the `cicd` skill. This is the first push of this
-   branch, so it waits for the owner's go-ahead and a decision on d5.
+1. Read the OpenCode review and fix what is real.
+2. Wait for the owner to merge PR #4.
 3. After the merge: `/validate-delivery`, then `/summarize-delivery`.
 
 ## Open items for the owner
 
-- Deviation d5 (proposed): the live acceptance ran with the two culture chat
-  servers still running; chat independence was shown from the TCP sockets of
-  the core and worker processes. Confirm or reject, or stop the servers and
-  have the live stage rerun.
 - The first npm publish was to wait until D1 passes. It now passes. `core/`
   is still `0.0.0`, so a merge publishes nothing to npm until the owner says
   go.
-- agentculture/agentfront#60 (public `run_cli`, `meta_verb`,
-  `add_learn_section`): reviewed as request-changes. CI fails on two Sonar
-  S9073 issues; `run_cli` can return a non-int; a conflicting `configure`
-  escapes as a traceback; `explain --json` at the root prints markdown. Offer
-  made to send the subagent back; no answer yet.
-- Obligation o15 names the old package `@culture.dev/agents-core`; o18 is the
-  corrected one. Both are pending: reject o15, confirm o18.
 - Nine lapses (l1 to l9) are filed and await adjudication.
 - Whether to delete the unused `codex`, `claude-code` and `claude-npm`
   providers on the OpenShell gateway.
