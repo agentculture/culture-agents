@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
 import { ClaudeCodeBackend, type AgentLike, type AgentSessionLike } from "../../src/harness/claude-code/backend.js";
-import { ClaudePartMapper, type StreamPart } from "../../src/harness/claude-code/map.js";
+import { ClaudePartMapper, COMPLETED_FINISH_REASONS, type StreamPart } from "../../src/harness/claude-code/map.js";
 import type { TurnEvent, Workspace } from "../../src/harness/common/types.js";
 import type { V2Event } from "../../src/harness/opencode/client.js";
 import { OpenCodeEventMapper } from "../../src/harness/opencode/map.js";
@@ -55,6 +55,29 @@ test("claude-code mapper: an error part without finish fails the turn; finish wi
   const quiet = new ClaudePartMapper();
   quiet.map({ type: "finish", finishReason: "stop" });
   assert.deepEqual(quiet.outcome(), { kind: "completed" });
+});
+
+test("claude-code mapper: only a normal finish completes; a truncated or filtered turn fails naming the reason", () => {
+  for (const reason of ["length", "content-filter", "tool-calls", "interrupted", "other", "unknown", "error"]) {
+    const mapper = new ClaudePartMapper();
+    mapper.map({ type: "text-delta", text: "partial answ" });
+    mapper.map({ type: "finish", finishReason: reason });
+    const outcome = mapper.outcome();
+    assert.equal(outcome.kind, "failed", `${reason} must not complete`);
+    if (outcome.kind === "failed") assert.match(outcome.error.message, new RegExp(`finish reason ${reason}\\b`));
+  }
+  const cut = new ClaudePartMapper();
+  cut.map({ type: "finish", finishReason: "length" });
+  const outcome = cut.outcome();
+  assert.ok(outcome.kind === "failed" && /output limit/.test(outcome.error.message), "the message says what length means");
+  // The harness layer's own shape ({ unified, raw }) is read the same way as the flattened string.
+  const shaped = new ClaudePartMapper();
+  shaped.map({ type: "finish", finishReason: { unified: "stop", raw: "stop" } });
+  assert.deepEqual(shaped.outcome(), { kind: "completed" });
+  const shapedCut = new ClaudePartMapper();
+  shapedCut.map({ type: "finish", finishReason: { unified: "content-filter", raw: "refusal" } });
+  assert.equal(shapedCut.outcome().kind, "failed");
+  assert.deepEqual([...COMPLETED_FINISH_REASONS], ["stop"]);
 });
 
 test("opencode v2 steer sample: shell and write calls with names, results, deliveries, final text", () => {
