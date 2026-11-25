@@ -7,6 +7,7 @@ and the ``scripts/harness-smoke.py`` driver all build on this module.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -54,7 +55,6 @@ GUILD_HARNESS = {
 #: are upstream's to fix (never patch a verbatim vendored copy), so they are
 #: WAIVED — reported every run, never silently dropped. Any finding outside
 #: this allowlist fails the check.
-#:
 #: The issue-2 devague records are waived for a different reason: their
 #: confirmed claims and scope findings name the workspace root by its absolute
 #: path. devague state is never hand-edited, and amending a confirmed claim
@@ -65,6 +65,18 @@ STEWARD_WAIVED_PORTABILITY_PATHS = frozenset(
     {
         ".claude/skills/recall/SKILL.md",
         ".claude/skills/remember/SKILL.md",
+    }
+)
+
+#: The issue-2 devague records name the workspace root by its absolute path in
+#: owner-confirmed claims and scope findings. devague state is append-only (an
+#: amended claim keeps its superseded text), so the path cannot be edited out.
+#: These files are waived LINE BY LINE: a flagged line is accepted only when
+#: every home path on it is the workspace root or its CLAUDE.md
+#: (``WORKSPACE_ROOT_PATH``). Any other home path in them still fails.
+_ISSUE_2 = "issue-2-cross-repo-reorganization"
+STEWARD_WORKSPACE_ROOT_RECORDS = frozenset(
+    {
         f".devague/frames/{_ISSUE_2}.json",
         f".devague/plans/{_ISSUE_2}.json",
         f"docs/specs/2026-11-24-{_ISSUE_2}.md",
@@ -72,6 +84,9 @@ STEWARD_WAIVED_PORTABILITY_PATHS = frozenset(
         f"docs/plans/2026-11-24-{_ISSUE_2}-split.md",
     }
 )
+#: A home path, and the only two forms of it the records may hold.
+HOME_PATH = re.compile(r"/home/[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.@+-]+)*")
+WORKSPACE_ROOT_PATH = re.compile(r"/home/[A-Za-z0-9_-]+/git(?:/CLAUDE\.md)?")
 
 PASS, FAIL, SKIP, WAIVED = "PASS", "FAIL", "SKIP", "WAIVED"
 
