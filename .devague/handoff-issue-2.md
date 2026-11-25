@@ -142,8 +142,7 @@ The SonarCloud skill can mark an issue Accepted with the token held by
 - The first npm publish was to wait until D1 passes. It now passes. `core/`
   is still `0.0.0`, so a merge publishes nothing to npm until the owner says
   go.
-- Nine lapses (l1 to l9) are filed and await adjudication; l10 to l12 are
-  approved.
+- All fifteen lapses (l1 to l15) are approved by the owner.
 - Whether to delete the unused `codex`, `claude-code` and `claude-npm`
   providers on the OpenShell gateway.
 

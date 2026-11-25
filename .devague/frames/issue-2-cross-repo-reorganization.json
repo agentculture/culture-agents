@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T13:58:47Z",
+  "updated": "2026-11-25T13:58:55Z",
   "claims": [
     {
       "id": "c1",
@@ -1439,7 +1439,7 @@
         "t2"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l2",
@@ -1450,7 +1450,7 @@
         "t5"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l3",
@@ -1461,7 +1461,7 @@
         "spec s18 / c19"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l4",
@@ -1472,7 +1472,7 @@
         "t1"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l5",
@@ -1483,7 +1483,7 @@
         "t1"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l6",
@@ -1494,7 +1494,7 @@
         "t10"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l7",
@@ -1505,7 +1505,7 @@
         "t6"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l8",
@@ -1516,7 +1516,7 @@
         "t9"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l9",
@@ -1527,7 +1527,7 @@
         "integration fixes (runs/join)"
       ],
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     },
     {
       "id": "l10",
