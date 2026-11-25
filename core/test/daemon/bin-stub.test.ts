@@ -53,7 +53,7 @@ function makeBinEnv(t: TestContext, harnessConfig: unknown): BinEnv {
   };
   t.after(() => {
     killWorkers(env);
-    rmSync(root, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
   });
   return env;
 }

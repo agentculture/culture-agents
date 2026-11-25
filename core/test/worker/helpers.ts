@@ -20,10 +20,13 @@ export function fakeDriver(options: FakeDriverOptions): DriverSelection {
   return { module: FAKE_DRIVER_MODULE, options };
 }
 
-/** A fresh temp state dir, removed after the test (and any worker in it killed first). */
+/**
+ * A fresh temp state dir, removed after the test. A worker that just reached its terminal event may
+ * still be removing its socket and closing files, so removal retries ENOTEMPTY briefly.
+ */
 export function stateDir(t: TestContext): string {
   const dir = mkdtempSync(join(tmpdir(), "ca-store-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  t.after(() => rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
   return dir;
 }
 
