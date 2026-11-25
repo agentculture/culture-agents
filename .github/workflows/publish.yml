@@ -8,6 +8,9 @@ name: Publish to npm and PyPI
 # Push to main: test + version-gate -> publish-npm (provenance) -> publish (PyPI).
 #   The PyPI job `needs` the npm job, so a failed npm publish leaves nothing
 #   on PyPI.
+#   Both publish jobs are safe to re-run: PyPI skips files already uploaded,
+#   and the npm job skips a version already on npm after checking that the
+#   registry copy holds the files this commit builds.
 #
 # Version policy: the npm package (core/package.json) must carry the same
 # version as pyproject.toml at release time. The version-gate job FAILS the
@@ -170,11 +173,40 @@ jobs:
 
       - run: npm run build
 
-      - name: Publish to npm with provenance
+      - name: pack
+        id: pack
         run: |
           set -euo pipefail
           TARBALL="$(npm pack --silent)"
-          npm publish "$TARBALL" --provenance --access public
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+
+      # Prints `absent` or `present`; any other answer from npm (a network or
+      # registry error, unreadable output) fails this step, so nothing publishes.
+      - name: is this version already on npm?
+        id: npm
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          STATE="$(python3 ../scripts/npm_release_state.py @culture.dev/agents "$VERSION")"
+          echo "state=${STATE}" >> "$GITHUB_OUTPUT"
+          echo "spec=@culture.dev/agents@${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "@culture.dev/agents@${VERSION} is ${STATE} on npm"
+
+      # A re-run, or the one-time bootstrap publish, already made this version.
+      # Never publish over it (npm refuses; versions cannot be reused): prove
+      # the registry copy holds the files this commit builds, or fail.
+      - name: already on npm; check the registry copy matches this commit
+        if: steps.npm.outputs.state == 'present'
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          SPEC: ${{ steps.npm.outputs.spec }}
+        run: python3 ../scripts/npm_registry_matches.py "$TARBALL" "$SPEC"
+
+      - name: Publish to npm with provenance
+        if: steps.npm.outputs.state == 'absent'
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "$TARBALL" --provenance --access public
 
   publish:
     # always(): publish-npm is skipped (not failed) while core is the 0.0.0
