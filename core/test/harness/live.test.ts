@@ -114,7 +114,7 @@ const suites: Promise<void>[] = [];
 for (const id of ["claude-code", "opencode"]) {
   if (!wanted.includes(id)) continue;
   const entry = getHarness(config, id);
-  assert.ok(entry, `registry lists ${id}`);
+  if (!entry) continue; // the test above fails for a harness the registry does not list
   const tasks = TASKS[id] as Pick<ContractTarget, "submit" | "steer" | "cancel">;
   const target: ContractTarget = {
     harness: id,
