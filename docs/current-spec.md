@@ -15,14 +15,15 @@ Anything predating this boundary, or belonging to an unledgered frame, is not re
   - provenance: caused by `c57` — plan `issue-2-cross-repo-reorganization`, frame `issue-2-cross-repo-reorganization`
   - proof: best strength `execution`
     - evidence: integration — execution: pass (run 2026-11-25 @ 92937aa)
-- Without `XDG_RUNTIME_DIR` the control socket is ${`XDG_STATE_HOME`:-$HOME/.local/state}/culture-agents/core.sock, not a path under /tmp. contract/api.json's `socket_fallback` changed with it and the API version stayed 1.0. (`issue-2-cross-repo-reorganization:b3`, amended)
-  - provenance: caused by `c42` — plan `issue-2-cross-repo-reorganization`, frame `issue-2-cross-repo-reorganization`
-  - proof: best strength `execution`
-    - evidence: automated — execution: pass (run 2026-11-25 @ 92937aa)
 - The CLI validates every core response against the contract schemas and treats an invalid one as an internal error (exit 2); text mode shows control characters in run-originated text as visible escapes; runs attach survives a core restart. (`issue-2-cross-repo-reorganization:b4`, added)
   - provenance: caused by `c42` — plan `issue-2-cross-repo-reorganization`, frame `issue-2-cross-repo-reorganization`
   - proof: best strength `execution`
     - evidence: automated — execution: pass (run 2026-11-25 @ 92937aa)
+- Without `XDG_RUNTIME_DIR` the control socket is ${`XDG_STATE_HOME`:-$HOME/.local/state}/culture-agents/core.sock, not a path under /tmp. The control API version is 2.0 since release 0.14.0: by the contract's rule the socket change is a major one, and a 1.x client and a 2.0 core refuse each other with exit 2 naming both versions. (`issue-2-cross-repo-reorganization:b5`, amended)
+  - provenance: caused by `c42` — plan `issue-2-cross-repo-reorganization`, frame `issue-2-cross-repo-reorganization`
+  - proof: best strength `execution`
+    - evidence: automated — execution: pass (run 2026-11-25 @ 92937aa)
+  - lineage: `issue-2-cross-repo-reorganization:b3`, `issue-2-cross-repo-reorganization:b5`
 
 ## Ledger status
 

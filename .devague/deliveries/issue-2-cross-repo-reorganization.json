@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-25T17:03:53Z",
+  "updated": "2026-11-25T17:16:53Z",
   "deviations": [
     {
       "id": "d1",
@@ -430,7 +430,7 @@
       ],
       "origin": "llm",
       "status": "approved",
-      "superseded": false
+      "superseded": true
     },
     {
       "id": "b4",
@@ -457,9 +457,17 @@
         "e4"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     }
   ],
-  "supersessions": []
+  "supersessions": [
+    {
+      "id": "s1",
+      "action": "supersede",
+      "target_ref": "b3",
+      "replacement_ref": "b5",
+      "origin": "user"
+    }
+  ]
 }

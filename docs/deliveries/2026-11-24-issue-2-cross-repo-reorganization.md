@@ -209,8 +209,6 @@ Lapse ledger evidence:
 
 - `t5` — agentculture/culture#532 is open; the workspace map is delivered
   when the culture maintainers merge it.
-- Delta `b5` (API version 2.0, replacing `b3`) is proposed — the owner
-  confirms or rejects it.
 - npm — the owner bootstraps `@culture.dev/agents`, then Trusted Publishing
   takes over; until then `c55` stays unverified.
 - Codex — not verified (`d1`); tracked for a later gate.
