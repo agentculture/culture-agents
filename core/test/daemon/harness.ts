@@ -43,7 +43,7 @@ export interface Reply {
 export function call(socket: string, method: string, path: string, opts: { body?: unknown; rawBody?: string; headers?: Record<string, string>; version?: string | null } = {}): Promise<Reply> {
   return new Promise((resolve, reject) => {
     const headers: Record<string, string> = { ...opts.headers };
-    if (opts.version !== null) headers["Agents-Api-Version"] = opts.version ?? "1.0";
+    if (opts.version !== null) headers["Agents-Api-Version"] = opts.version ?? "2.0";
     const payload = opts.rawBody ?? (opts.body === undefined ? undefined : JSON.stringify(opts.body));
     if (payload !== undefined) headers["Content-Type"] = "application/json";
     const req = request({ socketPath: socket, method, path, headers }, (res) => {

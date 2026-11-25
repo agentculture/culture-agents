@@ -16,6 +16,7 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { test } from "node:test";
 
 import type { Run } from "../../src/contract/index.js";
 import { getHarness, loadHarnessConfig, type GuardedDriver, type HarnessEntry } from "../../src/harness/index.js";
@@ -105,11 +106,15 @@ const TASKS: Record<string, Pick<ContractTarget, "submit" | "steer" | "cancel">>
   },
 };
 
+test("every harness with live tasks is in the registry", () => {
+  for (const id of Object.keys(TASKS)) assert.ok(getHarness(config, id), `registry lists ${id}`);
+});
+
 const suites: Promise<void>[] = [];
 for (const id of ["claude-code", "opencode"]) {
   if (!wanted.includes(id)) continue;
   const entry = getHarness(config, id);
-  assert.ok(entry, `registry lists ${id}`);
+  if (!entry) continue; // the test above fails for a harness the registry does not list
   const tasks = TASKS[id] as Pick<ContractTarget, "submit" | "steer" | "cancel">;
   const target: ContractTarget = {
     harness: id,

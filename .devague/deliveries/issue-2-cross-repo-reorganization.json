@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-25T16:36:42Z",
+  "updated": "2026-11-25T16:43:36Z",
   "deviations": [
     {
       "id": "d1",
@@ -86,7 +86,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 6
     },
@@ -105,7 +105,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 7
     },
@@ -124,7 +124,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 8
     },
@@ -143,7 +143,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 9
     },
@@ -162,7 +162,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 10
     },
@@ -181,7 +181,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 11
     },
@@ -200,7 +200,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 12
     },
@@ -219,7 +219,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 13
     },
@@ -238,7 +238,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 14
     },
@@ -257,7 +257,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 15
     },
@@ -276,7 +276,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 16
     },
@@ -295,7 +295,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 17
     },
@@ -311,7 +311,7 @@
       "outcome": "pass",
       "run": null,
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 18
     },
@@ -327,7 +327,7 @@
       "outcome": "pass",
       "run": null,
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 19
     },
@@ -346,7 +346,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 20
     },
@@ -365,7 +365,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 21
     },
@@ -384,7 +384,7 @@
         "commit": "92937aa"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 22
     }
@@ -401,7 +401,7 @@
         "e7"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     },
     {
@@ -415,7 +415,7 @@
         "e11"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     },
     {
@@ -429,7 +429,7 @@
         "e4"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     },
     {
@@ -443,7 +443,7 @@
         "e4"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     }
   ],

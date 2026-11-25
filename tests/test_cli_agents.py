@@ -23,7 +23,7 @@ def test_list_json_is_the_contract_payload(core, capsys: pytest.CaptureFixture[s
     r = run(capsys, "agents", "list", "--json")
     assert r.rc == 0
     assert r.json() == fixture("agent", "agent_list.two-agents")
-    assert core.seen("GET", "/v1/agents")[0]["version_header"] == "1.0"
+    assert core.seen("GET", "/v1/agents")[0]["version_header"] == "2.0"
 
 
 def test_status_text(core, capsys: pytest.CaptureFixture[str]) -> None:

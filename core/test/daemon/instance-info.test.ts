@@ -22,7 +22,7 @@ function scratch(t: { after: (fn: () => void) => void }): ReturnType<typeof reso
 
 test("readInstanceInfo returns the info of a live instance on the first read", async (t) => {
   const paths = scratch(t);
-  const info = { pid: process.pid, api_version: "1.0", socket: paths.socket };
+  const info = { pid: process.pid, api_version: "2.0", socket: paths.socket };
   writeInstanceInfo(paths, info);
   assert.deepEqual(await readInstanceInfo(paths, 1, 1), info);
 });
@@ -30,7 +30,7 @@ test("readInstanceInfo returns the info of a live instance on the first read", a
 test("readInstanceInfo gives up with null after its attempts: no file, a dead pid, or a partial file", async (t) => {
   const paths = scratch(t);
   assert.equal(await readInstanceInfo(paths, 3, 1), null);
-  writeInstanceInfo(paths, { pid: DEAD_PID, api_version: "1.0", socket: paths.socket });
+  writeInstanceInfo(paths, { pid: DEAD_PID, api_version: "2.0", socket: paths.socket });
   assert.equal(await readInstanceInfo(paths, 3, 1), null);
   writeFileSync(paths.info, '{"pid": ');
   assert.equal(await readInstanceInfo(paths, 3, 1), null);
@@ -38,7 +38,7 @@ test("readInstanceInfo gives up with null after its attempts: no file, a dead pi
 
 test("readInstanceInfo keeps reading until the holder has written its file", async (t) => {
   const paths = scratch(t);
-  const info = { pid: process.pid, api_version: "1.0", socket: paths.socket };
+  const info = { pid: process.pid, api_version: "2.0", socket: paths.socket };
   const pending = readInstanceInfo(paths, 200, 5);
   setTimeout(() => writeInstanceInfo(paths, info), 30);
   assert.deepEqual(await pending, info);

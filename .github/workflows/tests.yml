@@ -28,7 +28,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked --no-build
 
       # The D1 acceptance suite (tests/acceptance/d1) drives the real CLI
       # against the real core daemon, so the core is built first. Its mock
@@ -49,7 +49,7 @@ jobs:
           npm run test:coverage
           sed -i 's|^SF:|SF:core/|' coverage.lcov
 
-      - run: uv run pytest -n auto --cov=culture_agents --cov-report=xml:coverage.xml --cov-report=term -v
+      - run: uv run --locked --no-build pytest -n auto --cov=culture_agents --cov-report=xml:coverage.xml --cov-report=term -v
         env:
           CULTURE_AGENTS_ACCEPTANCE_REQUIRE: "1"
 
@@ -96,27 +96,27 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked --no-build
 
       - name: black --check
-        run: uv run black --check culture_agents tests
+        run: uv run --locked --no-build black --check culture_agents tests
 
       - name: isort --check
-        run: uv run isort --check-only culture_agents tests
+        run: uv run --locked --no-build isort --check-only culture_agents tests
 
       - name: flake8
-        run: uv run flake8 culture_agents tests
+        run: uv run --locked --no-build flake8 culture_agents tests
 
       - name: bandit
-        run: uv run bandit -c pyproject.toml -r culture_agents
+        run: uv run --locked --no-build bandit -c pyproject.toml -r culture_agents
 
       - name: markdownlint-cli2
         run: |
-          npm install -g markdownlint-cli2@0.21.0
+          npm install -g --ignore-scripts markdownlint-cli2@0.21.0
           markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
 
       - name: afi rubric gate
-        run: uv run teken cli doctor . --strict
+        run: uv run --locked --no-build teken cli doctor . --strict
 
   core:
     # The TypeScript core (`core/`, published as @culture.dev/agents). Every
@@ -168,7 +168,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked --no-build
 
       # `--stage all` runs three stages and prints exactly which of them really
       # ran here:
@@ -188,7 +188,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          uv run python scripts/harness-smoke.py --stage all --require config 2>&1 \
+          uv run --locked --no-build python scripts/harness-smoke.py --stage all --require config 2>&1 \
             | tee -a "$GITHUB_STEP_SUMMARY"
 
   version-check:

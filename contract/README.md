@@ -1,6 +1,6 @@
 # culture-agents control-plane contract
 
-API version **1.0** (single source: `api.json` → `api_version`).
+API version **2.0** (single source: `api.json` → `api_version`).
 
 This directory is the contract between the TypeScript core daemon and every
 client of it, starting with the Python `agents` CLI. The JSON Schemas

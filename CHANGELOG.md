@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-11-25
+
+### Changed
+
+- The control API version is now 2.0. The control socket fallback moved out of `/tmp` in 0.13.0 without a version bump; by the contract's own rule that change is a major one. A 0.13.x CLI refuses a 2.0 core, and the 0.14.0 CLI refuses a 1.x core, each with exit 2 naming both versions.
+- CI installs Python dependencies with `uv sync --locked --no-build` and runs tools with `uv run --locked --no-build`; markdownlint is installed with `--ignore-scripts`.
+
+### Fixed
+
+- The SonarCloud quality gate on `main`: the harness-smoke config and toolchain stages are split into smaller functions, and the live harness test file has a direct test.
+
 ## [0.13.1] - 2026-11-25
 
 ### Added

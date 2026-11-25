@@ -155,6 +155,80 @@ def check_steward_doctor(repo: Path, timeout: int) -> Result:
     )
 
 
+def _guild_result(name: str, status: str, detail: str) -> Result:
+    return Result("toolchain", f"guild-create/{name}", status, detail)
+
+
+def _guild_plan_verdict(payload: dict[str, Any], guild_name: str, expected: str) -> tuple[str, str]:
+    """Judge a dry-run plan: it must not be applied, and must name and write the prompt file."""
+    if payload.get("applied"):
+        return FAIL, "guild create reported applied=true for a dry-run"
+    named = payload.get("prompt_file")
+    steps = " ".join(str(s) for s in (payload.get("plan") or {}).get("steps") or [])
+    if named != expected:
+        return FAIL, f"--harness {guild_name} named prompt_file {named!r}, expected {expected!r}"
+    if expected not in steps:
+        return FAIL, (
+            f"--harness {guild_name} declares prompt_file {expected!r} but no "
+            f"planned step writes it: {steps[:300]}"
+        )
+    return PASS, f"--harness {guild_name} names and writes {expected}"
+
+
+def _guild_dry_run(
+    repo: Path, base: list[str], guild_name: str, expected: str, timeout: int
+) -> tuple[str, str]:
+    argv = base + [
+        "create",
+        "--agent",
+        "agentculture/harness-smoke-probe",
+        "--desc",
+        "dry-run probe for the culture-agents harness smoke check",
+        "--harness",
+        guild_name,
+        "--json",
+    ]
+    try:
+        proc = _run(argv, repo, timeout)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return SKIP, f"could not run guild: {exc}"
+    if proc.returncode != 0:
+        # A dry-run that exits nonzero did not succeed, whatever it wrote
+        # to stdout: with no payload the tool is unavailable (SKIP, never
+        # a pass), and with a payload it ran and failed (FAIL). Neither
+        # may reach the plan-shape checks.
+        status = SKIP if not proc.stdout.strip() else FAIL
+        detail = (
+            f"guild create unavailable (exit {proc.returncode})"
+            if status == SKIP
+            else f"guild create exited {proc.returncode} for --harness {guild_name}"
+        )
+        return status, f"{detail}: {proc.stderr.strip()[:300]}"
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return FAIL, f"guild create --json emitted unparseable output: {proc.stdout[:300]}"
+    return _guild_plan_verdict(payload, guild_name, expected)
+
+
+def _check_guild_harness(
+    repo: Path, base: list[str], name: str, spec: dict[str, Any], timeout: int
+) -> Result:
+    if name not in GUILD_HARNESS:
+        return _guild_result(
+            name, SKIP, f"guild create has no harness for {name!r} — NOT verified by a dry-run"
+        )
+    guild_name, expected = GUILD_HARNESS[name]
+    resolves = [str(p) for p in spec.get("resolves") or []]
+    if expected not in resolves:
+        return _guild_result(
+            name,
+            FAIL,
+            f"{expected} is not among this harness's resolves {resolves} in {INVOCATIONS_REL}",
+        )
+    return _guild_result(name, *_guild_dry_run(repo, base, guild_name, expected, timeout))
+
+
 def check_guild_create(repo: Path, harnesses: dict[str, Any], timeout: int) -> list[Result]:
     base = _tool_argv("guild", "guild-cli")
     if base is None:
@@ -167,124 +241,7 @@ def check_guild_create(repo: Path, harnesses: dict[str, Any], timeout: int) -> l
                 "create` dry-runs were NOT run",
             )
         ]
-
-    results: list[Result] = []
-    for name in HARNESSES:
-        if name not in GUILD_HARNESS:
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    SKIP,
-                    f"guild create has no harness for {name!r} — NOT verified by a dry-run",
-                )
-            )
-            continue
-        guild_name, expected = GUILD_HARNESS[name]
-        resolves = [str(p) for p in harnesses[name].get("resolves") or []]
-        if expected not in resolves:
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    FAIL,
-                    f"{expected} is not among this harness's resolves {resolves} in "
-                    f"{INVOCATIONS_REL}",
-                )
-            )
-            continue
-
-        argv = base + [
-            "create",
-            "--agent",
-            "agentculture/harness-smoke-probe",
-            "--desc",
-            "dry-run probe for the culture-agents harness smoke check",
-            "--harness",
-            guild_name,
-            "--json",
-        ]
-        try:
-            proc = _run(argv, repo, timeout)
-        except (OSError, subprocess.TimeoutExpired) as exc:
-            results.append(
-                Result("toolchain", f"guild-create/{name}", SKIP, f"could not run guild: {exc}")
-            )
-            continue
-        if proc.returncode != 0:
-            # A dry-run that exits nonzero did not succeed, whatever it wrote
-            # to stdout: with no payload the tool is unavailable (SKIP, never
-            # a pass), and with a payload it ran and failed (FAIL). Neither
-            # may fall through to the plan-shape checks below.
-            status = SKIP if not proc.stdout.strip() else FAIL
-            detail = (
-                f"guild create unavailable (exit {proc.returncode})"
-                if status == SKIP
-                else f"guild create exited {proc.returncode} for --harness {guild_name}"
-            )
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    status,
-                    f"{detail}: {proc.stderr.strip()[:300]}",
-                )
-            )
-            continue
-        try:
-            payload = json.loads(proc.stdout)
-        except json.JSONDecodeError:
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    FAIL,
-                    f"guild create --json emitted unparseable output: {proc.stdout[:300]}",
-                )
-            )
-            continue
-
-        if payload.get("applied"):
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    FAIL,
-                    "guild create reported applied=true for a dry-run",
-                )
-            )
-            continue
-        named = payload.get("prompt_file")
-        steps = " ".join(str(s) for s in (payload.get("plan") or {}).get("steps") or [])
-        if named != expected:
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    FAIL,
-                    f"--harness {guild_name} named prompt_file {named!r}, expected {expected!r}",
-                )
-            )
-        elif expected not in steps:
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    FAIL,
-                    f"--harness {guild_name} declares prompt_file {expected!r} but no "
-                    f"planned step writes it: {steps[:300]}",
-                )
-            )
-        else:
-            results.append(
-                Result(
-                    "toolchain",
-                    f"guild-create/{name}",
-                    PASS,
-                    f"--harness {guild_name} names and writes {expected}",
-                )
-            )
-    return results
+    return [_check_guild_harness(repo, base, name, harnesses[name], timeout) for name in HARNESSES]
 
 
 def stage_toolchain(repo: Path, harnesses: dict[str, Any], timeout: int) -> list[Result]:
