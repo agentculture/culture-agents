@@ -4,7 +4,7 @@ Mirrors the two invariants ``steward doctor`` verifies for a mesh agent:
 
 * **prompt-file-present** — the repo declares an agent in ``culture.yaml`` and
   has the matching prompt file on disk;
-* **backend-consistency** — the declared ``backend`` is one this template
+* **backend-consistency** — the declared ``backend`` is one this repo
   knows, and the *resident* prompt file that backend actually reads is on disk
   (``claude`` → ``CLAUDE.md``, ``colleague`` → ``AGENTS.colleague.md``,
   ``acp``/``codex``/``copilot`` → ``AGENTS.md``, ``gemini`` → ``GEMINI.md``).
