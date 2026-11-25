@@ -20,8 +20,10 @@ This is working state, not a design document. The authoritative records are:
    `runs/npm-stage-on-pr` (0.15.1). See [The npm release](#the-npm-release).
 2. **D2 scoping** (fleet and recovery). The scope pass is recorded on the
    frame `d2-fleet-and-recovery` (`devague scope --list`): 27 explored
-   surfaces and 22 proposed claims, none confirmed yet. Five hard questions
-   wait for the owner; `q2` (which machines are the fleet) is blocking. Next
+   surfaces and 21 proposed claims, none confirmed by the owner. The
+   announcement (`c1`) shows as confirmed only because `devague new` marks it
+   so; the agent wrote it and the owner has not reviewed it. Five hard
+   questions wait for the owner; `q2` (which machines are the fleet) is blocking. Next
    leg: `/think`. See [Inputs for D2](#inputs-for-d2).
 
 ## What shipped
