@@ -102,23 +102,14 @@ def follow(
         try:
             conn, resp = _open_stream(client, f"{route}/attach{_query({'after': cursor})}")
         except CoreError as err:
-            if not opened_once or err.error_code != "unavailable":
-                raise
-            outage.wait(err, cursor)
+            _wait_out(err, outage, cursor, retryable=opened_once)
             continue
         opened_once = True
         outage.over()
-        progressed = False
+        before = cursor
         try:
-            for event in parse_sse(resp):
-                if event["cursor"] <= cursor:
-                    continue  # already received: a duplicate is skipped
-                if event["cursor"] != cursor + 1:
-                    raise _internal(
-                        f"the core sent the event with cursor {event['cursor']} right after "
-                        f"cursor {cursor}: events are missing from the stream"
-                    )
-                cursor, progressed = event["cursor"], True
+            for event in _new_events(resp, cursor):
+                cursor = event["cursor"]
                 yield event
                 if _is_terminal(event):
                     return
@@ -126,22 +117,55 @@ def follow(
             pass  # a broken stream is reopened below
         finally:
             conn.close()
-        if progressed:
+        if cursor != before:
             stalled = 0
             continue
         stalled += 1
-        if stalled > _MAX_STALLED_RECONNECTS:
-            raise _unavailable(client.path, "the event stream keeps closing without events")
-        try:
-            run = client._json("GET", route, "run")
-        except CoreError as err:
-            if err.error_code != "unavailable":
-                raise
-            outage.wait(err, cursor)
-            continue
-        if run["terminal"] and run["cursor"] <= cursor:
-            return  # already finished and fully replayed: nothing more to send
-        time.sleep(min(0.2 * stalled, 1.0))
+        if _finished_after_empty_stream(client, route, cursor, stalled, outage):
+            return
+
+
+def _wait_out(err: CoreError, outage: _Outage, cursor: int, *, retryable: bool = True) -> None:
+    """Wait before the next attempt when the core is merely gone; raise any other error."""
+    if not retryable or err.error_code != "unavailable":
+        raise err
+    outage.wait(err, cursor)
+
+
+def _new_events(resp: http.client.HTTPResponse, cursor: int) -> Iterator[dict[str, Any]]:
+    """The events of one stream after *cursor*: duplicates skipped, a gap raised as ``internal``."""
+    for event in parse_sse(resp):
+        if event["cursor"] <= cursor:
+            continue  # already received: a duplicate is skipped
+        if event["cursor"] != cursor + 1:
+            raise _internal(
+                f"the core sent the event with cursor {event['cursor']} right after "
+                f"cursor {cursor}: events are missing from the stream"
+            )
+        cursor = event["cursor"]
+        yield event
+
+
+def _finished_after_empty_stream(
+    client: CoreClient, route: str, cursor: int, stalled: int, outage: _Outage
+) -> bool:
+    """After the *stalled*-th stream in a row without an event: is the run over?
+
+    True when the run is terminal with nothing left to send. Otherwise waits
+    before the next reopen and returns False, or raises when the stream has
+    stalled too often.
+    """
+    if stalled > _MAX_STALLED_RECONNECTS:
+        raise _unavailable(client.path, "the event stream keeps closing without events")
+    try:
+        run = client._json("GET", route, "run")
+    except CoreError as err:
+        _wait_out(err, outage, cursor)
+        return False
+    if run["terminal"] and run["cursor"] <= cursor:
+        return True  # already finished and fully replayed: nothing more to send
+    time.sleep(min(0.2 * stalled, 1.0))
+    return False
 
 
 def _open_stream(

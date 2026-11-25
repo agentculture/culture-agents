@@ -89,7 +89,8 @@ def test_list_empty(core, capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_list_rejects_an_unknown_state(core, capsys: pytest.CaptureFixture[str]) -> None:
     r = run(capsys, "runs", "list", "--state", "paused")
-    assert r.rc == 1 and core.requests == []
+    assert r.rc == 1
+    assert core.requests == []
 
 
 def test_show(core, capsys: pytest.CaptureFixture[str]) -> None:
@@ -168,7 +169,8 @@ def test_steer_refused_as_unsupported_keeps_the_typed_error(core, capsys) -> Non
 def test_steer_after_core_restart_names_reconnect(core, capsys) -> None:
     core.respond("POST /v1/runs/{id}/steer", 422, fixture("error", "root.reconnect-unsupported"))
     r = run(capsys, "runs", "steer", RUN_ID, "hello", "--json")
-    assert r.rc == 1 and r.err_json()["capability"] == "reconnect"
+    assert r.rc == 1
+    assert r.err_json()["capability"] == "reconnect"
 
 
 def test_cancel(core, capsys: pytest.CaptureFixture[str]) -> None:
@@ -204,7 +206,8 @@ def test_attach_text_replays_to_the_terminal_state(core, capsys) -> None:
     assert r.rc == 0
     lines = r.out.splitlines()
     assert len(lines) == len(stream_events())
-    assert lines[0].startswith("#1 ") and "null" not in lines[0]
+    assert lines[0].startswith("#1 ")
+    assert "null" not in lines[0]
     assert "run.output text:" in r.out
     assert lines[-1].endswith("running -> succeeded")
     assert core.seen("GET", f"/v1/runs/{RUN_ID}/attach")[0]["query"] == {"after": "0"}
@@ -233,13 +236,15 @@ def test_attach_to_a_finished_run_with_nothing_new_returns(core, capsys) -> None
     core.respond("GET /v1/runs/{id}", 200, {**fixture("run", "root.succeeded"), "cursor": final})
     core.events = []  # the core closes at once with no events
     r = run(capsys, "runs", "attach", RUN_ID, "--after", str(final))
-    assert r.rc == 0 and r.out == ""
+    assert r.rc == 0
+    assert r.out == ""
 
 
 def test_attach_unknown_run(core, capsys: pytest.CaptureFixture[str]) -> None:
     core.respond("attach", 404, fixture("error", "root.not-found"))
     r = run(capsys, "runs", "attach", RUN_ID)
-    assert r.rc == 1 and "not_found" in r.err
+    assert r.rc == 1
+    assert "not_found" in r.err
 
 
 # --- the core is not there ---------------------------------------------------
@@ -265,7 +270,8 @@ def test_stopped_core_exits_2_with_a_hint_and_no_traceback(no_core, capsys, verb
     assert "Traceback" not in r.err
     if flags:
         err = r.err_json()
-        assert err["code"] == 2 and err["error_code"] == "unavailable"
+        assert err["code"] == 2
+        assert err["error_code"] == "unavailable"
         assert "start the core" in err["remediation"]
     else:
         assert r.err.startswith("error: cannot reach the core")
@@ -281,7 +287,8 @@ def test_refused_connection_is_the_same(tmp_path, monkeypatch, capsys) -> None:
     sock.close()
     monkeypatch.setenv("CULTURE_AGENTS_SOCKET", str(path))
     r = run(capsys, "runs", "list")
-    assert r.rc == 2 and "hint:" in r.err
+    assert r.rc == 2
+    assert "hint:" in r.err
 
 
 # --- incompatible core -------------------------------------------------------
@@ -295,7 +302,8 @@ def test_incompatible_core_is_refused_naming_both_versions(core, capsys, server)
     r = run(capsys, "runs", "list")
     assert r.rc == 2
     assert r.out == ""
-    assert "this client speaks 1.0" in r.err and f"the core speaks {server}" in r.err
+    assert "this client speaks 1.0" in r.err
+    assert f"the core speaks {server}" in r.err
     assert [q["path"] for q in core.requests] == ["/v1/version"]  # never reached the route
     j = run(capsys, "runs", "list", "--json")
     assert j.rc == 2
@@ -313,7 +321,8 @@ def test_older_minor_is_refused_newer_minor_is_accepted(core, capsys) -> None:
 def test_a_412_from_a_route_is_exit_2(core, capsys: pytest.CaptureFixture[str]) -> None:
     core.respond("GET /v1/runs", 412, fixture("error", "root.incompatible-version"))
     r = run(capsys, "runs", "list")
-    assert r.rc == 2 and "incompatible_version" in r.err
+    assert r.rc == 2
+    assert "incompatible_version" in r.err
 
 
 def test_a_core_failure_is_exit_2(core, capsys: pytest.CaptureFixture[str]) -> None:

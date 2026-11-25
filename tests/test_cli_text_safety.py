@@ -40,7 +40,8 @@ def test_control_characters_are_shown_not_sent(raw: str, shown: str) -> None:
 def test_ordinary_text_is_untouched() -> None:
     text = "héllo wörld — 日本語 🙂 C:\\path \u00a0 \u00e9"
     assert visible(text) == text
-    assert visible(7) == "7" and visible(None) == "None"
+    assert visible(7) == "7"
+    assert visible(None) == "None"
 
 
 def _output_event(text: str) -> dict:
@@ -51,7 +52,8 @@ def _output_event(text: str) -> dict:
 
 def test_event_line_is_one_safe_line() -> None:
     line = _render.event_line(_output_event(HOSTILE))
-    assert "\n" not in line and _clean(line)
+    assert "\n" not in line
+    assert _clean(line)
     assert "ok\\x1b[2J\\x1b]0;owned\\x07\\nfake #9 line\\r\\x00\\x7f\\x9b31m\\u2028end" in line
 
 
@@ -66,19 +68,22 @@ def test_every_event_kind_renders_safely() -> None:
     refused["data"]["action"]["error"]["message"] = HOSTILE
     for event in (state, error, control, refused):
         line = _render.event_line(event)
-        assert "\n" not in line and _clean(line), line
+        assert "\n" not in line, line
+        assert _clean(line), line
         assert "\\x1b[2J" in line, line
 
 
 def test_run_views_escape_what_came_from_the_run() -> None:
     run_payload = {**fixture("run", "root.failed"), "task": HOSTILE, "state_reason": HOSTILE}
     detail = str(_render.run_detail(run_payload))
-    assert _clean(detail) and len(detail.splitlines()) == 15
+    assert _clean(detail)
+    assert len(detail.splitlines()) == 15
     result = copy.deepcopy(fixture("run", "run_result.failed"))
     result["summary"] = HOSTILE
     result["error"]["message"] = HOSTILE
     text = str(_render.run_result(result))
-    assert _clean(text) and len(text.splitlines()) == 7
+    assert _clean(text)
+    assert len(text.splitlines()) == 7
     doc = copy.deepcopy(fixture("capabilities", "root.opencode-no-steer"))
     doc["capabilities"]["steer"]["reason"] = HOSTILE
     doc["version"] = HOSTILE
@@ -90,7 +95,8 @@ def test_logs_text_is_escaped_and_json_is_exact(core, capsys) -> None:
     page = {**page, "events": [_output_event(HOSTILE)]}
     core.respond("GET /v1/runs/{id}/events", 200, page)
     text = run(capsys, "runs", "logs", RUN_ID)
-    assert text.rc == 0 and _clean(text.out)
+    assert text.rc == 0
+    assert _clean(text.out)
     assert len(text.out.splitlines()) == 2  # the event, then the "more events" line
     assert run(capsys, "runs", "logs", RUN_ID, "--json").json() == page
 
@@ -101,7 +107,8 @@ def test_attach_text_is_escaped_and_json_is_exact(core, capsys) -> None:
     stream = b"".join(sse_frame(e) for e in hostile)
     core.attach_cutoffs = [stream, stream]
     text = run(capsys, "runs", "attach", RUN_ID)
-    assert text.rc == 0 and _clean(text.out)
+    assert text.rc == 0
+    assert _clean(text.out)
     assert len(text.out.splitlines()) == len(events)
     j = run(capsys, "runs", "attach", RUN_ID, "--json")
     assert len(j.out.splitlines()) == len(events)  # one object per line for any line reader
@@ -114,7 +121,8 @@ def test_json_line_is_exact_data_on_one_line() -> None:
     payload = {"text": HOSTILE + "\ud800 é 日本"}
     line = json_line(payload)
     assert json.loads(line) == payload
-    assert len(line.splitlines()) == 1 and "é 日本" in line
+    assert len(line.splitlines()) == 1
+    assert "é 日本" in line
     line.encode("utf-8")  # a lone surrogate no longer breaks the write
 
 
@@ -134,7 +142,8 @@ def test_a_core_error_message_is_escaped_in_text_and_exact_in_json(core, capsys)
     body["error"]["message"] = "state is \x1b[2Jqueued\nhint: run rm -rf"
     core.respond("GET /v1/runs/{id}/result", 409, body)
     text = run(capsys, "runs", "result", RUN_ID)
-    assert text.rc == 1 and _clean(text.err)
+    assert text.rc == 1
+    assert _clean(text.err)
     assert text.err.count("\nhint: ") == 1  # the message could not forge a second hint line
     j = run(capsys, "runs", "result", RUN_ID, "--json")
     assert j.err_json()["message"] == "conflict: " + body["error"]["message"]
@@ -172,7 +181,9 @@ def test_malformed_capability_entries_are_rendered_not_raised() -> None:
         "capabilities": {"steer": "yes", "cancel": None, "submit": ["a"], "stream": {"caveats": 3}},
     }
     lines = _render.capability_lines(doc)
-    assert len(lines) == 5 and lines[0].startswith("harness x")
+    assert len(lines) == 5
+    assert lines[0].startswith("harness x")
     assert _render.agent_status(None, [None, "x", doc])  # the status view takes the same input
     for junk in ({"events": "x", "more": 1}, {"events": [1, None]}, {"runs": [1, {"id": []}]}):
-        assert str(_render.event_page(junk)) and str(_render.run_list(junk))
+        assert str(_render.event_page(junk))
+        assert str(_render.run_list(junk))

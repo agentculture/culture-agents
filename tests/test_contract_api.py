@@ -64,7 +64,8 @@ def test_version_fixtures_carry_the_index_api_version():
 def test_routes_are_unique():
     ids = [r["id"] for r in API["routes"]]
     keys = [(r["method"], r["path"]) for r in API["routes"]]
-    assert len(ids) == len(set(ids)) and len(keys) == len(set(keys))
+    assert len(ids) == len(set(ids))
+    assert len(keys) == len(set(keys))
 
 
 def test_d1_and_deferred_routes_present():
@@ -232,7 +233,8 @@ STREAMS_INVALID = sorted((cs.FIXTURES / "streams" / "invalid").glob("*.jsonl"))
 
 
 def test_stream_fixtures_exist():
-    assert len(STREAMS_VALID) >= 3 and len(STREAMS_INVALID) >= 3
+    assert len(STREAMS_VALID) >= 3
+    assert len(STREAMS_INVALID) >= 3
 
 
 @pytest.mark.parametrize("path", STREAMS_VALID, ids=lambda p: p.name)
@@ -249,4 +251,5 @@ def test_invalid_stream_is_caught(path):
 def test_valid_stream_ends_in_a_terminal_state(path):
     events = cs.read_stream(path)
     last = events[-1]
-    assert last["kind"] == "run.state" and last["data"]["to"] in TERMINAL
+    assert last["kind"] == "run.state"
+    assert last["data"]["to"] in TERMINAL

@@ -46,9 +46,11 @@ def _npm_publish_jobs(doc: dict) -> dict:
 
 def test_workflow_parses_with_expected_triggers() -> None:
     doc = _load()
-    assert isinstance(doc["jobs"], dict) and doc["jobs"]
+    assert isinstance(doc["jobs"], dict)
+    assert doc["jobs"]
     triggers = _triggers(doc)
-    assert "push" in triggers and "pull_request" in triggers
+    assert "push" in triggers
+    assert "pull_request" in triggers
 
 
 def test_npm_dry_run_step_runs_on_pull_requests() -> None:
@@ -85,7 +87,8 @@ def test_npm_publish_uses_provenance_and_oidc() -> None:
     doc = _load()
     (job,) = _npm_publish_jobs(doc).values()
     text = "\n".join(_run_text(s) for s in _steps(job))
-    assert "--provenance" in text and "--access public" in text
+    assert "--provenance" in text
+    assert "--access public" in text
     assert job["permissions"]["id-token"] == "write"
     assert "NODE_AUTH_TOKEN" not in WORKFLOW.read_text(encoding="utf-8")
 
@@ -95,4 +98,5 @@ def test_every_action_is_pinned_to_a_full_sha() -> None:
     uses = [s["uses"] for j in doc["jobs"].values() for s in _steps(j) if "uses" in s]
     assert uses
     for ref in uses:
-        assert "@" in ref and SHA.match(ref.split("@", 1)[1]), ref
+        assert "@" in ref, ref
+        assert SHA.match(ref.split("@", 1)[1]), ref

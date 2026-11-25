@@ -73,7 +73,10 @@ def main(argv: list[str] | None = None, fetcher=fetch) -> int:
     args = sys.argv[1:] if argv is None else argv
     if len(args) != 2:
         raise SystemExit("usage: npm_registry_matches.py <local.tgz> <package>@<version>")
-    local, spec = Path(args[0]), args[1]
+    local, spec = Path(args[0]).resolve(), args[1]
+    if local.suffix != ".tgz" or not local.is_file():
+        print(f"npm_registry_matches: {args[0]!r} is not a .tgz file", file=sys.stderr)
+        return 1
     if not NPM_SPEC.fullmatch(spec):
         print(
             f"npm_registry_matches: {spec!r} is not a package at an exact version", file=sys.stderr

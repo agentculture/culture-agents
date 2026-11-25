@@ -79,7 +79,8 @@ def test_check_all_flags_missing_short_and_unpinned() -> None:
         fetch,
     )
     problems = [r.problem for r in results]
-    assert problems[0] == "" and problems[1] == ""
+    assert problems[0] == ""
+    assert problems[1] == ""
     assert "10 lines, cited up to 11" in problems[2]
     assert "not found" in problems[3]
     assert "bad line span" in problems[4]

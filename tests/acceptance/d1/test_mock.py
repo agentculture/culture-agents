@@ -36,13 +36,16 @@ def test_submit_returns_a_run_id_in_under_2_seconds_and_the_task_completes(core:
     repo = core.add_repo()
     run, seconds = core.submit("stub", repo, "files: hello.txt, world.txt")
     assert seconds < 2.0, f"submit took {seconds:.2f} s"
-    assert run["id"].startswith(f"{AGENT}.run.") and run["state"] == "queued"
+    assert run["id"].startswith(f"{AGENT}.run.")
+    assert run["state"] == "queued"
 
     done = core.wait_terminal(run["id"], 20)
     assert done["state"] == "succeeded"
     result = core.ok("runs", "result", run["id"])
-    assert result["state"] == "succeeded" and result["error"] is None
-    assert result["branch"] == f"runs/{run['id']}" and len(result["commits"]) == 1
+    assert result["state"] == "succeeded"
+    assert result["error"] is None
+    assert result["branch"] == f"runs/{run['id']}"
+    assert len(result["commits"]) == 1
     assert branch_files(repo, run["id"]) == ["README", "hello.txt", "world.txt"]
     assert host_untouched(repo), "the host checkout is never written by a run"
     record("mock.submit", seconds=round(seconds, 3), state=done["state"])
@@ -53,7 +56,8 @@ def test_every_inspection_verb_tells_the_same_story(core: Core) -> None:
     run, _ = core.submit("stub", repo, MANY)
     core.wait_run(run["id"], lambda r: r["state"] == "running", "running", 10)
     agent = core.ok("agents", "status", AGENT)
-    assert agent["agent"]["state"] == "running" and agent["agent"]["active_run_ids"] == [run["id"]]
+    assert agent["agent"]["state"] == "running"
+    assert agent["agent"]["active_run_ids"] == [run["id"]]
     assert [r["id"] for r in core.ok("runs", "list", "--state", "running")["runs"]] == [run["id"]]
 
     # attach follows the run live to its end, from the first event.
@@ -82,7 +86,8 @@ def test_a_mid_run_steer_changes_what_the_harness_does_next(core: Core) -> None:
     writes = [e["data"]["text"] for e in events[at:] if e["data"].get("channel") == "tool_result"]
     assert writes[-1] == "wrote steered.txt", "the steered file is the last thing written"
     files = branch_files(repo, run["id"])
-    assert "steered.txt" in files and "f30.txt" not in files
+    assert "steered.txt" in files
+    assert "f30.txt" not in files
     assert len(files) < 30, "the files not yet written when the steer arrived were dropped"
     record("mock.steer", files_on_branch=len(files) - 1, writes_after_steer=writes)
 
@@ -96,12 +101,14 @@ def test_cancel_reaches_cancelled_in_under_10_seconds(core: Core) -> None:
     done = core.wait_run(run["id"], lambda r: r["state"] == "cancelled", "cancelled", 10)
     seconds = time.monotonic() - start
     assert seconds < 10.0
-    assert cancel["action"]["outcome"] == "accepted" and done["terminal"]
+    assert cancel["action"]["outcome"] == "accepted"
+    assert done["terminal"]
     assert states(core.events(run["id"])) == ["queued", "running", "cancelling", "cancelled"]
     assert core.ok("runs", "result", run["id"])["state"] == "cancelled"
     assert branch_files(repo, run["id"]) == [], "a cancelled run leaves no branch"
     again = core.cli("runs", "cancel", run["id"], "--json")
-    assert again.rc == 1 and again.error_code() == "conflict", "a finished run cannot be cancelled"
+    assert again.rc == 1, "a finished run cannot be cancelled"
+    assert again.error_code() == "conflict", "a finished run cannot be cancelled"
     record("mock.cancel", seconds=round(seconds, 3))
 
 
@@ -111,7 +118,8 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         *("runs", "submit", "--agent", f"{AGENT}2", "--harness", "stub"),
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
-    assert stranger.rc == 1 and stranger.error_code() == "denied"
+    assert stranger.rc == 1
+    assert stranger.error_code() == "denied"
     assert core.ok("runs", "list")["runs"] == [], "a denied submit creates no run"
 
     run, _ = core.submit("stub", repo, "hang")
@@ -119,13 +127,17 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         *("runs", "submit", "--agent", AGENT, "--harness", "stub"),
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
-    assert second.rc == 1 and second.error_code() == "busy"
+    assert second.rc == 1
+    assert second.error_code() == "busy"
     other_harness = core.cli(
         *("runs", "submit", "--agent", AGENT, "--harness", "claude-code"),
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
     assert (
-        other_harness.rc == 1 and other_harness.error_code() == "denied"
+        other_harness.rc == 1
+    ), "the allow-list names the harness too: an entry for stub does not permit claude-code"
+    assert (
+        other_harness.error_code() == "denied"
     ), "the allow-list names the harness too: an entry for stub does not permit claude-code"
     core.ok("runs", "cancel", run["id"])
 
@@ -166,7 +178,8 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     os.kill(orphan_pid, signal.SIGKILL)
     wait_for("the orphan's worker to die", lambda: orphan_pid not in core.worker_pids(), 5)
     down = core.cli("runs", "list", "--json")
-    assert down.rc == 2 and down.error_code() == "unavailable", "no core: exit 2, not a guess"
+    assert down.rc == 2, "no core: exit 2, not a guess"
+    assert down.error_code() == "unavailable", "no core: exit 2, not a guess"
 
     core.start()
     submitted = {finished["id"], working["id"], hung["id"], orphan["id"]}
@@ -177,10 +190,12 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     assert listed[working["id"]]["state"] == "running", "the surviving worker is still at work"
     assert not listed[working["id"]]["live_control"]
     assert listed[orphan["id"]]["state"] == "unknown", "a dead worker is unknown, never succeeded"
-    assert listed[hung["id"]]["state"] == "running" and not listed[hung["id"]]["live_control"]
+    assert listed[hung["id"]]["state"] == "running"
+    assert not listed[hung["id"]]["live_control"]
     assert hung_pid in core.worker_pids(), "the restart did not signal the surviving worker"
     steer = core.cli("runs", "steer", hung["id"], "hello?", "--json")
-    assert steer.rc == 1 and steer.error_code() == "unsupported", "no live control after a restart"
+    assert steer.rc == 1, "no live control after a restart"
+    assert steer.error_code() == "unsupported", "no live control after a restart"
 
     # The surviving worker finishes on its own, and its success is backed by its commits.
     assert core.wait_terminal(working["id"], 60)["state"] == "succeeded"
@@ -215,5 +230,6 @@ def test_without_a_core_the_cli_exits_2_and_guesses_nothing() -> None:
         text=True,
         timeout=30,
     )
-    assert res.returncode == 2 and res.stdout == ""
+    assert res.returncode == 2
+    assert res.stdout == ""
     assert "unavailable" in res.stderr

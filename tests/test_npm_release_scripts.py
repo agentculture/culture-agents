@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parent.parent
 
 def _load(name: str):
     spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
-    assert spec and spec.loader
+    assert spec
+    assert spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -58,14 +59,16 @@ def test_state_reports_absent_or_present(returncode, stdout, expected, capsys) -
 def test_state_fails_closed_on_anything_unclear(returncode, stdout, capsys) -> None:
     assert state.main(["@culture.dev/agents", "0.13.0"], run=_answer(returncode, stdout)) == 1
     captured = capsys.readouterr()
-    assert captured.out == "" and "publish nothing" in captured.err
+    assert captured.out == ""
+    assert "publish nothing" in captured.err
 
 
 def test_state_refuses_an_option_as_a_package_or_version(capsys) -> None:
     called = []
     assert state.main(["--registry=http://x", "0.13.0"], run=called.append) == 1
     assert state.main(["@culture.dev/agents", "latest"], run=called.append) == 1
-    assert called == [] and capsys.readouterr().out == ""
+    assert called == []
+    assert capsys.readouterr().out == ""
 
 
 def _tarball(path: Path, files: dict[str, bytes]) -> Path:
@@ -84,7 +87,8 @@ def test_registry_copy_with_the_same_files_matches(tmp_path: Path, capsys) -> No
     local = _tarball(tmp_path / "local.tgz", FILES)
     remote = _tarball(tmp_path / "remote.tgz", dict(reversed(FILES.items())))
     code = matches.main([str(local), "@culture.dev/agents@0.13.0"], fetcher=lambda *_: remote)
-    assert code == 0 and capsys.readouterr().out.strip() == "match"
+    assert code == 0
+    assert capsys.readouterr().out.strip() == "match"
 
 
 def test_registry_copy_that_differs_fails_and_names_each_file(tmp_path: Path, capsys) -> None:
@@ -108,6 +112,17 @@ def test_registry_check_fails_when_npm_fails_or_the_spec_is_not_exact(tmp_path: 
     assert matches.main([str(local), "@culture.dev/agents@0.13.0"], fetcher=broken) == 1
     assert matches.main([str(local), "@culture.dev/agents@latest"], fetcher=broken) == 1
     assert matches.main([str(local), "--registry=http://x"], fetcher=broken) == 1
+
+
+def test_registry_check_refuses_a_local_path_that_is_not_a_tgz_file(tmp_path: Path, capsys) -> None:
+    called = []
+    spec = "@culture.dev/agents@0.13.0"
+    other = _tarball(tmp_path / "local.tar.gz", FILES)
+    (tmp_path / "dir.tgz").mkdir()
+    for path in (other, tmp_path / "dir.tgz", tmp_path / "missing.tgz"):
+        assert matches.main([str(path), spec], fetcher=called.append) == 1
+        assert "is not a .tgz file" in capsys.readouterr().err
+    assert called == []
 
 
 def test_the_workflow_never_publishes_a_version_already_on_npm() -> None:

@@ -38,7 +38,8 @@ def test_parser_prog_is_agents() -> None:
 
 def test_every_new_verb_is_registered() -> None:
     assert set(NEW_VERBS) <= _tool_paths()
-    assert ("whoami",) in _tool_paths() and ("cli", "overview") in _tool_paths()
+    assert ("whoami",) in _tool_paths()
+    assert ("cli", "overview") in _tool_paths()
 
 
 @pytest.mark.parametrize("path", sorted(_tool_paths()))

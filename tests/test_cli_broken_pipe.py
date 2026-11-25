@@ -36,7 +36,8 @@ def _head_1(argv: list[str], socket_path: str) -> tuple[int, str, str]:
         stderr=subprocess.PIPE,
         env=env,
     )
-    assert proc.stdout is not None and proc.stderr is not None
+    assert proc.stdout is not None
+    assert proc.stderr is not None
     first = proc.stdout.readline().decode("utf-8")
     proc.stdout.close()
     err = proc.stderr.read().decode("utf-8")

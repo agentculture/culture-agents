@@ -96,7 +96,8 @@ def test_a_mirror_at_another_version_stops_the_bump_with_nothing_changed(tmp_pat
 def test_a_repo_without_mirrors_bumps_as_before(tmp_path: Path) -> None:
     repo = _repo(tmp_path, "9.9.9", config="")
     assert _bump(repo).returncode == 0
-    assert _versions(repo)[0] == "1.3.0" and _versions(repo)[1] == "9.9.9"
+    assert _versions(repo)[0] == "1.3.0"
+    assert _versions(repo)[1] == "9.9.9"
 
 
 def test_this_repo_declares_the_core_package_as_mirrors() -> None:
