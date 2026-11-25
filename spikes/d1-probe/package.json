@@ -1,0 +1,16 @@
+{
+  "name": "d1-probe-spike",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "ai": "7.0.181",
+    "@ai-sdk/harness": "1.0.192",
+    "@ai-sdk/harness-claude-code": "1.0.196",
+    "@ai-sdk/harness-opencode": "1.0.195",
+    "@ai-openshell/sdk": "0.1.10",
+    "@ai-sdk/provider-utils": "5.0.83"
+  },
+  "devDependencies": {
+    "ai-sdk-sandbox-local": "0.1.2"
+  }
+}

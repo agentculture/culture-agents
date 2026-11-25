@@ -1,0 +1,194 @@
+import { createHash } from "node:crypto";
+import { closeSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { createServer, type Server } from "node:net";
+import { join } from "node:path";
+
+import { again, finish, stepUntil } from "../util/sequence.js";
+import type { DaemonPaths } from "./paths.js";
+
+/**
+ * Single-instance lock.
+ *
+ * Mechanism (Linux): the lock is a listening socket in the abstract Unix namespace, named after a hash
+ * of the lock path. Only one socket can listen on a name, so `listen` failing with EADDRINUSE means
+ * another core holds the lock. The kernel destroys an abstract socket when the last descriptor to it
+ * closes, which includes the exit of a process killed with SIGKILL. A dead core therefore can never
+ * leave a stuck lock, and no cleanup, pid probing or timeout is needed to take over. The lock is taken
+ * before the real socket is bound, and a stale socket file is removed only while it is held.
+ *
+ * Fallback (platforms without abstract sockets): an exclusively created pid file, treated as stale
+ * when its pid is not alive. This is best-effort (a reused pid reads as a live holder).
+ *
+ * The abstract namespace has no file permissions, so another local user could occupy the name and make
+ * start fail closed (denial of service only); it grants them no access to the control socket.
+ */
+export interface HeldLock {
+  release(): Promise<void>;
+}
+
+/** What a second instance reads to name the running one. */
+export interface InstanceInfo {
+  pid: number;
+  api_version: string;
+  socket: string;
+}
+
+/** Another core holds the lock. `info` is null when its info file could not be read in time. */
+export class LockHeldError extends Error {
+  readonly info: InstanceInfo | null;
+  constructor(paths: DaemonPaths, info: InstanceInfo | null) {
+    super(
+      info
+        ? `culture-agents core is already running (pid ${info.pid}, socket ${info.socket}); stop it first.`
+        : `culture-agents core is already running (pid unknown) on socket ${paths.socket}; stop it first.`,
+    );
+    this.name = "LockHeldError";
+    this.info = info;
+  }
+}
+
+const LINUX = process.platform === "linux";
+
+function abstractName(lockPath: string): string {
+  return `\0culture-agents-lock-${createHash("sha256").update(lockPath).digest("hex").slice(0, 40)}`;
+}
+
+function listenAbstract(name: string): Promise<Server> {
+  return new Promise((resolve, reject) => {
+    const server = createServer((socket) => socket.destroy());
+    server.once("error", reject);
+    server.listen({ path: name }, () => {
+      server.off("error", reject);
+      // The lock is held for the life of the process; a later `error` event must never be unhandled.
+      server.on("error", (error: Error) => {
+        process.stderr.write(`culture-agents core: the instance lock socket reported an error: ${error.message}\n`);
+      });
+      resolve(server);
+    });
+  });
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+function acquirePidFile(path: string): HeldLock | null {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const fd = openSync(path, "wx", 0o600);
+      writeFileSync(fd, String(process.pid));
+      closeSync(fd);
+      return {
+        release: () => {
+          safeUnlink(path);
+          return Promise.resolve();
+        },
+      };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+      const pid = Number.parseInt(readFileSafe(path) ?? "", 10);
+      if (Number.isInteger(pid) && pidAlive(pid)) return null;
+      safeUnlink(path);
+    }
+  }
+  return null;
+}
+
+function readFileSafe(path: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function safeUnlink(path: string): void {
+  try {
+    unlinkSync(path);
+  } catch {
+    /* already gone */
+  }
+}
+
+/** Take the exclusive lock, or throw `LockHeldError` naming the running instance. */
+export async function acquireLock(paths: DaemonPaths): Promise<HeldLock> {
+  if (LINUX) {
+    try {
+      const server = await listenAbstract(abstractName(paths.lock));
+      return { release: () => new Promise<void>((resolve) => server.close(() => resolve())) };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EADDRINUSE") throw e;
+    }
+  } else {
+    const held = acquirePidFile(paths.lock);
+    if (held) return held;
+  }
+  throw new LockHeldError(paths, await readInstanceInfo(paths));
+}
+
+/** Publish pid and API version for second instances (atomic replace). Call only while holding the lock. */
+export function writeInstanceInfo(paths: DaemonPaths, info: InstanceInfo): void {
+  const tmp = `${paths.info}.${process.pid}.tmp`;
+  writeFileSync(tmp, `${JSON.stringify(info)}\n`, { mode: 0o600 });
+  renameSync(tmp, paths.info);
+}
+
+export function removeInstanceInfo(paths: DaemonPaths): void {
+  safeUnlink(paths.info);
+}
+
+/**
+ * Read the running instance's info. The holder removes a dead predecessor's file and writes its own
+ * right after taking the lock, so retry briefly while the file is missing or names a dead pid.
+ */
+export function readInstanceInfo(paths: DaemonPaths, attempts = 20, delayMs = 25): Promise<InstanceInfo | null> {
+  let tried = 0;
+  // Every failed read is followed by the delay, the last one too, as a second instance expects.
+  return stepUntil<InstanceInfo | null>(() => {
+    if (tried >= attempts) return finish(null);
+    tried += 1;
+    const info = liveInstanceInfo(paths);
+    return info ? finish(info) : again(delayMs);
+  });
+}
+
+/** The info file's content when it parses and names a live pid. */
+function liveInstanceInfo(paths: DaemonPaths): InstanceInfo | null {
+  const text = readFileSafe(paths.info);
+  if (!text) return null;
+  try {
+    const info = JSON.parse(text) as InstanceInfo;
+    if (Number.isInteger(info.pid) && pidAlive(info.pid)) return info;
+  } catch {
+    /* partially written; retry */
+  }
+  return null;
+}
+
+/**
+ * A second lock, on the run store itself. The instance lock above is keyed on the socket path, so
+ * two cores given different sockets would otherwise both serve one state directory: each with its
+ * own submit queue, and both settling the same orphaned run. Keyed on the directory's real path.
+ */
+export async function acquireStateLock(stateDir: string): Promise<HeldLock> {
+  mkdirSync(stateDir, { recursive: true, mode: 0o700 });
+  const real = realpathSync(stateDir);
+  const taken = new Error(`another culture-agents core already uses the state directory ${real}; stop it first, or set CULTURE_AGENTS_STATE_DIR.`);
+  if (LINUX) {
+    try {
+      const server = await listenAbstract(abstractName(`state:${real}`));
+      return { release: () => new Promise<void>((resolve) => server.close(() => resolve())) };
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EADDRINUSE") throw e;
+      throw taken;
+    }
+  }
+  const held = acquirePidFile(join(real, "core.lock"));
+  if (held) return held;
+  throw taken;
+}

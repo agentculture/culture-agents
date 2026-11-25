@@ -1,0 +1,74 @@
+{
+  "node": "spark",
+  "agents": [],
+  "harnesses": [
+    {
+      "harness": "claude-code",
+      "available": true,
+      "version": "2.1.323",
+      "transport": "interactive session over a local bridge inside the run sandbox",
+      "capabilities": {
+        "submit": {
+          "supported": true,
+          "reason": null,
+          "caveats": []
+        },
+        "stream": {
+          "supported": true,
+          "reason": null,
+          "caveats": []
+        },
+        "steer": {
+          "supported": true,
+          "reason": null,
+          "caveats": []
+        },
+        "cancel": {
+          "supported": true,
+          "reason": null,
+          "caveats": []
+        },
+        "pause": {
+          "supported": false,
+          "reason": "pause is deferred beyond D1",
+          "caveats": []
+        },
+        "resume": {
+          "supported": false,
+          "reason": "resume is deferred beyond D1",
+          "caveats": []
+        },
+        "answer": {
+          "supported": false,
+          "reason": "operator questions are deferred beyond D1",
+          "caveats": []
+        },
+        "continue_session": {
+          "supported": false,
+          "reason": "each submit opens a new session in D1",
+          "caveats": []
+        },
+        "delegate": {
+          "supported": false,
+          "reason": "agent-to-agent delegation is deferred beyond D1",
+          "caveats": []
+        },
+        "placement": {
+          "supported": false,
+          "reason": "D1 runs only on the core's own node",
+          "caveats": []
+        },
+        "reconnect": {
+          "supported": false,
+          "reason": "after a core restart D1 reports surviving runs from disk only",
+          "caveats": []
+        },
+        "worktree_isolation": {
+          "supported": false,
+          "reason": "one active run per repository path; a second submit is refused with busy",
+          "caveats": []
+        }
+      }
+    }
+  ]
+}

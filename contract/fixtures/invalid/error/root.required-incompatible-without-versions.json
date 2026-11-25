@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "incompatible_version",
+    "message": "x",
+    "retryable": false
+  }
+}

@@ -1,42 +1,72 @@
 """CliError and exit-code policy (stable-contract).
 
-Every failure inside culture-agents raises :class:`CliError`. The
-top-level ``main()`` catches it, formats via :mod:`culture_agents.cli._output`,
-and exits with :attr:`CliError.code`. This guarantees:
+Every failure inside culture-agents raises :class:`CliError`. ``main()``
+catches it, formats via :mod:`culture_agents.cli._output`, and exits with
+:attr:`CliError.code`. This guarantees:
 
 * no Python traceback leaks to stderr (the agent-first error contract);
 * every error has a structured shape ``{code, message, remediation}``;
 * the exit-code policy is centralised in one place.
+
+``CliError`` *is* agentfront's ``AgentfrontError`` (one class, so the agentfront
+dispatcher and our handlers agree on what a structured failure is).
+:class:`CoreError` extends it with the typed error the core returned.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from typing import Any
 
-# Exit-code policy. Documented in ``culture-agents learn`` output.
+from agentfront.errors import (
+    EXIT_ENV_ERROR,
+    EXIT_SUCCESS,
+    EXIT_USER_ERROR,
+    AgentfrontError,
+)
+
+from culture_agents.cli._text import visible
+
+# Exit-code policy. Documented in ``agents learn`` output.
 # 0      = success
 # 1      = user-input error (bad flag, missing required arg, unknown path)
-# 2      = environment / setup error (tool not installed, file unreadable)
+# 2      = environment / setup error (core not running, incompatible core)
 # 3+     = reserved for future categorisation
-EXIT_SUCCESS = 0
-EXIT_USER_ERROR = 1
-EXIT_ENV_ERROR = 2
+CliError = AgentfrontError
+
+__all__ = ["EXIT_ENV_ERROR", "EXIT_SUCCESS", "EXIT_USER_ERROR", "CliError", "CoreError"]
 
 
-@dataclass
-class CliError(Exception):
-    """Structured error raised within the CLI; carries a remediation hint for agents."""
+class CoreError(CliError):
+    """A failure reported by (or about reaching) the core.
 
-    code: int
-    message: str
-    remediation: str = ""
+    ``error_code`` is the contract's typed code (``unsupported``, ``busy``,
+    ``unavailable`` ...); ``detail`` carries the extra typed fields of the
+    error body (``capability``, ``active_run_id``, ``client_api_version`` ...).
+    Both are added to the JSON error output next to the standard
+    ``{code, message, remediation}`` triple.
 
-    def __post_init__(self) -> None:
-        super().__init__(self.message)
+    The message may quote text that came from a run, so ``message`` (what text
+    mode prints after ``error:``) has its control characters made visible,
+    while the JSON output carries ``raw_message``, the exact text.
+    """
+
+    def __init__(
+        self,
+        *,
+        code: int,
+        message: str,
+        remediation: str = "",
+        error_code: str = "internal",
+        detail: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(code=code, message=visible(message), remediation=remediation)
+        self.raw_message = message
+        self.error_code = error_code
+        self.detail = dict(detail or {})
 
     def to_dict(self) -> dict[str, object]:
-        return {
-            "code": self.code,
-            "message": self.message,
-            "remediation": self.remediation,
-        }
+        data = super().to_dict()
+        data["message"] = self.raw_message
+        data["error_code"] = self.error_code
+        data.update(self.detail)
+        return data

@@ -1,0 +1,279 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/control-action.json",
+  "title": "Control action",
+  "description": "Requests that create or control a run, their responses, and the record of a control action against an existing run. The root schema is that record.",
+  "$ref": "#/$defs/action_record",
+  "$defs": {
+    "action_kind": {
+      "description": "Control actions against an existing run. pause, resume and answer are deferred: always refused with `unsupported` in this API version.",
+      "enum": [
+        "steer",
+        "cancel",
+        "pause",
+        "resume",
+        "answer"
+      ]
+    },
+    "action_record": {
+      "description": "One control action against a run, as recorded in the run's event log and returned by an accepting route.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "run_id",
+        "kind",
+        "caller",
+        "requested_at",
+        "idempotency_key",
+        "outcome",
+        "error"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.json#/$defs/action_id"
+        },
+        "run_id": {
+          "$ref": "common.json#/$defs/run_id"
+        },
+        "kind": {
+          "$ref": "#/$defs/action_kind"
+        },
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "requested_at": {
+          "$ref": "common.json#/$defs/timestamp"
+        },
+        "idempotency_key": {
+          "oneOf": [
+            {
+              "$ref": "common.json#/$defs/idempotency_key"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outcome": {
+          "description": "accepted: delivered to the run's worker. It does not promise any effect on the harness's behaviour. refused: not delivered; `error` says why.",
+          "enum": [
+            "accepted",
+            "refused"
+          ]
+        },
+        "error": {
+          "oneOf": [
+            {
+              "$ref": "error.json#/$defs/error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "if": {
+        "required": [
+          "outcome"
+        ],
+        "properties": {
+          "outcome": {
+            "const": "refused"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "error": {
+            "$ref": "error.json#/$defs/error"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "error": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    "submit_request": {
+      "description": "Body of POST /v1/runs. Optional fields are omitted, never null. Setting `session_id` asks for `continue_session` and setting `parent_run_id` asks for `delegate`; both are refused with `unsupported` in this API version, as is an `agent_id` whose node is not the core's node (`placement`).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "agent_id",
+        "harness",
+        "repo",
+        "task",
+        "caller"
+      ],
+      "properties": {
+        "agent_id": {
+          "$ref": "common.json#/$defs/mesh_id"
+        },
+        "harness": {
+          "$ref": "common.json#/$defs/harness_id"
+        },
+        "repo": {
+          "$ref": "common.json#/$defs/repo_path"
+        },
+        "task": {
+          "$ref": "common.json#/$defs/text"
+        },
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "idempotency_key": {
+          "$ref": "common.json#/$defs/idempotency_key"
+        },
+        "deadline": {
+          "description": "Absolute UTC time by which the run must be terminal; must be later than the core's clock at submit.",
+          "$ref": "common.json#/$defs/timestamp"
+        },
+        "session_id": {
+          "$ref": "common.json#/$defs/session_id"
+        },
+        "parent_run_id": {
+          "$ref": "common.json#/$defs/run_id"
+        }
+      }
+    },
+    "submit_response": {
+      "description": "201 response of POST /v1/runs. The run is in state `queued` and its worker's PID, event log and cursor are on disk.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run"
+      ],
+      "properties": {
+        "run": {
+          "$ref": "run.json",
+          "properties": {
+            "state": {
+              "const": "queued"
+            }
+          }
+        }
+      }
+    },
+    "steer_request": {
+      "description": "Body of POST /v1/runs/{run_id}/steer: a mid-run instruction delivered to the harness as user input.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caller",
+        "message"
+      ],
+      "properties": {
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "message": {
+          "$ref": "common.json#/$defs/text"
+        },
+        "idempotency_key": {
+          "$ref": "common.json#/$defs/idempotency_key"
+        }
+      }
+    },
+    "cancel_request": {
+      "description": "Body of POST /v1/runs/{run_id}/cancel.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caller"
+      ],
+      "properties": {
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        "idempotency_key": {
+          "$ref": "common.json#/$defs/idempotency_key"
+        }
+      }
+    },
+    "pause_request": {
+      "description": "Body of POST /v1/runs/{run_id}/pause (deferred; always refused with `unsupported`, capability `pause`).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caller"
+      ],
+      "properties": {
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "idempotency_key": {
+          "$ref": "common.json#/$defs/idempotency_key"
+        }
+      }
+    },
+    "resume_request": {
+      "description": "Body of POST /v1/runs/{run_id}/resume (deferred; always refused with `unsupported`, capability `resume`).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caller"
+      ],
+      "properties": {
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "idempotency_key": {
+          "$ref": "common.json#/$defs/idempotency_key"
+        }
+      }
+    },
+    "answer_request": {
+      "description": "Body of POST /v1/runs/{run_id}/answer (deferred; always refused with `unsupported`, capability `answer`).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "caller",
+        "question_id",
+        "answer"
+      ],
+      "properties": {
+        "caller": {
+          "$ref": "common.json#/$defs/principal"
+        },
+        "question_id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "answer": {
+          "$ref": "common.json#/$defs/text"
+        },
+        "idempotency_key": {
+          "$ref": "common.json#/$defs/idempotency_key"
+        }
+      }
+    },
+    "accepted_response": {
+      "description": "202 response of steer and cancel: the recorded, accepted action.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/action_record",
+          "properties": {
+            "outcome": {
+              "const": "accepted"
+            }
+          }
+        }
+      }
+    }
+  }
+}

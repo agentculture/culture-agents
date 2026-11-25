@@ -1,0 +1,49 @@
+# OpenShell provider profile: the host-local OpenAI-compatible model gateway
+# (lobes) on port 8001, as used by OpenCode in the D1 probe.
+#
+# Import (an operator step, not done by the core):
+#   openshell provider profile lint   -f core/policy/profiles/culture-agents-local-gateway.yaml
+#   openshell provider profile import -f core/policy/profiles/culture-agents-local-gateway.yaml
+#   openshell provider create --name lobes-ca --type culture-agents-local-gateway \
+#     --credential LOBES_GATEWAY_KEY
+# The key is named by its environment variable only; inside the sandbox it is
+# an `openshell:resolve:env:` placeholder resolved by the proxy at egress.
+# OpenCode reads it through the config reference `{env:LOBES_GATEWAY_KEY}` with
+# baseURL http://host.openshell.internal:8001/v1.
+#
+# Binaries (docs/d0/probe.md, "Obstacles" item 6):
+# - /usr/local/bin/opencode: the OpenCode CLI in the image.
+# - The AI SDK OpenCode adapter pins its own OpenCode (opencode-ai 1.19.5) and
+#   runs it from the bridge's node_modules
+#   (.../node_modules/.pnpm/opencode-ai@1.19.5/.../bin/opencode.exe). The probe's
+#   `lobes` profile denied that path, so the probe copied the binary to
+#   /usr/local/bin/opencode. This profile names the bridge location instead:
+#   /usr/local/lib/ai-sdk-harness/**, where the image bakes the bridge
+#   dependencies (read-only in the sandbox; /opt is not readable there).
+# - /usr/bin/curl from the probe's profile is dropped: it was a debugging aid
+#   and would let any script reach the credentialed gateway.
+# - Nothing under the writable /sandbox home is listed.
+
+id: culture-agents-local-gateway
+display_name: Local model gateway (culture-agents)
+description: Host-local OpenAI-compatible model gateway on port 8001, for OpenCode and its AI SDK bridge
+category: inference
+inference_capable: true
+credentials:
+  - name: api_key
+    description: Local model gateway API key
+    env_vars: [LOBES_GATEWAY_KEY]
+    required: true
+    auth_style: bearer
+    header_name: authorization
+discovery:
+  credentials: [api_key]
+endpoints:
+  - host: host.openshell.internal
+    port: 8001
+    protocol: rest
+    access: read-write
+    enforcement: enforce
+binaries:
+  - /usr/local/bin/opencode
+  - /usr/local/lib/ai-sdk-harness/**

@@ -1,0 +1,336 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/run.json",
+  "title": "Run",
+  "description": "One submitted unit of work executed by one agent through one harness. State is authoritative only as read from the run's on-disk event log or its live worker (README: state machine, restart).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "agent_id",
+    "session_id",
+    "harness",
+    "repo",
+    "task",
+    "owner",
+    "idempotency_key",
+    "deadline",
+    "state",
+    "state_reason",
+    "terminal",
+    "created_at",
+    "updated_at",
+    "started_at",
+    "ended_at",
+    "cursor",
+    "live_control",
+    "worker_pid",
+    "branch"
+  ],
+  "properties": {
+    "id": {
+      "$ref": "common.json#/$defs/run_id"
+    },
+    "agent_id": {
+      "$ref": "common.json#/$defs/mesh_id"
+    },
+    "session_id": {
+      "$ref": "common.json#/$defs/session_id"
+    },
+    "harness": {
+      "$ref": "common.json#/$defs/harness_id"
+    },
+    "repo": {
+      "$ref": "common.json#/$defs/repo_path"
+    },
+    "task": {
+      "$ref": "common.json#/$defs/text"
+    },
+    "owner": {
+      "description": "The principal that submitted the run (the submit request's caller).",
+      "$ref": "common.json#/$defs/principal"
+    },
+    "idempotency_key": {
+      "oneOf": [
+        {
+          "$ref": "common.json#/$defs/idempotency_key"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "deadline": {
+      "$ref": "common.json#/$defs/nullable_timestamp"
+    },
+    "state": {
+      "$ref": "#/$defs/state"
+    },
+    "state_reason": {
+      "description": "Human-readable reason for the current state, or null.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 2000
+    },
+    "terminal": {
+      "type": "boolean"
+    },
+    "created_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "common.json#/$defs/timestamp"
+    },
+    "started_at": {
+      "description": "When the harness session started; null until the run first enters `running`.",
+      "$ref": "common.json#/$defs/nullable_timestamp"
+    },
+    "ended_at": {
+      "$ref": "common.json#/$defs/nullable_timestamp"
+    },
+    "cursor": {
+      "description": "Cursor of the newest event in the run's event log.",
+      "$ref": "common.json#/$defs/cursor"
+    },
+    "live_control": {
+      "description": "True when this core can deliver steer and cancel to the run's worker. False for every terminal run and for a run whose worker survived a core restart (D1 cannot reconnect).",
+      "type": "boolean"
+    },
+    "worker_pid": {
+      "description": "PID of the run's worker process, or null once no worker is known.",
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    },
+    "branch": {
+      "description": "Host branch holding the run's commits, `runs/<run_id>`, or null when there are none yet. At most 132 characters: `runs/` and a run id of at most 127.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 132,
+      "pattern": "^runs/[a-z0-9]{1,32}-[a-z0-9_]+(-[a-z0-9_]+)*\\.run\\.[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "extension": {
+      "$ref": "common.json#/$defs/extension"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "$ref": "#/$defs/terminal_state"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "terminal": {
+            "const": true
+          },
+          "live_control": {
+            "const": false
+          },
+          "ended_at": {
+            "$ref": "common.json#/$defs/timestamp"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "terminal": {
+            "const": false
+          },
+          "ended_at": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "const": "running"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "started_at": {
+            "$ref": "common.json#/$defs/timestamp"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "const": "queued"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "started_at": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "state": {
+      "description": "Run state. Legal transitions are in api.json `state_machine` and README.",
+      "enum": [
+        "queued",
+        "running",
+        "cancelling",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "timed_out",
+        "unknown"
+      ]
+    },
+    "active_state": {
+      "enum": [
+        "queued",
+        "running",
+        "cancelling"
+      ]
+    },
+    "terminal_state": {
+      "enum": [
+        "succeeded",
+        "failed",
+        "cancelled",
+        "timed_out",
+        "unknown"
+      ]
+    },
+    "run_list": {
+      "description": "Response of GET /v1/runs: newest first by created_at.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs"
+      ],
+      "properties": {
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#"
+          }
+        }
+      }
+    },
+    "run_result": {
+      "description": "Response of GET /v1/runs/{run_id}/result; only served for a terminal run.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_id",
+        "state",
+        "summary",
+        "branch",
+        "commits",
+        "ended_at",
+        "error"
+      ],
+      "properties": {
+        "run_id": {
+          "$ref": "common.json#/$defs/run_id"
+        },
+        "state": {
+          "$ref": "#/$defs/terminal_state"
+        },
+        "summary": {
+          "description": "The harness's final assistant text, or null if it produced none.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "branch": {
+          "$ref": "#/properties/branch"
+        },
+        "commits": {
+          "description": "Commits on `branch`, oldest first. Empty when there are none.",
+          "type": "array",
+          "items": {
+            "$ref": "common.json#/$defs/git_sha"
+          }
+        },
+        "ended_at": {
+          "$ref": "common.json#/$defs/timestamp"
+        },
+        "error": {
+          "oneOf": [
+            {
+              "$ref": "error.json#/$defs/error"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "const": "failed"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "$ref": "error.json#/$defs/error"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "const": "succeeded"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "error": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

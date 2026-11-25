@@ -1,4 +1,24 @@
-name: Publish to PyPI
+name: Publish to npm and PyPI
+
+# Two registries, trusted publishing only (OIDC; no registry token is stored).
+#
+# Pull request (same-repo): test -> npm-dry-run (build core/ with `npm ci`,
+#   pack, `npm publish --dry-run`; nothing is published) and test-publish
+#   (TestPyPI dev build).
+# Push to main: test + version-gate -> publish-npm (provenance) -> publish (PyPI).
+#   The PyPI job `needs` the npm job, so a failed npm publish leaves nothing
+#   on PyPI.
+#   Both publish jobs are safe to re-run: PyPI skips files already uploaded,
+#   and the npm job skips a version already on npm after checking that the
+#   registry copy holds the files this commit builds.
+#
+# Version policy: the npm package (core/package.json) must carry the same
+# version as pyproject.toml at release time. The version-gate job FAILS the
+# release when they differ. The one exception is the placeholder: while
+# core/package.json is still 0.0.0 and differs from pyproject.toml, the gate
+# passes with npm=skip, the npm publish job is skipped cleanly (not failed),
+# and PyPI still publishes as before, so merging this workflow neither
+# publishes a placeholder nor breaks the existing PyPI release.
 
 on:
   push:
@@ -6,15 +26,49 @@ on:
     paths:
       - "pyproject.toml"
       - "culture_agents/**"
+      - "core/**"
   pull_request:
     branches: [main]
     paths:
       - "pyproject.toml"
       - "culture_agents/**"
+      - "core/**"
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
+  version-gate:
+    # Fails when core/package.json and pyproject.toml versions differ, unless
+    # core is still the 0.0.0 placeholder (then npm=skip; see the header).
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      npm: ${{ steps.gate.outputs.npm }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - id: gate
+        run: |
+          set -euo pipefail
+          PY="$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")"
+          JS="$(python3 -c "import json; print(json.load(open('core/package.json'))['version'])")"
+          if [ "$PY" = "$JS" ]; then
+            echo "npm=publish" >> "$GITHUB_OUTPUT"
+            echo "versions match: ${PY}"
+          elif [ "$JS" = "0.0.0" ]; then
+            echo "npm=skip" >> "$GITHUB_OUTPUT"
+            echo "::notice::core/package.json is the 0.0.0 placeholder (pyproject ${PY}); npm publish skipped"
+          else
+            echo "::error::core/package.json ${JS} differs from pyproject.toml ${PY}; bump them together"
+            exit 1
+          fi
+
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     steps:
@@ -26,7 +80,46 @@ jobs:
 
       - run: uv sync
 
+      # A release is gated on the core as well: build it, run its checks, and make the
+      # D1 acceptance mock stage (real CLI against the real core) run rather than skip.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: install, build, type-check, lint and test the core
+        working-directory: core
+        run: npm ci --ignore-scripts && npm run build && npm run typecheck && npm run lint && npm test
+
       - run: uv run pytest -n auto -v
+        env:
+          CULTURE_AGENTS_ACCEPTANCE_REQUIRE: "1"
+
+  npm-dry-run:
+    # Same-repo and fork PRs alike: no OIDC is needed, nothing is published.
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+
+      - run: npm ci --ignore-scripts
+
+      - run: npm run build
+
+      - name: Dry-run the npm publish
+        run: |
+          set -euo pipefail
+          TARBALL="$(npm pack --silent)"
+          npm publish "$TARBALL" --dry-run --access public
 
   test-publish:
     # Skip on fork PRs — no OIDC/environment context is available there, so the
@@ -65,9 +158,80 @@ jobs:
         run: |
           echo "::notice::Test with: uv tool install --index-url https://test.pypi.org/simple/ --index-strategy unsafe-best-match culture-agents==${DEV_VERSION}"
 
+  publish-npm:
+    # Trusted publishing: the npm trusted publisher for @culture.dev/agents
+    # must name this workflow file (publish.yml) and the `npm` environment.
+    if: github.event_name == 'push' && needs.version-gate.outputs.npm == 'publish'
+    needs: [test, version-gate]
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write
+    defaults:
+      run:
+        working-directory: core
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          registry-url: https://registry.npmjs.org
+
+      - name: Use an npm that supports trusted publishing (11.5.1 or later)
+        run: npm install -g npm@11.21.1 --ignore-scripts
+
+      - run: npm ci --ignore-scripts
+
+      - run: npm run build
+
+      - name: pack
+        id: pack
+        run: |
+          set -euo pipefail
+          TARBALL="$(npm pack --silent)"
+          echo "tarball=${TARBALL}" >> "$GITHUB_OUTPUT"
+
+      # Prints `absent` or `present`; any other answer from npm (a network or
+      # registry error, unreadable output) fails this step, so nothing publishes.
+      - name: is this version already on npm?
+        id: npm
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          STATE="$(python3 ../scripts/npm_release_state.py @culture.dev/agents "$VERSION")"
+          echo "state=${STATE}" >> "$GITHUB_OUTPUT"
+          echo "spec=@culture.dev/agents@${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "@culture.dev/agents@${VERSION} is ${STATE} on npm"
+
+      # A re-run, or the one-time bootstrap publish, already made this version.
+      # Never publish over it (npm refuses; versions cannot be reused): prove
+      # the registry copy holds the files this commit builds, or fail.
+      - name: already on npm; check the registry copy matches this commit
+        if: steps.npm.outputs.state == 'present'
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+          SPEC: ${{ steps.npm.outputs.spec }}
+        run: python3 ../scripts/npm_registry_matches.py "$TARBALL" "$SPEC"
+
+      - name: Publish to npm with provenance
+        if: steps.npm.outputs.state == 'absent'
+        env:
+          TARBALL: ${{ steps.pack.outputs.tarball }}
+        run: npm publish "$TARBALL" --provenance --access public
+
   publish:
-    if: github.event_name == 'push'
-    needs: test
+    # always(): publish-npm is skipped (not failed) while core is the 0.0.0
+    # placeholder; PyPI must still go out then. A failed npm publish, a failed
+    # gate or failed tests all still block PyPI.
+    if: >-
+      always() && github.event_name == 'push'
+      && needs.test.result == 'success'
+      && needs.version-gate.result == 'success'
+      && (needs.publish-npm.result == 'success' || needs.publish-npm.result == 'skipped')
+    # PyPI waits for npm so that a failed npm publish leaves nothing published.
+    needs: [test, version-gate, publish-npm]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

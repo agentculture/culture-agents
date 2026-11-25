@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-11-25
+
+### Added
+
+- The D1 control plane: a TypeScript core daemon (`core/`, npm package `@culture.dev/agents`, not yet published) that serves the control API over a Unix socket, stores runs on disk with one detached worker process per run, and runs harnesses inside an NVIDIA OpenShell sandbox. A run's repository enters the sandbox as a git bundle and its commits return to a `runs/<id>` branch; the host checkout is never written.
+- Two harnesses: Claude Code through the Vercel AI SDK adapter and OpenCode v2 through its own server API, plus a stub driver for tests. Each declares its capabilities; `pause`, `resume` and `answer` are refused as `unsupported`. Codex is not verified.
+- `contract/`: JSON Schemas (API version 1.0) for agents, runs, sessions, events, control actions, capabilities, errors and the allow-list, with fixtures tested from both the core and the CLI.
+- `agents agents list|status` and `agents runs submit|list|show|attach|steer|cancel|logs|result`, clients of the core. Dispatch is denied unless an allow-list entry names the agent, harness and repository.
+- `docs/d0/`: the consumer inventory, compatibility matrix, decision record, probe results, the D1 acceptance record and the boundary audit; the confirmed spec and plan under `docs/specs/` and `docs/plans/`.
+- `tests/acceptance/d1/`: the real CLI against the real core. A mock stage always runs; an opt-in live stage covers Claude Code and OpenCode v2 and reports NOT VERIFIED when a harness is unavailable.
+- CI: a `core` job (build, type-check, lint, tests from the lockfile), the core build before the Python tests, a secret scan and the 400-line cap extended to TypeScript.
+- When a run's turn completed but its commits could not be brought to the host, the sandbox is kept for 7 days (`retainFailedSandboxDays`) and the failure message says how to fetch the work.
+- The CLI validates every core response against the contract schemas (new runtime dependency `jsonschema`), shows control characters in run output as visible escapes, and `runs attach` survives a core restart.
+- `version-bump` moves mirrored version files (the npm package in `core/`) together with `pyproject.toml`.
+- The core reclaims the sandboxes of its own finished runs at startup and every five minutes, takes a second lock on its state directory, reports an unreadable run as `internal` (keeping its repository busy while its worker lives), and bounds its calls into the sandbox.
+
+### Changed
+
+- Without `XDG_RUNTIME_DIR` the control socket is now `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`, not a path under `/tmp`. The run image declares a non-root user. The unused AI SDK sandbox-provider adapter (`toHarnessSandboxProvider`) is removed.
+- CI analyses each pull request on SonarCloud with Python and TypeScript coverage and fails on any open issue. The run image installs Node.js from a signed apt source instead of running a downloaded script, and `npm ci` runs without install scripts.
+- A wedged OpenCode server now fails the turn mid-run instead of holding it in `running`: the session reads and the interrupt are bounded. The recovery instructions of a kept sandbox are never clipped by a long failure reason. The CLI refuses an event-stream line over 4 MiB.
+- The CLI is built on `agentfront` 0.22's public API, so `learn`, `explain` and `overview` describe exactly the registered verbs.
+- The publish workflow publishes npm with provenance before PyPI, and skips npm while `core/package.json` is `0.0.0`.
+- All five prompt files describe the D1 slice.
+
 ## [0.12.0] - 2026-11-21
 
 ### Added

@@ -1,0 +1,5 @@
+# Variant: OpenCode v2 behind a startup-line shim for the 1.19.5 bridge SDK.
+FROM culture-agents-probe:0.3
+COPY opencode-v2-shim.sh /usr/local/lib/ai-sdk-harness/opencode-v2-shim
+RUN ln -sfn /usr/local/lib/ai-sdk-harness/opencode-v2-shim \
+      /usr/local/lib/ai-sdk-harness/opencode/node_modules/.bin/opencode

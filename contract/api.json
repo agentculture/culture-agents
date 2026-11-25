@@ -1,0 +1,501 @@
+{
+  "api_version": "1.0",
+  "schema_base": "https://culture.dev/contract/agents/",
+  "description": "Index of the culture-agents control-plane API. Semantics live in contract/README.md; payload shapes in the schema files named here, resolved against schema_base.",
+  "transport": {
+    "kind": "http/1.1 over a Unix domain socket",
+    "socket": "${XDG_RUNTIME_DIR}/culture-agents/core.sock",
+    "socket_fallback": "${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock",
+    "socket_override_env": "CULTURE_AGENTS_SOCKET",
+    "socket_mode": "0600",
+    "version_header": "Agents-Api-Version"
+  },
+  "compatibility": "Client and core are compatible when their MAJOR numbers are equal and the core's MINOR is greater than or equal to the client's MINOR.",
+  "state_machine": {
+    "initial": "queued",
+    "active": [
+      "queued",
+      "running",
+      "cancelling"
+    ],
+    "terminal": [
+      "succeeded",
+      "failed",
+      "cancelled",
+      "timed_out",
+      "unknown"
+    ],
+    "transitions": {
+      "queued": [
+        "running",
+        "cancelling",
+        "failed",
+        "unknown"
+      ],
+      "running": [
+        "cancelling",
+        "succeeded",
+        "failed",
+        "unknown"
+      ],
+      "cancelling": [
+        "cancelled",
+        "timed_out",
+        "succeeded",
+        "failed",
+        "unknown"
+      ],
+      "succeeded": [],
+      "failed": [],
+      "cancelled": [],
+      "timed_out": [],
+      "unknown": []
+    }
+  },
+  "errors": {
+    "invalid": {
+      "http_status": 400,
+      "exit_code": 1,
+      "retryable": false
+    },
+    "denied": {
+      "http_status": 403,
+      "exit_code": 1,
+      "retryable": false
+    },
+    "not_found": {
+      "http_status": 404,
+      "exit_code": 1,
+      "retryable": false
+    },
+    "busy": {
+      "http_status": 409,
+      "exit_code": 1,
+      "retryable": true
+    },
+    "conflict": {
+      "http_status": 409,
+      "exit_code": 1,
+      "retryable": null
+    },
+    "unsupported": {
+      "http_status": 422,
+      "exit_code": 1,
+      "retryable": false
+    },
+    "incompatible_version": {
+      "http_status": 412,
+      "exit_code": 2,
+      "retryable": false
+    },
+    "unavailable": {
+      "http_status": 503,
+      "exit_code": 2,
+      "retryable": true
+    },
+    "internal": {
+      "http_status": 500,
+      "exit_code": 2,
+      "retryable": false
+    }
+  },
+  "routes": [
+    {
+      "id": "version",
+      "method": "GET",
+      "path": "/v1/version",
+      "summary": "API version, core version and node. Never refused for version mismatch.",
+      "cli": "(every verb, on connect)",
+      "d1": "supported",
+      "request": null,
+      "response": "version.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "internal"
+      ]
+    },
+    {
+      "id": "agents.list",
+      "method": "GET",
+      "path": "/v1/agents",
+      "summary": "Every known agent plus every harness capability document.",
+      "cli": "agents agents list",
+      "d1": "supported",
+      "request": null,
+      "response": "agent.json#/$defs/agent_list",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal"
+      ]
+    },
+    {
+      "id": "agents.status",
+      "method": "GET",
+      "path": "/v1/agents/{agent_id}",
+      "summary": "One agent.",
+      "cli": "agents agents status",
+      "d1": "supported",
+      "request": null,
+      "response": "agent.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "agent_id": "common.json#/$defs/mesh_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found"
+      ]
+    },
+    {
+      "id": "harnesses.list",
+      "method": "GET",
+      "path": "/v1/harnesses",
+      "summary": "Every harness capability document.",
+      "cli": "agents agents list",
+      "d1": "supported",
+      "request": null,
+      "response": "capabilities.json#/$defs/capabilities_list",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal"
+      ]
+    },
+    {
+      "id": "harnesses.show",
+      "method": "GET",
+      "path": "/v1/harnesses/{harness}",
+      "summary": "One harness capability document.",
+      "cli": "agents agents status",
+      "d1": "supported",
+      "request": null,
+      "response": "capabilities.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "harness": "common.json#/$defs/harness_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found"
+      ]
+    },
+    {
+      "id": "runs.submit",
+      "method": "POST",
+      "path": "/v1/runs",
+      "summary": "Create a run; returns once the worker's PID, event log and cursor are on disk.",
+      "cli": "agents runs submit",
+      "d1": "supported",
+      "request": "control-action.json#/$defs/submit_request",
+      "response": "control-action.json#/$defs/submit_response",
+      "status": 201,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "busy",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "runs.list",
+      "method": "GET",
+      "path": "/v1/runs",
+      "summary": "Runs, newest first, optionally filtered.",
+      "cli": "agents runs list",
+      "d1": "supported",
+      "request": null,
+      "response": "run.json#/$defs/run_list",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {
+        "state": {
+          "$ref": "run.json#/$defs/state"
+        },
+        "agent_id": {
+          "$ref": "common.json#/$defs/mesh_id"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 50
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal"
+      ]
+    },
+    {
+      "id": "runs.show",
+      "method": "GET",
+      "path": "/v1/runs/{run_id}",
+      "summary": "One run.",
+      "cli": "agents runs show",
+      "d1": "supported",
+      "request": null,
+      "response": "run.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found"
+      ]
+    },
+    {
+      "id": "runs.attach",
+      "method": "GET",
+      "path": "/v1/runs/{run_id}/attach",
+      "summary": "SSE: replay events with cursor > after, then follow live; closes after the terminal run.state event.",
+      "cli": "agents runs attach",
+      "d1": "supported",
+      "request": null,
+      "response": "event.json",
+      "status": 200,
+      "stream": true,
+      "content_type": "text/event-stream",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found"
+      ]
+    },
+    {
+      "id": "runs.logs",
+      "method": "GET",
+      "path": "/v1/runs/{run_id}/events",
+      "summary": "A page of stored events with cursor > after, oldest first.",
+      "cli": "agents runs logs",
+      "d1": "supported",
+      "request": null,
+      "response": "event.json#/$defs/event_page",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000,
+          "default": 500
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found"
+      ]
+    },
+    {
+      "id": "runs.result",
+      "method": "GET",
+      "path": "/v1/runs/{run_id}/result",
+      "summary": "Outcome of a terminal run; conflict while the run is active.",
+      "cli": "agents runs result",
+      "d1": "supported",
+      "request": null,
+      "response": "run.json#/$defs/run_result",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found",
+        "conflict"
+      ]
+    },
+    {
+      "id": "runs.steer",
+      "method": "POST",
+      "path": "/v1/runs/{run_id}/steer",
+      "summary": "Deliver a mid-run instruction to a running run.",
+      "cli": "agents runs steer",
+      "d1": "supported",
+      "request": "control-action.json#/$defs/steer_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found",
+        "conflict",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "runs.cancel",
+      "method": "POST",
+      "path": "/v1/runs/{run_id}/cancel",
+      "summary": "Start cancellation; the run moves to cancelling, then a terminal state.",
+      "cli": "agents runs cancel",
+      "d1": "supported",
+      "request": "control-action.json#/$defs/cancel_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found",
+        "conflict",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "runs.pause",
+      "method": "POST",
+      "path": "/v1/runs/{run_id}/pause",
+      "summary": "Deferred: always refused with unsupported, capability pause, after validation and not_found checks.",
+      "cli": "(none in D1)",
+      "d1": "unsupported",
+      "request": "control-action.json#/$defs/pause_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found",
+        "unsupported"
+      ]
+    },
+    {
+      "id": "runs.resume",
+      "method": "POST",
+      "path": "/v1/runs/{run_id}/resume",
+      "summary": "Deferred: always refused with unsupported, capability resume, after validation and not_found checks.",
+      "cli": "(none in D1)",
+      "d1": "unsupported",
+      "request": "control-action.json#/$defs/resume_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found",
+        "unsupported"
+      ]
+    },
+    {
+      "id": "runs.answer",
+      "method": "POST",
+      "path": "/v1/runs/{run_id}/answer",
+      "summary": "Deferred: always refused with unsupported, capability answer, after validation and not_found checks.",
+      "cli": "(none in D1)",
+      "d1": "unsupported",
+      "request": "control-action.json#/$defs/answer_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "not_found",
+        "unsupported"
+      ]
+    }
+  ]
+}

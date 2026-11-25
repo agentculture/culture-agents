@@ -1,0 +1,183 @@
+# Build Plan — issue-2 cross-repo reorganization
+
+slug: `issue-2-cross-repo-reorganization` · status: `exported` · from frame: `issue-2-cross-repo-reorganization`
+
+> AgentCulture has one direct agent control plane (culture-agents), one communication product (culture-chat), one workflow engine (culture-rules), and independently deployable experience apps (embodiment/Gwen): no duplicated harness or dispatch managers, no requirement that agents join chat, and no lost realtime or safety guarantees.
+
+## Tasks
+
+### t1 — Probe: Claude Code and Codex through the AI SDK adapters inside an OpenShell sandbox on this host
+
+- instruction: Install OpenShell at user level and start the local gateway. In spikes/d1-probe/ (Node >= 22, exact pins) write the smallest sandbox-session implementation over the OpenShell TypeScript SDK that lets HarnessAgent start each harness. Test three working-tree handoffs: clone inside and fetch back, mount a host worktree, mirror. Record everything in docs/d0/probe.md. Throwaway code: nothing in spikes/ is imported by the core.
+- covers: c58, h28
+- acceptance:
+  - docs/d0/probe.md lists OpenShell, Node and every npm package version used
+  - For Claude Code and for Codex it records pass, fail or not-verified for submit, streamed output, mid-run steer and cancel, each with the command and observed output
+  - It records the result of each working-tree handoff option and whether commits return to the host repo
+  - It states, per harness, whether the AI SDK adapter is kept or the vendor SDK fallback is needed
+
+### t2 — D0 inventory of agentirc, cultureagent and agent-lifecycle against upstream main, plus a baseline of sibling checkouts
+
+- instruction: Read upstream main through gh or fresh clones under the scratch area, never the primary checkouts. Write docs/d0/inventory.md with the commit SHA of each repo at the top and docs/d0/sibling-baseline.txt holding git status and HEAD for every sibling checkout. Reuse the scope entries s1-s39 as leads, but re-verify each citation.
+- covers: c24, h21, c39, h2
+- acceptance:
+  - docs/d0/inventory.md names features and consumers of each of the three repos, and every file:line citation resolves at the recorded upstream SHA
+  - It records the one-shot bridge and chat-coupled boot gaps with citations to cultureagent docs/bridges.md and `culture_core`/cli/agents.py at upstream main
+  - docs/d0/sibling-baseline.txt exists and was captured before any sibling worktree was created
+
+### t3 — D0 compatibility matrix and decision records
+
+- instruction: Write docs/d0/compatibility-matrix.md and docs/d0/decisions.md from the inventory and the probe. Decisions already taken in the frame (c31-c37, c54-c59) are recorded as decided with their date; the rest are marked open.
+- depends on: t1, t2
+- covers: c6, h13, c11, h17, h16
+- acceptance:
+  - The matrix has a row for Claude Code, Codex, OpenCode, Pi via associate, colleague and qwen with transport, capabilities, D1 status and owner, and lists the three raw IRC clients for D3
+  - docs/d0/decisions.md has one record for each of issue #2's six D0 decisions, each marked decided or open
+  - Each D1 harness row names the interactive transport the probe proved
+
+### t4 — File one tracking issue per later-gate sibling repo and link them from issue #2
+
+- instruction: Use the communicate skill. One issue each for culture-chat, agentirc, irc-lens, culture, culture-rules, embodiment, colleague, associate, steward, guildmaster, cultureagent and agent-lifecycle. Then post one comment on culture-agents#2 listing them and proposing the repo-move table additions for codexd and culture-nodes. Show the user the issue bodies before posting.
+- depends on: t2
+- covers: c3, h11
+- acceptance:
+  - Each listed repo has one open issue that links culture-agents#2 and names the gate, the consumer that exercises it and the result required before cutover
+  - culture-agents#2 has a comment linking every tracking issue
+
+### t5 — Workspace map in the culture repo
+
+- instruction: Create a worktree at ../.worktrees.culture/workspace-map on branch docs/workspace-map from upstream main. Add docs/workspace-map.md with the product boundaries and repo table from issue #2 and this spec, bump the version, open a PR through that repo's cicd flow. After it is open, replace the stale product text in /home/ori/git/CLAUDE.md with a pointer to it.
+- covers: c21, h19
+- acceptance:
+  - The culture repo has an open or merged PR adding the product and repo map
+  - /home/ori/git/CLAUDE.md points to the map and no longer calls culture an IRC-based agent mesh
+  - The primary culture checkout's branch and uncommitted files are unchanged
+
+### t6 — Control-plane contract: versioned JSON Schemas and a contract test kit
+
+- instruction: Create contract/ with one schema per entity (agent, session, run, control-action, event, capabilities, error) and contract/fixtures/ with valid and invalid examples. Identifiers use the node-agent form. Terminal states: succeeded, failed, cancelled, `timed_out`, unknown. Harness-specific data only in one opaque extension field. Add a Python test that validates every fixture; the TS side reuses the same fixtures in its own task.
+- depends on: t1, t3
+- covers: c42, h5, c7, h14
+- acceptance:
+  - Every fixture under contract/fixtures/valid validates and every one under invalid is rejected, in a pytest run
+  - A test fails if any schema contains an AI-SDK, OpenShell or vendor-SDK type name
+  - Agent and run identifiers in the schemas carry the node-agent form and validation passes with no chat server configured
+
+### t7 — TS core package scaffold with exact pins and CI coverage
+
+- instruction: Create core/ (package.json with exact versions only, committed lockfile, tsconfig, lint, a unit-test runner, one trivial test). Extend .github/workflows/tests.yml with Node build, type-check, lint and test jobs using a frozen install, add the TS sources to sonar-project.properties, and extend scripts/check-file-length.py and scripts/scan-secrets.py to cover TS files.
+- depends on: t1
+- covers: c49, h23, c52, h26
+- acceptance:
+  - package.json contains no range specifier for a runtime dependency and CI installs with the lockfile frozen
+  - A PR that breaks the TS build fails CI, and a 401-line TS file fails scripts/check-file-length.py
+  - Sonar analysis includes the TS sources
+
+### t8 — Core daemon: control socket, single-instance lock, API version and deny-by-default authorization
+
+- instruction: Files under core/src/daemon/ only. Unix socket with mode 0600 in the user runtime dir; exclusive lock taken before bind; stale socket removed only after the lock is held; GET version endpoint; allow-list read from the user config dir, shipped empty. Test-first against the contract fixtures.
+- depends on: t6, t7
+- covers: c51, h25, c45, h8
+- acceptance:
+  - After kill -9 the daemon restarts without manual cleanup, and a second start exits with an environment error naming the running instance
+  - A fresh install refuses every submit until an allow-list entry exists, before any worker or sandbox is created
+  - The socket file is mode 0600 and the version endpoint returns the API version from the contract
+
+### t9 — Run store and per-run worker process
+
+- instruction: Files under core/src/store/ and core/src/worker/ only. The worker is a separate OS process that writes PID, event log and cursor under the run directory with 0600 files; the store derives state only from those files or a live worker. Test-first, with a fake harness.
+- depends on: t6, t7
+- covers: c9, h15, c40, h3
+- acceptance:
+  - The worker's PID, event log and cursor are on disk before a submit is acknowledged
+  - With the daemon process killed, the worker keeps appending to its event log
+  - A run whose files do not establish an outcome and has no live worker reads 'unknown', never 'succeeded'
+
+### t10 — OpenShell sandbox provider and run policy
+
+- instruction: Files under core/src/sandbox/ only. Implement the AI SDK sandbox-session interface over the OpenShell TypeScript SDK, using the working-tree handoff the user picked from the probe. Ship one policy file that denies pushes to the remote and passes no operator GitHub or SSH credentials. Unit tests use a fake gateway; one live test is skipped and reported NOT VERIFIED when no gateway is reachable.
+- depends on: t1, t7
+- covers: c57, h27, h24
+- acceptance:
+  - A run's sandbox is visible on the OpenShell gateway while it runs and is deleted when the run ends
+  - Inside the sandbox `GH_TOKEN`, `GITHUB_TOKEN` and `SSH_AUTH_SOCK` are unset and a git push to the remote fails
+  - With no gateway reachable the live test reports NOT VERIFIED, never a pass
+
+### t11 — Harness adapters for Claude Code and Codex with honest capability reporting
+
+- instruction: Files under core/src/harness/ only. One internal adapter interface; a Claude Code and a Codex implementation on the path the probe proved; a stub adapter that imports no AI-SDK package. Each adapter returns a capability document; steer, cancel, resume and operator questions are declared per harness.
+- depends on: t6, t10
+- covers: c43, h6, c10, c12, h18
+- acceptance:
+  - Swapping a real adapter for the stub leaves every contract test passing unchanged
+  - A control action outside an adapter's declared capabilities is refused with a typed 'unsupported' error naming the capability and is not forwarded
+  - Each declared capability has a live test and each undeclared one has a refusal test
+
+### t12 — Run orchestration: submit, attach, steer, cancel, busy refusal and restart reporting
+
+- instruction: Files under core/src/runs/ only. Wire daemon, store, worker, sandbox and adapters. One active run per repository path. After a restart, runs with a surviving worker are reported from disk with live control marked unavailable; the worker is never terminated by the restart.
+- depends on: t8, t9, t11
+- covers: c50, c40
+- acceptance:
+  - A second submit against a repo with a live run is refused with a typed 'busy' error
+  - A steer and a cancel reach the running harness and the run ends in 'cancelled' after cancel
+  - After a daemon restart a run with a surviving worker reports its state from the event log and refuses steer with 'unsupported'
+
+### t13 — agents CLI noun groups on agentfront
+
+- instruction: Files under `culture_agents`/ and tests/ only. Replace the teken-cited CLI with an agentfront App; add 'agents agents list|status' and 'agents runs submit|list|show|attach|steer|cancel|logs|result' talking to the control socket with the stdlib; check the core's API version on connect. Fix the scaffold drift (prog name, template wording). Test against a fake core that serves the contract fixtures.
+- depends on: t6
+- covers: c44, h7, c38
+- acceptance:
+  - Every new verb supports --json, has an explain entry, and 'agentfront cli doctor . --strict' passes
+  - With the core stopped every runs verb exits 2 with a remediation hint and no traceback
+  - An incompatible core API version is refused with exit 2 naming both versions
+  - The parser prog name is 'agents' and no template wording remains in learn or explain output
+
+### t14 — Prompt files, harness-smoke config and CLAUDE.md rules updated together
+
+- instruction: Update CLAUDE.md, AGENTS.md, AGENTS.override.md, AGENTS.colleague.md and QWEN.md: TS core layout, Node and npm commands, the agentfront dependency and the approved-dependency rule replacing zero-dependency, OpenShell as the sandbox. Update docs/harness-invocations.yaml and the smoke config only where commands changed. Do not edit vendored skills.
+- depends on: t7, t13
+- covers: c46, h9
+- acceptance:
+  - scripts/harness-smoke.py --stage all --require config passes for all five harnesses
+  - All five prompt files describe the same build and test commands
+  - markdownlint passes on the changed files
+
+### t15 — Release workflow: npm with provenance first, then PyPI
+
+- instruction: Edit .github/workflows/publish.yml only, following embeddings-tumbler's publish.yml: npm publish dry-run on PRs, publish with provenance on main, and the PyPI job waits for npm.
+- depends on: t7
+- covers: c52
+- acceptance:
+  - A PR run shows an npm publish dry-run of the core package
+  - The PyPI publish job declares a dependency on the npm publish job
+
+### t16 — D1 acceptance suite and recorded live run on this host
+
+- instruction: Create tests/acceptance/d1/ driving the real CLI against the real core with the culture server stopped. Stages: mock (always runs) and live (reported NOT VERIFIED without harness binaries, credentials or a gateway). Record the live run in docs/d0/d1-acceptance.md with harness and package versions.
+- depends on: t12, t13
+- covers: c41, h4, c1, h10, h1
+- acceptance:
+  - With no chat server process running: submit returns a run ID in < 2 seconds and Claude Code and Codex each complete a task
+  - A mid-run steer changes subsequent output for each steer-capable harness, and cancel reaches 'cancelled' in < 10 seconds
+  - After kill -9 of the daemon and restart, 100% of submitted runs report a state and 0 report an invented success
+  - docs/d0/d1-acceptance.md states which later-gate parts of the announcement are not delivered
+
+### t17 — Boundary audit before the final PR
+
+- instruction: Compare every sibling checkout against docs/d0/sibling-baseline.txt, list remote branches pushed by this work, and write docs/d0/boundary-audit.md. Differences caused by the user's own concurrent work are listed, not hidden.
+- depends on: t16
+- covers: c4, h12, c23, h20, c26, h22
+- acceptance:
+  - No file under embodiment changed and no commit was pushed to cultureagent or agent-lifecycle by this work
+  - Every sibling change made by this work is on a work-scoped branch in a worktree under `../.worktrees.<repo>/` with a PR
+  - Each difference from the baseline in a primary checkout is attributed
+
+## Risks
+
+- [unknown_blocking] Working-tree handoff between the host repository and the OpenShell sandbox (clone and fetch back, mount, or mirror) is undecided; the user picks from the probe's results before the sandbox provider is built. (task t1)
+- [unknown_nonblocking] HarnessAgent may not expose mid-run steering for Claude Code or Codex; the fallback is the vendor SDK behind the same adapter interface for that harness. (task t1)
+- [unknown_nonblocking] OpenShell is alpha and its TypeScript SDK was first published 2026-11-24; an API change can break the sandbox provider between pinned upgrades. (task t10)
+- [unknown_nonblocking] (Applies to the boundary audit, t17.) Sibling primary checkouts are in active use, so the before/after comparison can show differences this work did not cause. (task t16)
+- [unknown_nonblocking] (Applies to the acceptance suite, t16.) Live acceptance spends real Claude Code and Codex usage and needs logged-in sessions on this host. (task t15)

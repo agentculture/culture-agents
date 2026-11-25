@@ -31,6 +31,7 @@ import json
 import re
 import subprocess
 import sys
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -40,9 +41,9 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # Files this scanner should never inspect: its own source (full of example
 # patterns/regexes in comments), its own test fixtures (deliberately planted
 # fake secrets used to prove the scanner works), and lockfiles (vendored
-# hashes, not secrets).
+# hashes and registry URLs, not secrets; includes npm's package-lock.json).
 SELF_EXCLUDE = {"scripts/scan-secrets.py", "tests/test_scan_secrets.py"}
-EXCLUDE_SUFFIXES = (".lock",)
+EXCLUDE_SUFFIXES = (".lock", "package-lock.json")
 
 # ---------------------------------------------------------------------------
 # Check 1: credential / API-key-shaped strings
@@ -65,10 +66,17 @@ _KNOWN_TOKEN_PATTERNS = [
 # runs to the first whitespace or structural delimiter. The optional quote
 # after the key name is what lets a JSON key (`"apiKey": "..."`) match at
 # all — without it the closing quote broke the key/value adjacency.
-_ASSIGNMENT_RE = re.compile(
-    r"""(?ix)
-        \b(api[_-]?key|secret(?:[_-]?key)?|access[_-]?key|token|password|passwd|pwd)
-        ["']?               # a JSON/YAML key's own closing quote, if any
+#
+# The match is made in three small steps (the key, an optional TypeScript
+# annotation, the separator and value) rather than by one large expression;
+# `_assignments` puts them together.
+_KEY_RE = re.compile(
+    r"""\b(?P<key>(?:api|access|secret)[_-]?key|secret|token|password|passwd|pwd)["']?""",
+    re.IGNORECASE,  # the trailing quote is a JSON/YAML key's own closing quote, if any
+)
+_ANNOTATION_RE = re.compile(r"\s*:\s*[\w.<>\[\]|]+")  # `token: string = ...`
+_VALUE_RE = re.compile(
+    r"""(?x)
         \s*[:=]\s*
         (?:
             "(?P<dq>[^"\n]{20,})"
@@ -77,6 +85,35 @@ _ASSIGNMENT_RE = re.compile(
         )
     """,
 )
+
+
+def _assigned_value(line: str, pos: int) -> re.Match[str] | None:
+    """The separator and literal value at *pos*, right after a key; ``None`` if there is none.
+
+    Read first as following a TypeScript annotation, then as following the key directly.
+    """
+    annotation = _ANNOTATION_RE.match(line, pos)
+    if annotation:
+        value = _VALUE_RE.match(line, annotation.end())
+        if value:
+            return value
+    return _VALUE_RE.match(line, pos)
+
+
+def _assignments(line: str) -> Iterator[tuple[str, str]]:
+    """Every ``(key, value)`` of a secret-ish assignment in *line*, left to right."""
+    pos = 0
+    while True:
+        key = _KEY_RE.search(line, pos)
+        if key is None:
+            return
+        value = _assigned_value(line, key.end())
+        if value is None:
+            pos = key.start() + 1
+            continue
+        pos = value.end()
+        yield key.group("key"), value.group("dq") or value.group("sq") or value.group("bare") or ""
+
 
 # Values that look like references/placeholders rather than real secrets.
 _PLACEHOLDER_RE = re.compile(
@@ -161,9 +198,7 @@ def _scan_credentials(path: str, text: str) -> list[Finding]:
         for pattern, label in _KNOWN_TOKEN_PATTERNS:
             if re.search(pattern, line):
                 findings.append(Finding(path, lineno, "credential", label))
-        for match in _ASSIGNMENT_RE.finditer(line):
-            key = match.group(1)
-            value = match.group("dq") or match.group("sq") or match.group("bare") or ""
+        for key, value in _assignments(line):
             if _is_placeholder(value):
                 continue
             findings.append(

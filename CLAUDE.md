@@ -5,52 +5,102 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this project is
 
 `culture-agents` is the **agent control plane** for AgentCulture: direct
-dispatch, persistent sessions and runs, and lifecycle control (dispatch,
-attach, steer, delegate, pause/resume, cancel, answer, supervise) over harness
-adapters, **independent of chat**. The CLI ships as `agents`, the Python
-package is `culture_agents`, and the PyPI dist is `culture-agents`.
+dispatch, persistent sessions and runs, and lifecycle control over harness
+adapters, **independent of chat**. It ships as two packages from one repo: the
+TypeScript core `@culture.dev/agents` (`core/`, Node 22 or newer) and the
+Python CLI `agents` (package `culture_agents`, PyPI dist `culture-agents`),
+which is a client of the core.
 
-**Current state (be honest about this):** the repo was provisioned by
-guildmaster (`guild create`) from `culture-agent-template` and so far contains
-only that scaffold — the agent-first CLI baseline (`whoami`, `learn`,
-`explain`, `overview`, `doctor`, `cli overview`), the mesh identity, the
-four-harness prompt files, the vendored skill kit, and CI. **None of the
-control-plane surface exists yet.** Everything under
-[Target architecture](#target-architecture-planned) is planned, sourced from
-the founding brief
-([#1](https://github.com/agentculture/culture-agents/issues/1)) and the
-design/migration issue
-([#2](https://github.com/agentculture/culture-agents/issues/2)). Read #2 before
-designing anything; it is the authoritative plan, and its D0 decisions are
-still open.
+**Current state (be honest about this):** this is the D1 slice, a
+single-host control plane without chat. On disk:
+
+- a core daemon that serves the control API over a Unix socket, stores runs
+  on disk (one detached worker process per run), and runs harnesses inside an
+  NVIDIA OpenShell sandbox;
+- a run whose turn completed but whose commits could not be collected keeps
+  its sandbox for 7 days, and the failure message says how to fetch the work;
+  the daemon reclaims the sandboxes of its other finished runs;
+- two harnesses, Claude Code (through the Vercel AI SDK adapter) and OpenCode
+  v2 (through its own server API), plus a stub driver for tests. Codex is not
+  verified;
+- the JSON Schemas in `contract/`, the source of truth for the control API,
+  tested from both the core and the CLI against the same fixtures;
+- the `agents` CLI: `agents agents list|status` and `agents runs
+  submit|list|show|attach|steer|cancel|logs|result`, plus the agent-first
+  baseline (`whoami`, `learn`, `explain`, `overview`, `doctor`, `cli
+  overview`);
+- the D0 record in `docs/d0/` (inventory, compatibility matrix, decisions,
+  probe results, the D1 acceptance record), the confirmed spec in
+  `docs/specs/` and plan in `docs/plans/`;
+- the D1 acceptance suite in `tests/acceptance/d1/`: a mock stage that always
+  runs (real CLI, real core, stub harness) and an opt-in live stage
+  (`CULTURE_AGENTS_ACCEPTANCE_LIVE=1`) that reports NOT VERIFIED when a
+  harness is unavailable.
+
+**Not built:** D2 (fleet and recovery) through D6, `pause`, `resume`,
+`answer`, `artifacts`, Codex, and any chat integration. Nothing is archived
+(`agent-lifecycle` and `cultureagent` stay as they are). Issue
+[#2](https://github.com/agentculture/culture-agents/issues/2) remains the
+authoritative plan; read it before designing anything. `docs/d0/decisions.md`
+lists which decisions are closed and which are still open.
+
+D0 decisions in force: a TypeScript core plus a Python CLI as two packages;
+the first two harnesses are Claude Code and OpenCode v2; a run's repository
+enters the sandbox as a git bundle and its commits return over SSH into a
+`runs/<id>` branch (worktrees are not a security boundary).
 
 ## Commands
 
+Python CLI (repo root):
+
 ```bash
-uv sync                                   # install (runtime has zero deps; dev deps via uv)
+uv sync                                   # install
 uv run pytest -n auto                     # full suite (what culture.yaml's gate runs)
 uv run pytest tests/test_cli.py -k whoami # single file / single test
 bash .claude/skills/run-tests/scripts/test.sh --ci   # mimic CI: -n auto + coverage xml
+uv run pytest tests/acceptance/d1         # D1 acceptance: the real CLI against the built core (build core/ first)
 uv run agents whoami                      # the CLI entry point is `agents`
 uv run agents doctor --json
 ```
 
-Lint — the CI `lint` job runs all of these; run them before pushing:
+TypeScript core (`core/`; run `npm ci` first, it installs from the lockfile):
+
+```bash
+cd core
+npm ci
+npm run build              # tsc + copy contract schemas into dist/
+npm run typecheck
+npm run lint               # eslint
+npm test                   # builds, then node --test over dist/test
+npm run check:contract-types   # generated types match contract/ (npm run gen:contract regenerates)
+node dist/src/daemon/main.js   # start the core daemon (after build); socket path below
+```
+
+The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
+`$XDG_RUNTIME_DIR/culture-agents/core.sock`; the `agents` CLI uses the same
+resolution. With no core running, every `agents agents` and `agents runs` verb
+exits 2 with a hint.
+
+Lint: the CI `lint` job runs all of these; run them before pushing:
 
 ```bash
 uv run black --check culture_agents tests
 uv run isort --check-only culture_agents tests
 uv run flake8 culture_agents tests
 uv run bandit -c pyproject.toml -r culture_agents
-markdownlint-cli2 "**/*.md" "#node_modules" "#.local" "#.claude/skills" "#.teken"
+markdownlint-cli2 "**/*.md" "#**/node_modules" "#.local" "#.claude/skills" "#.teken" "#spikes"
 uv run teken cli doctor . --strict        # agent-first rubric gate
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost endpoints
-python3 scripts/check-file-length.py      # 400-line cap per tracked Python file
+python3 scripts/check-file-length.py      # 400-line cap per tracked Python and TypeScript file
 uv run python scripts/harness-smoke.py --stage all --require config  # all five harness configs
 ```
 
-Coverage floor is 60% (`[tool.coverage.report] fail_under`). Line length is 100
-(black, isort, flake8).
+CI's markdownlint step uses `#node_modules` only, because `core/node_modules`
+does not exist there. Locally, after `npm ci` in `core/`, the
+`#**/node_modules` form is required, and `#spikes` keeps probe notes out of
+the check. Coverage floor for the Python suite is 60%
+(`[tool.coverage.report] fail_under`). Line length is 100 (black, isort,
+flake8).
 
 ## Target architecture (planned)
 
@@ -83,12 +133,12 @@ Non-negotiables:
   into the public contract. Distributed dispatch, placement, idempotency and
   cross-machine control stay ours.
 
-Proposed (not ratified) CLI surface, which will register as new noun groups:
+CLI surface (agreed in #1/#2; the verbs marked built exist), which will register as new noun groups:
 
 ```text
 agents agents list | status
-agents runs submit | list | show | attach | steer | pause | resume | cancel | answer
-agents runs logs | artifacts | result
+agents runs submit | list | show | attach | steer | cancel | logs | result   (built)
+agents runs pause | resume | answer | artifacts                              (planned)
 ```
 
 Contract requirements from #2: typed request/response/event schemas with
@@ -110,34 +160,52 @@ merge in here. Neither is archived until this repo passes compatibility and
 recovery tests. Both are checked out as siblings (`../agent-lifecycle`,
 `../cultureagent`) for reference.
 
-Delivery gates (#2): **D0** inventory and contract, including the open
-**TypeScript-vs-Python seam** (a TS AI-SDK harness service driven by the
-Python `agents` CLI, or a TS-first core; settle it before building D1) →
-**D1** a single-host spike: dispatch, inspect, steer and cancel without chat →
-**D2** fleet and recovery → **D3** chat split → **D4** culture-rules
-integration → **D5** embodiment integration → **D6** migration and
-deprecation. Don't add an unmanaged Node runtime as a side effect of another
-change; that choice is D0's to make.
+Delivery gates (#2): **D0** inventory and contract (done; the TypeScript
+core plus Python CLI seam is decided, see `docs/d0/decisions.md`) → **D1** a
+single-host spike: dispatch, inspect, steer and cancel without chat (the
+current slice) → **D2** fleet and recovery → **D3** chat split → **D4**
+culture-rules integration → **D5** embodiment integration → **D6** migration
+and deprecation. D2 to D6 are not built.
 
 ## Code architecture (what exists today)
 
-- **CLI** — `culture_agents/cli/__init__.py` builds an argparse tree. Each verb
-  or noun group lives in `cli/_commands/<name>.py` and exposes
-  `register(subparsers)`; new groups (e.g. `runs`) are added in
-  `_build_parser()` at the marked spot. The code was cited from teken's
-  `python-cli` reference (cite-don't-import), so it is ours to modify, and the
-  runtime package must keep **zero third-party dependencies** (`teken` and
-  `pyyaml` are dev-only).
+- **Core** — `core/src/` is ESM TypeScript, built to `core/dist/`. Modules:
+  `contract/` (schema loader, validator, generated types), `daemon/` (Unix
+  socket HTTP server, single-instance lock, allow-list), `store/` and
+  `worker/` (on-disk run store; one detached worker process per run), `runs/`
+  (orchestration: busy refusal, control forwarding, restart reconciliation),
+  `sandbox/` (OpenShell sandbox provider and git-bundle working-tree
+  handoff), `harness/` (Claude Code driver over the Vercel AI SDK, OpenCode v2
+  driver over its server API, a stub driver, the registry). `core/policy/`
+  holds the sandbox policy and provider profiles, `core/image/` the run
+  image. AI SDK types must not leak into the public contract. Every npm
+  dependency is an exact pin, installed with `npm ci`.
+- **Contract** — `contract/*.json` are JSON Schemas plus `fixtures/`; see
+  `contract/README.md` for the rules the schemas cannot express. Change the
+  schemas first, then regenerate (`npm run gen:contract`); never hand-copy
+  shapes into either side.
+- **CLI** — `culture_agents/cli/_app.py` builds the CLI on **agentfront**
+  (one registry of verbs and docs, so `learn`, `explain` and `overview`
+  describe exactly what is registered). Verbs live in `cli/_commands/<name>.py`
+  (`agents.py`, `runs.py` are the control-plane groups); `cli/_client.py` is
+  the stdlib HTTP-over-Unix-socket client of the core. The code was cited from
+  teken's `python-cli` reference (cite-don't-import), so it is ours to modify.
+  **Dependency rule:** `agentfront` and `jsonschema` are the approved runtime
+  dependencies; any other needs the owner's approval. `teken` and `pyyaml` are
+  dev-only.
 - **Error/output contract** — handlers raise `CliError` (`cli/_errors.py`).
-  `_dispatch` wraps any other exception so no traceback leaks, and argparse
-  errors route through the same path via `_CliArgumentParser`. `cli/_output.py`
-  writes results to stdout and diagnostics to stderr, never mixed. Every
-  command supports `--json`. Exit codes: `0` ok, `1` user error, `2`
-  environment error, `3+` reserved. `teken cli doctor . --strict` enforces
-  this rubric in CI, and any new noun group must pass it too.
-- **`explain` catalog** — `culture_agents/explain/catalog.py` holds the
-  markdown for every noun/verb path. Give a new verb or noun a catalog entry
-  so `agents explain <path>` resolves it.
+  agentfront's `App.run_cli` wraps any other exception so no traceback leaks,
+  and argparse errors route through the same path. Every core response is
+  validated against the contract schemas (`cli/_contract.py`); an invalid one
+  is an `internal` error, exit 2. Text mode shows control characters in
+  run-originated text as visible escapes (`cli/_text.py`). `cli/_output.py` writes results to
+  stdout and diagnostics to stderr, never mixed. Every command supports
+  `--json`. Exit codes: `0` ok, `1` user error, `2` environment error (for
+  example the core is not running), `3+` reserved. `teken cli doctor .
+  --strict` enforces this rubric in CI, and any new noun group must pass it.
+- **`explain` catalog** — `culture_agents/explain/` holds the markdown for
+  every noun/verb path (`catalog.py`, `catalog_control.py`). Give a new verb
+  or noun a catalog entry so `agents explain <path>` resolves it.
 - **Identity** — `whoami`/`doctor` read `culture.yaml` (`find_culture_yaml`,
   `read_agent_fields` in `cli/_commands/whoami.py`). `doctor` mirrors
   `steward doctor`'s **prompt-file-present** and **backend-consistency**
@@ -154,14 +222,8 @@ change; that choice is D0's to make.
   `docs/harness-invocations.yaml`. Adding a harness means updating that file,
   `HARNESSES`/`HARNESS_BACKEND` in `scripts/_harness_smoke/common.py`, and
   the config stage's `SKILLS_WIRING`; the tests fail if these disagree.
-
-### Known drift from the scaffold
-
-`pyproject.toml` exposes the script as `agents`, but the parser still says
-`prog="culture-agents"` and describes itself as "a clonable template". The
-`learn`/`explain` text and `AGENTS.override.md`'s layout block still use
-template wording too. Fix these when you touch the CLI, not as drive-by edits
-in an unrelated PR.
+- **`spikes/`** — throwaway D0/D1 probe code kept as evidence. It is never
+  built, linted or held to the line cap.
 
 ## Prompt files by harness and identity
 
@@ -199,9 +261,9 @@ is or how it works, update all five prompt files so they don't drift.
   signs posts as `- culture-agents (Claude)` automatically. Prerequisites on
   PATH: `devex` (cicd), `agtag` (communicate), and optionally `colleague`
   (ask-colleague).
-- **File length** — every tracked Python file stays at or under **400
-  lines** (`scripts/check-file-length.py`, `MAX_LINES`; vendored skills are
-  exempt). Split into focused modules before crossing the cap;
+- **File length** — every tracked Python and TypeScript file stays at or
+  under **400 lines** (`scripts/check-file-length.py`, `MAX_LINES`; vendored
+  skills and `spikes/` are exempt). Split into focused modules before crossing the cap;
   `scripts/_harness_smoke/` is the worked example.
 - **Vendored skills** under `.claude/skills/` are cited verbatim from
   guildmaster (devague-origin and colleague-origin skills are noted in
@@ -214,8 +276,15 @@ is or how it works, update all five prompt files so they don't drift.
 - **Cross-repo work** (culture-chat, culture-rules, embodiment, cultureagent,
   agent-lifecycle) goes through the `communicate` skill as tracked issues on
   the sibling repo, not edits made from here.
-- **Deploy**: a push to `main` publishes to PyPI via Trusted Publishing
-  (`.github/workflows/publish.yml`), and PRs do a TestPyPI dry-run.
+- **Dependencies** — Python runtime: only `agentfront` and `jsonschema`;
+  anything else needs the owner's approval. npm: every dependency in `core/package.json` is an
+  exact pin (no `^` or `~`), changed together with `package-lock.json`.
+- **Secrets** — `scripts/scan-secrets.py` scans every tracked file (TypeScript
+  included; lockfiles are excluded). Nothing credential-shaped or
+  non-localhost goes in tracked files.
+- **Deploy**: a push to `main` publishes npm with provenance, then PyPI via
+  Trusted Publishing (`.github/workflows/publish.yml`). The npm step is
+  skipped while `core/package.json` is `0.0.0`. PRs do a TestPyPI dry-run.
 - Keep docs grounded in what is on disk. Mark anything ahead of reality
   `(planned)`.
 

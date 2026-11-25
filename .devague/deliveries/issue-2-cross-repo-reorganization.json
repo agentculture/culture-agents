@@ -1,0 +1,76 @@
+{
+  "plan_slug": "issue-2-cross-repo-reorganization",
+  "schema_version": 2,
+  "created": "2026-11-24T22:42:35Z",
+  "updated": "2026-11-25T06:58:36Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "The second required D1 harness changes from Codex to OpenCode v2; Codex is reported not verified.",
+      "task_ref": "t1",
+      "reason": "The probe showed Codex authenticating in an OpenShell sandbox but failing with 'selected workspace missing from routing discovery' and denied *.oaiusercontent.com hosts; the user chose on 2026-11-25 to mark Codex not verified and use OpenCode v2.",
+      "affects": [
+        "t3",
+        "t10",
+        "t11",
+        "t16"
+      ],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "Task t5's commit in the culture worktree was made with git hooks skipped.",
+      "task_ref": "t5",
+      "reason": "The repo's installed pre-commit environment cannot build its markdownlint hook (nodeenv fails on a '0-alpha' version string). The same hooks were run from an isolated environment with a current nodeenv and all passed on the staged files; the user approved the commit on 2026-11-25.",
+      "affects": [],
+      "origin": "user",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 2
+    },
+    {
+      "id": "d3",
+      "what": "An extra build step was inserted before t8 and t9: a shared TypeScript contract module (schema loader, validator, derived types, state-machine and version helpers) under core/src/contract/.",
+      "task_ref": "t6",
+      "reason": "t6's instruction left the TS side of the contract to 'its own task', but no task owned it; t8 and t9 run in parallel and would each have added a validator and edited core/package.json.",
+      "affects": [
+        "t8",
+        "t9"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 3
+    },
+    {
+      "id": "d4",
+      "what": "t12 (orchestration) was started in parallel with t11 (harness adapters) instead of after it.",
+      "task_ref": "t12",
+      "reason": "t12 codes against a fixed harness-catalog port and the worker's fake driver, so it does not need the real adapters; the coordinator connects the real catalog after both merge. This shortens the run without changing what either task delivers.",
+      "affects": [
+        "t11"
+      ],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 4
+    },
+    {
+      "id": "d5",
+      "what": "t16 live acceptance ran with the two culture chat servers (spark :6667, sbx :6668) still running on the host instead of stopped; chat independence was shown by inspecting the TCP sockets of the core and worker processes (none in the mock stage; none to a chat server port in the live stage)",
+      "task_ref": "t16",
+      "reason": "The chat servers are the owner's live mesh; stopping them is disruptive and was not authorized. Unprivileged user namespaces are disabled on this host, so the suite could not be run in an isolated process and network namespace either.",
+      "affects": [],
+      "origin": "llm",
+      "status": "approved",
+      "classification": "acceptable",
+      "seq": 5
+    }
+  ],
+  "evidence": [],
+  "deltas": [],
+  "supersessions": []
+}

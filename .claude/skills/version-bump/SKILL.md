@@ -59,6 +59,14 @@ Pass via stdin. All fields are optional — only non-empty sections are rendered
   `steward/__init__.py` reads it via `importlib.metadata`, so there's no
   separate `__version__` literal to keep in sync).
 - `CHANGELOG.md` — inserts a new `## [x.y.z] - YYYY-MM-DD` entry at the top.
+- **Mirrors** — other files that carry the same version (an npm
+  `package.json` and `package-lock.json` beside the Python package, a version
+  constant in source), when the repo lists them under `[tool.version-bump]` in
+  `pyproject.toml`. Every mirror is checked before anything is written: one
+  that holds the current version is bumped, one still at the configured
+  `placeholder` (for example `0.0.0` before a first publish) is left alone and
+  reported, and any other value stops the bump with nothing changed. The
+  script's docstring shows the configuration.
 
 The script does the rest. Pick a bump type from the diff (patch for fixes,
 minor for new features, major for breaking changes), summarize the diff into

@@ -16,7 +16,10 @@ from _harness_smoke.common import (
     INVOCATIONS_REL,
     PASS,
     SKIP,
+    HOME_PATH,
     STEWARD_WAIVED_PORTABILITY_PATHS,
+    STEWARD_WORKSPACE_ROOT_RECORDS,
+    WORKSPACE_ROOT_PATH,
     WAIVED,
     Result,
 )
@@ -40,6 +43,31 @@ def _run(argv: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProces
 
 
 _FINDING_PATH = re.compile(r"(?:^|\s)([\w./-]+\.(?:md|yaml|yml|toml|json)):\d+")
+
+
+_FINDING_LINE = re.compile(r"^\s*([\w./-]+\.(?:md|yaml|yml|toml|json)):\d+:(.*)$")
+
+
+def _portability_waived(message: str) -> bool:
+    """Every flagged line is a known-accepted one.
+
+    A vendored skill is waived as a whole file. An issue-2 record is waived per
+    line, and only when each home path on the line is the workspace root (or
+    its CLAUDE.md) — any other home path in those records is a real finding.
+    """
+    lines = [m for m in map(_FINDING_LINE.match, message.splitlines()) if m]
+    if not lines:
+        return False
+    for match in lines:
+        path, content = match.group(1), match.group(2)
+        if path in STEWARD_WAIVED_PORTABILITY_PATHS:
+            continue
+        if path not in STEWARD_WORKSPACE_ROOT_RECORDS:
+            return False
+        homes = [m.group(0).rstrip(".") for m in HOME_PATH.finditer(content)]
+        if not homes or not all(WORKSPACE_ROOT_PATH.fullmatch(h) for h in homes):
+            return False
+    return True
 
 
 def check_steward_doctor(repo: Path, timeout: int) -> Result:
@@ -103,7 +131,7 @@ def check_steward_doctor(repo: Path, timeout: int) -> Result:
         check = str(finding.get("check", "?"))
         message = str(finding.get("message", ""))
         paths = set(_FINDING_PATH.findall(message))
-        if check == "portability" and paths and paths <= STEWARD_WAIVED_PORTABILITY_PATHS:
+        if check == "portability" and paths and _portability_waived(message):
             waived.append(f"{check} ({', '.join(sorted(paths))})")
         else:
             unexpected.append(f"{check}: {message.strip()[:300]}")
@@ -117,7 +145,7 @@ def check_steward_doctor(repo: Path, timeout: int) -> Result:
             WAIVED,
             "0 unexpected findings while carrying every harness prompt file; "
             f"{len(waived)} known-accepted finding(s) waived: {'; '.join(waived)} "
-            "(pre-existing, byte-verbatim vendored skills — upstream's to fix)",
+            "(vendored skills, upstream's to fix; and the workspace-root path in the issue-2 records)",
         )
     return Result(
         "toolchain",

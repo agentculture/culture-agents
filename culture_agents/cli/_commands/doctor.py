@@ -1,10 +1,10 @@
-"""``culture-agents doctor`` — check the agent-identity invariants.
+"""``agents doctor`` — check the agent-identity invariants.
 
 Mirrors the two invariants ``steward doctor`` verifies for a mesh agent:
 
 * **prompt-file-present** — the repo declares an agent in ``culture.yaml`` and
   has the matching prompt file on disk;
-* **backend-consistency** — the declared ``backend`` is one this template
+* **backend-consistency** — the declared ``backend`` is one this repo
   knows, and the *resident* prompt file that backend actually reads is on disk
   (``claude`` → ``CLAUDE.md``, ``colleague`` → ``AGENTS.colleague.md``,
   ``acp``/``codex``/``copilot`` → ``AGENTS.md``, ``gemini`` → ``GEMINI.md``).
@@ -175,7 +175,7 @@ def cmd_doctor(args: argparse.Namespace) -> int:
         emit_result(report, json_mode=True)
     else:
         status = "healthy" if report["healthy"] else "unhealthy"
-        lines = [f"culture-agents doctor: {status}", ""]
+        lines = [f"agents doctor: {status}", ""]
         for check in report["checks"]:
             mark = "ok" if check["passed"] else "FAIL"
             lines.append(f"[{mark}] {check['id']}: {check['message']}")
@@ -183,12 +183,3 @@ def cmd_doctor(args: argparse.Namespace) -> int:
                 lines.append(f"  hint: {check['remediation']}")
         emit_result("\n".join(lines), json_mode=False)
     return 0 if report["healthy"] else 1
-
-
-def register(sub: argparse._SubParsersAction) -> None:
-    p = sub.add_parser(
-        "doctor",
-        help="Check the agent-identity invariants (prompt-file-present, backend-consistency).",
-    )
-    p.add_argument("--json", action="store_true", help="Emit structured JSON.")
-    p.set_defaults(func=cmd_doctor)

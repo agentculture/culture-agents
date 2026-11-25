@@ -1,0 +1,10 @@
+{
+  "agent_id": "culture_agents",
+  "harness": "claude-code",
+  "repo": "/srv/repos/demo",
+  "task": "Do it.",
+  "caller": {
+    "kind": "operator",
+    "id": "spark-operator"
+  }
+}

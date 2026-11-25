@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "busy",
+    "message": "x",
+    "retryable": true,
+    "repo": "/srv/repos/demo"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "caller": {
+    "kind": "operator",
+    "id": "spark-operator"
+  },
+  "reason": "wrong repository",
+  "idempotency_key": "cancel-1"
+}

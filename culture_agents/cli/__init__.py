@@ -1,135 +1,118 @@
-"""Unified CLI entry point for culture-agents.
+"""Unified CLI entry point for ``agents`` (the culture-agents control plane).
 
-The agent-first global verbs (``whoami``, ``learn``, ``explain``, ``overview``,
-``doctor``) are registered here under :mod:`culture_agents.cli._commands`,
-alongside the ``cli`` noun group. Future noun groups register via their own
-``register()`` functions following the same pattern.
+The CLI is built on agentfront's public API: :mod:`culture_agents.cli._app`
+declares every verb once into an ``App``, and ``App.run_cli`` derives the
+parser, ``--json``, ``--version`` and the nested noun groups (``agents agents
+...``, ``agents runs ...``, ``agents cli ...``) from that registry, parses the
+command line and dispatches.
 
 Error propagation contract
 --------------------------
-Every handler raises :class:`culture_agents.cli._errors.CliError` on
-failure; ``main()`` catches it via :func:`_dispatch` and routes through
-:mod:`culture_agents.cli._output`. Unknown exceptions are wrapped into a
-``CliError`` so no Python traceback leaks to stderr.
+Every handler raises :class:`culture_agents.cli._errors.CliError` on failure;
+``run_cli`` renders it (``error:`` / ``hint:`` on stderr, or a JSON object with
+``--json``) and returns its code. Unknown exceptions are wrapped so no Python
+traceback leaks. Argparse errors (unknown verb, missing argument) take the same
+path and exit 1; they render as JSON when ``--json`` is on the command line.
+``run_cli`` never raises ``SystemExit`` for ``--help``, ``--version`` or a parse
+error.
 
-Argparse errors (unknown verb, missing arg) also route through the structured
-format — ``_CliArgumentParser`` overrides ``.error()`` and the subparsers are
-built with ``parser_class=_CliArgumentParser``. Whether errors render as text or
-JSON depends on whether ``--json`` appears in the raw argv (:func:`main` sets
-``_json_hint`` before ``parse_args``).
+A closed stdout
+---------------
+``agents runs attach <id> | head -1`` closes our stdout while we still write.
+That is the reader's choice and not an error: :func:`main` ends quietly with
+exit 0 (see :class:`_PipeGuard`). Any other failure to write the output (a full
+disk behind a redirect) is an environment error: one ``error:`` line, exit 2.
 """
 
 from __future__ import annotations
 
-import argparse
+import os
 import sys
+from typing import Any
 
-from culture_agents import __version__
-from culture_agents.cli._errors import EXIT_USER_ERROR, CliError
+from culture_agents.cli import _mode
+from culture_agents.cli._app import get_app
+from culture_agents.cli._errors import EXIT_ENV_ERROR, CliError
 from culture_agents.cli._output import emit_error
 
-_ISSUES_URL = "https://github.com/agentculture/culture-agents/issues"
 
+class _PipeGuard:
+    """Stands in for ``sys.stdout``: when its reader goes away, it asks for a quiet exit.
 
-class _CliArgumentParser(argparse.ArgumentParser):
-    """ArgumentParser that routes errors through :func:`emit_error`.
-
-    Argparse's default error handler writes ``prog: error: <msg>`` to stderr
-    and exits 2, skipping the CliError plumbing (and the ``hint:`` line agents
-    look for). This subclass emits the structured format and exits with
-    :attr:`EXIT_USER_ERROR`.
-
-    JSON mode: parse-time errors happen before ``args.json`` exists, so we rely
-    on a class-level ``_json_hint`` that :func:`main` pre-populates by scanning
-    raw argv for ``--json``. Shared across all subparser instances.
+    The request is a plain ``SystemExit``, which ``run_cli`` lets through (it wraps
+    every ``Exception`` a handler raises as an "unexpected" error, and this is not
+    one). ``closed`` tells :func:`main` that the exit came from here.
     """
 
-    _json_hint: bool = False
+    def __init__(self, stream: Any) -> None:
+        self._stream = stream
+        self.closed = False
 
-    def error(self, message: str) -> None:  # type: ignore[override]
-        err = CliError(
-            code=EXIT_USER_ERROR,
-            message=message,
-            remediation=f"run '{self.prog} --help' to see valid arguments",
-        )
-        emit_error(err, json_mode=type(self)._json_hint)
-        raise SystemExit(err.code)
+    def _reader_gone(self) -> SystemExit:
+        self.closed = True
+        return SystemExit(0)
 
+    def write(self, text: str) -> int:
+        try:
+            return self._stream.write(text)
+        except BrokenPipeError:
+            raise self._reader_gone() from None
 
-def _argv_has_json(argv: list[str] | None) -> bool:
-    tokens = argv if argv is not None else sys.argv[1:]
-    return any(t == "--json" or t.startswith("--json=") for t in tokens)
+    def flush(self) -> None:
+        try:
+            self._stream.flush()
+        except BrokenPipeError:
+            raise self._reader_gone() from None
 
-
-def _build_parser() -> argparse.ArgumentParser:
-    from culture_agents.cli._commands import cli as _cli_group
-    from culture_agents.cli._commands import doctor as _doctor_cmd
-    from culture_agents.cli._commands import explain as _explain_cmd
-    from culture_agents.cli._commands import learn as _learn_cmd
-    from culture_agents.cli._commands import overview as _overview_cmd
-    from culture_agents.cli._commands import whoami as _whoami_cmd
-
-    parser = _CliArgumentParser(
-        prog="culture-agents",
-        description="culture-agents — a clonable template for AgentCulture mesh agents.",
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"%(prog)s {__version__}",
-    )
-    # parser_class propagates to every subparser so their .error() routes
-    # through _CliArgumentParser too.
-    sub = parser.add_subparsers(dest="command", parser_class=_CliArgumentParser)
-
-    _whoami_cmd.register(sub)
-    _learn_cmd.register(sub)
-    _explain_cmd.register(sub)
-    _overview_cmd.register(sub)
-    _doctor_cmd.register(sub)
-    _cli_group.register(sub)
-    # Register your own noun groups here:
-    #   from culture_agents.cli._commands import my_noun as _my_noun_group
-    #   _my_noun_group.register(sub)
-
-    return parser
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._stream, name)
 
 
-def _dispatch(args: argparse.Namespace) -> int:
-    """Invoke the registered handler and translate exceptions to exit codes.
+def _discard_stdout(stream: Any) -> None:
+    """Point the stdout file descriptor at the null device.
 
-    A handler may return ``None`` (success, exit 0) or an ``int`` exit code.
-    Failures MUST raise :class:`CliError`; any other exception is wrapped into
-    one so no Python traceback leaks.
+    What is still buffered is then dropped quietly when the interpreter
+    flushes at exit, instead of raising ``BrokenPipeError`` a second time.
     """
-    json_mode = bool(getattr(args, "json", False))
     try:
-        rc = args.func(args)
-    except CliError as err:
-        emit_error(err, json_mode=json_mode)
-        return err.code
-    except Exception as err:  # noqa: BLE001 - last-resort; wrap and route cleanly
-        wrapped = CliError(
-            code=EXIT_USER_ERROR,
-            message=f"unexpected: {err.__class__.__name__}: {err}",
-            remediation=f"file a bug at {_ISSUES_URL}",
-        )
-        emit_error(wrapped, json_mode=json_mode)
-        return wrapped.code
-    return rc if rc is not None else 0
+        null = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(null, stream.fileno())
+        finally:
+            os.close(null)
+    except (OSError, ValueError, AttributeError):
+        pass  # not a real file (a test double, an embedded interpreter): nothing to redirect
 
 
 def main(argv: list[str] | None = None) -> int:
-    # Pre-parse peek so argparse-level errors honour --json.
-    _CliArgumentParser._json_hint = _argv_has_json(argv)
-    parser = _build_parser()
-    args = parser.parse_args(argv)
-
-    if args.command is None:
-        parser.print_help()
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    # A streaming verb prints as it goes, so it needs the mode before dispatch.
+    prior = _mode.JSON_MODE.set("--json" in tokens)
+    stdout = sys.stdout
+    guard = _PipeGuard(stdout)
+    sys.stdout = guard
+    try:
+        code = get_app().run_cli(tokens)
+        try:
+            sys.stdout.flush()
+        except OSError as exc:  # for example a full disk behind a redirected stdout
+            _discard_stdout(stdout)
+            failure = CliError(
+                code=EXIT_ENV_ERROR,
+                message=f"cannot write the output to stdout: {exc.strerror or exc}",
+                remediation="check where stdout is redirected to (disk full?), then retry",
+            )
+            emit_error(failure, json_mode=_mode.JSON_MODE.get())
+            return failure.code
+        return code
+    except SystemExit:
+        if not guard.closed:
+            raise
+        _discard_stdout(stdout)
         return 0
-
-    return _dispatch(args)
+    finally:
+        sys.stdout = stdout
+        _mode.JSON_MODE.reset(prior)
 
 
 if __name__ == "__main__":
