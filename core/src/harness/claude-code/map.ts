@@ -3,7 +3,7 @@
  * to normalized turn events, and decide the turn's outcome from the parts seen. Parts are read
  * structurally, so no AI SDK type crosses into the rest of core.
  */
-import { plainString, stringify } from "../common/text.js";
+import { label, stringify } from "../common/text.js";
 import type { TurnEvent, TurnOutcome } from "../common/types.js";
 
 /** The fields of a stream part this mapper reads. */
@@ -43,7 +43,7 @@ function finishReasonOf(value: unknown): string {
 }
 
 /** The step number as text; `?` when the part carries none. */
-const stepLabel = (step: unknown): string => (step === undefined || step === null ? "?" : plainString(step));
+const stepLabel = (step: unknown): string => (step === undefined || step === null ? "?" : label(step));
 
 /** Why a turn that did not complete ended, from its finish reason. */
 function unfinishedReason(finishReason: string | null): string {

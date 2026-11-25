@@ -259,23 +259,26 @@ export class RunWorker {
     return null;
   }
 
+  /** Record a refusal the core decided. A run that ended meanwhile takes no record, and the reply says so. */
+  private refuse(action: ActionRecord, ok: () => ControlReply): ControlReply {
+    const id = this.record.id;
+    if (action.run_id !== id || action.outcome !== "refused") return invalid("The refusal record does not match this run.");
+    try {
+      if (this.append({ kind: "run.refused", data: { action } }) === null) return conflict(id, "The run ended before the refusal was recorded.", false);
+    } catch (err) {
+      if (err instanceof ContractValidationError) return invalid(err.message);
+      throw err;
+    }
+    return ok();
+  }
+
   private async control(req: ControlRequest): Promise<ControlReply> {
     const ok = (): ControlReply => ({ ok: true, pid: process.pid, state: this.writer.state, cursor: this.writer.cursor });
     if (req.op === "ping") return ok();
     const id = this.record.id;
     const state = this.writer.state;
     if (state === null || isTerminal(state)) return conflict(id, `The run is already ${String(state)}.`, false);
-    if (req.op === "refuse") {
-      if (req.action.run_id !== id || req.action.outcome !== "refused") return invalid("The refusal record does not match this run.");
-      try {
-        // A run that ended meanwhile takes no record (nothing follows a terminal event): say so.
-        if (this.append({ kind: "run.refused", data: { action: req.action } }) === null) return conflict(id, "The run ended before the refusal was recorded.", false);
-      } catch (err) {
-        if (err instanceof ContractValidationError) return invalid(err.message);
-        throw err;
-      }
-      return ok();
-    }
+    if (req.op === "refuse") return this.refuse(req.action, ok);
     const bad = this.checkAction(req.action, req.op);
     if (bad !== null) return invalid(bad);
     if (req.op === "steer") {

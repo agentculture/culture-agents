@@ -29,11 +29,8 @@ export function parseFiles(text: string): string[] | null {
     .filter((f) => f !== "" && f !== "." && f !== "..");
 }
 
-/**
- * A line that holds only `hang`. The space around the word stays on that line (no line break), so
- * each line is looked at once.
- */
-const HANG_LINE = /^[^\S\n\r\u2028\u2029]*hang[^\S\n\r\u2028\u2029]*$/im;
+/** True when one line of the task holds only `hang`, in any letter case, with any space around it. */
+const hasHangLine = (task: string): boolean => task.split(/[\n\r\u2028\u2029]/).some((line) => /^hang$/i.test(line.trim()));
 
 class StubTurn {
   readonly queue = new EventQueue<TurnEvent>();
@@ -62,7 +59,7 @@ class StubTurn {
     this.out("text", `stub: ${task.split("\n")[0]?.slice(0, 200) ?? ""}`);
     const fail = /fail:\s*([^\n]+)/i.exec(task);
     if (fail) return { kind: "failed", error: { code: "internal", message: `stub failure: ${fail[1] as string}`, retryable: false } };
-    if (HANG_LINE.test(task)) {
+    if (hasHangLine(task)) {
       await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
       return { kind: "interrupted" };
     }

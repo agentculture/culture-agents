@@ -18,8 +18,12 @@ export function stringify(value: unknown, max = MAX_TOOL_TEXT): string {
   return out.length > max ? `${out.slice(0, max - 3)}...` : out;
 }
 
-/** `String(value)` for a value whose shape is not known (the harness sent it, so it is read as it comes). */
-export const plainString = (value: unknown): string => String(value);
+/** A short label for a value whose shape is not known: text and numbers as they are, anything else as JSON. */
+export function label(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number") return value.toString();
+  return stringify(value);
+}
 
 /** JSON replacer for the tap: strings over 4000 characters are clipped. */
 const clipLongStrings = (_key: string, value: unknown): unknown =>
