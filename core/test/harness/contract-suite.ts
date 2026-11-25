@@ -45,10 +45,27 @@ function stopReport(driver: GuardedDriver): StopReport | null {
   return (driver.inner as Driver & { stopReport?: StopReport | null }).stopReport ?? null;
 }
 
-export function defineContractSuite(target: ContractTarget): void {
-  const name = (what: string, trial: number) => `${target.harness}: ${what}${target.trials > 1 ? ` (trial ${trial})` : ""}`;
+function cancelNote(report: StopReport | null, listed: boolean): string {
+  if (!report) return "no stop report";
+  const counts = `after interrupt ${report.afterInterrupt.length} new process(es), after close ${report.afterClose.length}, killed ${report.killed.length}, remaining ${report.remaining.length}, destroyed ${report.destroyed}`;
+  return listed ? counts : `${counts}; LISTING FAILED: ${JSON.stringify(report.listingFailed)}`;
+}
+
+/**
+ * Registers the suite's tests (synchronously, in order) and resolves when they have all run, so
+ * the test file awaits them rather than leaving their promises floating.
+ */
+export async function defineContractSuite(target: ContractTarget): Promise<void> {
+  const registered: Promise<void>[] = [];
+  const define = (title: string, options: { timeout?: number }, fn: (t: TestContext) => Promise<void>): void => {
+    registered.push(test(title, options, fn));
+  };
+  const name = (what: string, trial: number) => {
+    const suffix = target.trials > 1 ? ` (trial ${trial})` : "";
+    return `${target.harness}: ${what}${suffix}`;
+  };
   for (let trial = 1; trial <= target.trials; trial++) {
-    test(name("submit completes, streams output, and its commit arrives on runs/<id>", trial), { timeout: target.timeoutMs }, async (t) => {
+    define(name("submit completes, streams output, and its commit arrives on runs/<id>", trial), { timeout: target.timeoutMs }, async (t) => {
       const why = await target.skip();
       if (why) return notVerified(t, why);
       const { dir, git } = hostRepo(t);
@@ -73,7 +90,7 @@ export function defineContractSuite(target: ContractTarget): void {
       hostUnchanged(git, status);
     });
 
-    test(name("steer changes the outcome", trial), { timeout: target.timeoutMs }, async (t) => {
+    define(name("steer changes the outcome", trial), { timeout: target.timeoutMs }, async (t) => {
       const why = await target.skip();
       if (why) return notVerified(t, why);
       const { dir, git } = hostRepo(t);
@@ -89,11 +106,13 @@ export function defineContractSuite(target: ContractTarget): void {
           if (steered || outputs(seen, "tool_result").length < target.steer.afterToolResults) return;
           steered = true;
           // Undeclared controls mid-run: refused, not forwarded, and the run carries on.
-          for (const action of CONTROL) {
-            if (driver.capabilities.capabilities[action].supported) continue;
-            await assert.rejects(driver.control(action), (err: unknown) => err instanceof UnsupportedCapabilityError && err.capability === action);
-            refusals.push(action);
-          }
+          const undeclared = CONTROL.filter((action) => !driver.capabilities.capabilities[action].supported);
+          await Promise.all(
+            undeclared.map((action) =>
+              assert.rejects(driver.control(action), (err: unknown) => err instanceof UnsupportedCapabilityError && err.capability === action),
+            ),
+          );
+          refusals.push(...undeclared);
           await driver.steer(target.steer.message).catch((err: unknown) => (steerError = err));
         });
       } finally {
@@ -115,7 +134,7 @@ export function defineContractSuite(target: ContractTarget): void {
       hostUnchanged(git, status);
     });
 
-    test(name("cancel stops the run, leaves no process, and releases the workspace", trial), { timeout: target.timeoutMs }, async (t) => {
+    define(name("cancel stops the run, leaves no process, and releases the workspace", trial), { timeout: target.timeoutMs }, async (t) => {
       const why = await target.skip();
       if (why) return notVerified(t, why);
       const { dir, git } = hostRepo(t);
@@ -142,10 +161,7 @@ export function defineContractSuite(target: ContractTarget): void {
         run,
         events,
         ok,
-        note: report
-          ? `after interrupt ${report.afterInterrupt.length} new process(es), after close ${report.afterClose.length}, killed ${report.killed.length}, remaining ${report.remaining.length}, destroyed ${report.destroyed}` +
-            (listed ? "" : `; LISTING FAILED: ${JSON.stringify(report.listingFailed)}`)
-          : "no stop report",
+        note: cancelNote(report, listed),
       });
       assert.ok(cancelled, "the cancel was sent");
       assert.equal(lastEvent(events)?.type, "stopped", `the run stops: ${JSON.stringify(lastEvent(events))}`);
@@ -158,7 +174,7 @@ export function defineContractSuite(target: ContractTarget): void {
     });
   }
 
-  test(`${target.harness}: every undeclared capability is refused with unsupported and not forwarded`, async (t) => {
+  define(`${target.harness}: every undeclared capability is refused with unsupported and not forwarded`, {}, async (t) => {
     const { dir } = hostRepo(t);
     const run = newRun(dir, target.submit.task, target.harness);
     const driver = await target.createDriver(run, "refusal");
@@ -176,15 +192,18 @@ export function defineContractSuite(target: ContractTarget): void {
       forwarded += 1;
       return original.cancel(r);
     };
-    for (const action of CONTROL.filter((a) => !caps[a].supported)) {
-      await assert.rejects(driver.control(action, "x"), (err: unknown) => {
-        assert.ok(err instanceof UnsupportedCapabilityError);
-        assert.equal(err.body.code, "unsupported");
-        assert.equal(err.capability, action);
-        return true;
-      });
-    }
+    await Promise.all(
+      CONTROL.filter((a) => !caps[a].supported).map((action) =>
+        assert.rejects(driver.control(action, "x"), (err: unknown) => {
+          assert.ok(err instanceof UnsupportedCapabilityError);
+          assert.equal(err.body.code, "unsupported");
+          assert.equal(err.capability, action);
+          return true;
+        }),
+      ),
+    );
     assert.equal(forwarded, 0, "no refused action reached the driver");
     await driver.dispose();
   });
+  await Promise.all(registered);
 }

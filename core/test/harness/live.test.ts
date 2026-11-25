@@ -105,12 +105,13 @@ const TASKS: Record<string, Pick<ContractTarget, "submit" | "steer" | "cancel">>
   },
 };
 
+const suites: Promise<void>[] = [];
 for (const id of ["claude-code", "opencode"]) {
   if (!wanted.includes(id)) continue;
   const entry = getHarness(config, id);
   assert.ok(entry, `registry lists ${id}`);
   const tasks = TASKS[id] as Pick<ContractTarget, "submit" | "steer" | "cancel">;
-  defineContractSuite({
+  const target: ContractTarget = {
     harness: id,
     skip: () => skipReason(entry),
     createDriver: async (run, label) => {
@@ -135,5 +136,7 @@ for (const id of ["claude-code", "opencode"]) {
     },
     trials,
     timeoutMs: 360_000,
-  });
+  };
+  suites.push(defineContractSuite(target));
 }
+await Promise.all(suites);

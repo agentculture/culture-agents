@@ -95,19 +95,19 @@ test("unknown ids, bad parameters, unknown paths and wrong methods get typed err
   expectError(await call(env.socket, "GET", "/v1/elsewhere"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/runs/%zz"), "invalid");
   expectError(await call(env.socket, "GET", "/v1/agents/%E0%A4%A"), "invalid");
-  expect(await call(env.socket, "GET", "/v1/runs/not-a-run-id"), "run_id");
-  expect(await call(env.socket, "GET", "/v1/runs?limit=0"), "limit");
-  expect(await call(env.socket, "GET", "/v1/runs?limit=501"), "limit");
-  expect(await call(env.socket, "GET", "/v1/runs?state=sleeping"), "state");
-  expect(await call(env.socket, "GET", `/v1/runs/${RUN}/events?after=999`), "after");
-  expect(await call(env.socket, "DELETE", "/v1/runs"));
-  expect(await call(env.socket, "GET", `/v1/runs/${RUN}/steer`));
+  expectInvalid(await call(env.socket, "GET", "/v1/runs/not-a-run-id"), "run_id");
+  expectInvalid(await call(env.socket, "GET", "/v1/runs?limit=0"), "limit");
+  expectInvalid(await call(env.socket, "GET", "/v1/runs?limit=501"), "limit");
+  expectInvalid(await call(env.socket, "GET", "/v1/runs?state=sleeping"), "state");
+  expectInvalid(await call(env.socket, "GET", `/v1/runs/${RUN}/events?after=999`), "after");
+  expectInvalid(await call(env.socket, "DELETE", "/v1/runs"));
+  expectInvalid(await call(env.socket, "GET", `/v1/runs/${RUN}/steer`));
   // result of an active run is a retryable conflict
   const conflict = expectError(await call(env.socket, "GET", `/v1/runs/${RUN}/result`), "conflict");
   assert.equal(conflict.retryable, true);
   assert.equal(conflict.run_id, RUN);
 
-  function expect(reply: Reply, field?: string): void {
+  function expectInvalid(reply: Reply, field?: string): void {
     const body = expectError(reply, "invalid");
     if (field) assert.equal(body.field, field);
   }
@@ -307,10 +307,20 @@ test("shutdown ends open streams", async () => {
   svc.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 2));
   const d = await startDaemon({ service: svc, node: "spark", env: env2.vars });
   const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": "1.0" } });
-  const ended = new Promise<void>((resolve) => req.on("response", (res) => { res.resume(); res.on("close", resolve); }));
+  let closed = false;
+  const ended = new Promise<number | undefined>((resolve) =>
+    req.on("response", (res) => {
+      res.resume();
+      res.on("close", () => {
+        closed = true;
+        resolve(res.statusCode);
+      });
+    }),
+  );
   req.end();
   await new Promise((r) => setTimeout(r, 100));
+  assert.equal(closed, false, "the stream is open until the daemon stops");
   await d.stop();
-  await ended;
+  assert.equal(await ended, 200, "the stream was open, and stopping the daemon closed it");
   env2.cleanup();
 });

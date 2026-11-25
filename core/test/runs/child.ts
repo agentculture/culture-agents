@@ -41,7 +41,7 @@ export function capabilitiesOf(harness: FakeHarness): Capabilities {
 function fakeCatalog(harnesses: FakeHarness[]): HarnessCatalog {
   const entries: HarnessEntry[] = harnesses.map((h) => ({
     id: h.id,
-    capabilities: async () => capabilitiesOf(h),
+    capabilities: () => Promise.resolve(capabilitiesOf(h)),
     driver: { module: FAKE_DRIVER, options: { steps: h.steps } },
   }));
   return { list: () => entries, get: (id) => entries.find((e) => e.id === id) };
