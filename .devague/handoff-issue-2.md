@@ -1,6 +1,7 @@
 # Handoff: issue #2 reorganization, D0 + D1 build
 
-Written 2026-11-25 for a context compaction. This is working state, not a
+Written 2026-11-25 for a context compaction, updated the same day after t16
+and t17. This is working state, not a
 design document. The authoritative records are the frame and plan under
 `.devague/`, the spec and plan under `docs/specs/` and `docs/plans/`, and
 `docs/d0/`.
@@ -15,8 +16,8 @@ out of scope and tracked by issues on the sibling repos.
 
 ## Where the work is
 
-- Repo `/home/ori/git/culture-agents`, local branch `runs/d0-d1-spec`, about 50
-  commits ahead of `main`. **Nothing is pushed.** No PR exists for this repo.
+- Repo `/home/ori/git/culture-agents`, local branch `runs/d0-d1-spec`, about 55
+  commits ahead of `main`, version 0.13.0. **Nothing is pushed.** No PR exists for this repo.
 - One file is modified and deliberately never committed:
   `.eidetic/memory/default__public.jsonl` (a recall counter bumped by `/recall`).
 - Commits use `git -c user.name="Ori Nachum" -c user.email=<the owner's email>`
@@ -51,7 +52,8 @@ lapses and deviations the moment they surface. Briefs quote the task from
   sets up Trusted Publishing. Never publish without an explicit go-ahead.
 - Sibling repos may be changed by branch and PR for this work only.
   culture-nodes is out of scope; embodiment's opencode-subagent plan is paused.
-- Deviations d1 to d4 are approved.
+- Deviations d1 to d4 are approved. d5 is proposed and awaits the owner (see
+  open items).
 
 ## Plan status
 
@@ -73,35 +75,40 @@ lapses and deviations the moment they surface. Briefs quote the task from
 | t14 prompt files | merged |
 | t15 release workflow | merged |
 | integration fixes | merged (control-channel delivery, truthful steer records, long run ids, real registry in the daemon bin `culture-agents-core`) |
-| t16 D1 acceptance suite and live run | not started; owned by the main agent |
-| t17 boundary audit | not started |
+| t16 D1 acceptance suite and live run | done: `tests/acceptance/d1/`, `docs/d0/d1-acceptance.md`; two full runs, 16 passed each |
+| t17 boundary audit | done: `docs/d0/boundary-audit.md` |
+| version bump | done: 0.13.0 |
 
-Last measured on the branch: 918 Python tests pass; 343 TypeScript tests pass,
-with the opt-in live checks skipped.
+Last measured on the branch: 926 Python tests pass, 9 skipped (8 of them the
+live acceptance checks, reported NOT VERIFIED without the opt-in); 346
+TypeScript tests pass, with the opt-in live checks skipped.
+
+t16 found and fixed two core defects: a finished run reported no branch and no
+commits, and a cancel waited a fixed 4.5 s before recording `cancelled`
+(OpenCode took 11.2 s against the 10 s target; now 8.6 to 8.9 s).
 
 ## In flight
 
-Nothing. No subagent is running and the only worktree is the primary checkout.
-After the integration fixes merged, `npm test` passed 6 of 6 consecutive runs
-(343 pass). Lapse l9 records that two worker tests had their deadlines
-loosened without the cause of their earlier failures being isolated.
+A colleague review of the safety-critical core files was started in the
+background; its output goes to `colleague-review.txt` in the session scratch
+directory. Treat it as a second opinion to verify.
 
 ## Next steps
 
-1. t16: `tests/acceptance/d1/` driving the real CLI against the real core with
-   the culture server stopped; mock stage always, live stage reported NOT
-   VERIFIED when unavailable; record the live run in
-   `docs/d0/d1-acceptance.md`. Targets: submit returns a run id in under 2 s;
-   two harnesses complete a task; steer changes output; cancel reaches
-   `cancelled` in under 10 s; after `kill -9` and restart every run reports a
-   state and none an invented success.
-2. t17: boundary audit against `docs/d0/sibling-baseline.txt`, written to
-   `docs/d0/boundary-audit.md`.
-3. Version bump, `ask-colleague review`, then the PR through the `cicd` skill.
-   Then `/validate-delivery` and `/summarize-delivery`.
+1. Read the colleague review and fix what is real.
+2. Open the PR through the `cicd` skill. This is the first push of this
+   branch, so it waits for the owner's go-ahead and a decision on d5.
+3. After the merge: `/validate-delivery`, then `/summarize-delivery`.
 
 ## Open items for the owner
 
+- Deviation d5 (proposed): the live acceptance ran with the two culture chat
+  servers still running; chat independence was shown from the TCP sockets of
+  the core and worker processes. Confirm or reject, or stop the servers and
+  have the live stage rerun.
+- The first npm publish was to wait until D1 passes. It now passes. `core/`
+  is still `0.0.0`, so a merge publishes nothing to npm until the owner says
+  go.
 - agentculture/agentfront#60 (public `run_cli`, `meta_verb`,
   `add_learn_section`): reviewed as request-changes. CI fails on two Sonar
   S9073 issues; `run_cli` can return a non-int; a conflicting `configure`
