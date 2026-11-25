@@ -6,6 +6,7 @@
  * machine; this class only reports `DriverEvent`s, ending with exactly one outcome.
  */
 import type { ErrorBody } from "../../contract/index.js";
+import { again, finish, stepUntil } from "../../util/sequence.js";
 import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent } from "../../worker/driver.js";
 import { describeProcs, newProcesses } from "./processes.js";
 import { EventQueue, errorMessage, sleep } from "./queue.js";
@@ -302,14 +303,14 @@ export class RunDriver<W extends Workspace> implements Driver {
    * `maxMs`. Polled, so a harness that stops promptly does not hold the run in `cancelling` for
    * the whole wait.
    */
-  private async settled(maxMs: number): Promise<Listing> {
+  private settled(maxMs: number): Promise<Listing> {
     const deadline = Date.now() + maxMs;
-    for (;;) {
+    return stepUntil<Listing>(async () => {
       const listing = await this.listNew();
       const left = deadline - Date.now();
-      if ((listing.failed === null && listing.procs.length === 0) || left <= 0) return listing;
-      await sleep(Math.min(250, left));
-    }
+      if ((listing.failed === null && listing.procs.length === 0) || left <= 0) return finish(listing);
+      return again(Math.min(250, left));
+    });
   }
 
   /** After a cancel: check processes, close the harness, kill leftovers, destroy, report `stopped`. */

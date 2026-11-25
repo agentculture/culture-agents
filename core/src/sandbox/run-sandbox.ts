@@ -3,6 +3,7 @@
 // exec / execInteractive / forward / delete; no `openshell` CLI calls.
 import { posix } from "node:path";
 
+import { inOrder } from "../util/sequence.js";
 import type { ForwardRef, InteractiveControl, OpenShellClientLike } from "./openshell-client.js";
 import type {
   ExecOptions,
@@ -165,8 +166,10 @@ export class OpenShellRunSandbox implements RunSandbox {
     const full = this.resolve(path);
     const q = shellQuote(full);
     const signal = options.signal ? { signal: options.signal } : {};
-    let offset = 0;
-    do {
+    // The first chunk creates the file (an empty one too); each later chunk is appended in turn.
+    const chunks = Math.max(1, Math.ceil(content.length / WRITE_CHUNK));
+    const offsets = Array.from({ length: chunks }, (_, index) => index * WRITE_CHUNK);
+    await inOrder(offsets, async (offset) => {
       const chunk = content.subarray(offset, offset + WRITE_CHUNK);
       const script =
         offset === 0 ? `mkdir -p ${shellQuote(posix.dirname(full))} && cat > ${q}` : `cat >> ${q}`;
@@ -174,8 +177,7 @@ export class OpenShellRunSandbox implements RunSandbox {
       if (res.exitCode !== 0) {
         throw new Error(`write ${path}: exit ${res.exitCode}: ${Buffer.from(res.stderr).toString()}`);
       }
-      offset += chunk.length;
-    } while (offset < content.length);
+    });
   }
 
   async spawn(command: string, options: SpawnOptions = {}): Promise<RunProcess> {

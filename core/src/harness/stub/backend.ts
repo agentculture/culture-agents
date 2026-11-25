@@ -12,7 +12,8 @@
 import { writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 
-import { EventQueue, sleep } from "../common/queue.js";
+import { again, finish, stepUntil } from "../../util/sequence.js";
+import { EventQueue } from "../common/queue.js";
 import type { HarnessBackend, HarnessSession, TurnEvent, TurnHandle, TurnOutcome, Workspace } from "../common/types.js";
 
 export interface StubBehaviour {
@@ -64,16 +65,32 @@ class StubTurn {
       return { kind: "interrupted" };
     }
     this.pending = parseFiles(task) ?? [];
-    while (this.pending.length > 0) {
-      await sleep(this.stepMs, signal);
-      if (signal.aborted) return { kind: "interrupted" };
-      const name = this.pending.shift() as string;
-      this.out("tool_call", JSON.stringify({ file_path: name }), "write");
-      await writeFile(join(this.workdir, name), `${name}\n`);
-      this.written.push(name);
-      this.out("tool_result", `wrote ${name}`, "write");
-    }
-    if (signal.aborted) return { kind: "interrupted" };
+    const interrupted = (): TurnOutcome => ({ kind: "interrupted" });
+    let waited = false;
+    // Each write follows its own pause, and the pending list is read afresh every time: a steer
+    // may have replaced it during the pause. An interrupt ends the pause and the turn.
+    return stepUntil<TurnOutcome>(
+      async () => {
+        if (waited) await this.writeNext();
+        if (this.pending.length > 0) {
+          waited = true;
+          return again(this.stepMs);
+        }
+        return finish(signal.aborted ? interrupted() : this.completed());
+      },
+      { signal, onAbort: interrupted },
+    );
+  }
+
+  private async writeNext(): Promise<void> {
+    const name = this.pending.shift() as string;
+    this.out("tool_call", JSON.stringify({ file_path: name }), "write");
+    await writeFile(join(this.workdir, name), `${name}\n`);
+    this.written.push(name);
+    this.out("tool_result", `wrote ${name}`, "write");
+  }
+
+  private completed(): TurnOutcome {
     const summary = `stub wrote ${this.written.length} file(s): ${this.written.join(", ") || "none"}`;
     this.out("text", summary);
     return { kind: "completed", summary };

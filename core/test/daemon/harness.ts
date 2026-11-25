@@ -6,6 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import type { Allowlist } from "../../src/contract/index.js";
+import { pollUntil } from "../../src/util/sequence.js";
 
 export interface Env {
   root: string;
@@ -82,9 +83,5 @@ export function spawnDaemon(env: Env): Child {
 }
 
 export async function waitFor(cond: () => boolean, ms = 5000): Promise<void> {
-  const end = Date.now() + ms;
-  while (!cond()) {
-    if (Date.now() > end) throw new Error("timed out waiting for condition");
-    await new Promise((r) => setTimeout(r, 20));
-  }
+  if (!(await pollUntil(cond, { everyMs: 20, timeoutMs: ms }))) throw new Error("timed out waiting for condition");
 }

@@ -3,11 +3,11 @@ import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestContext } from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { buildRunId, buildSessionId, newUlid, type ActionRecord, type Run } from "../../src/contract/index.js";
 import { checkLiveness, readWorkerIdentity } from "../../src/store/liveness.js";
+import { pollUntil } from "../../src/util/sequence.js";
 import type { DriverSelection } from "../../src/worker/driver.js";
 import type { FakeDriverOptions } from "../../src/worker/fake-driver.js";
 
@@ -47,7 +47,7 @@ export function stateDir(t: TestContext): string {
       }
     }
     const deadline = Date.now() + 5000;
-    while (pids.some(processExists) && Date.now() < deadline) await delay(20);
+    await pollUntil(() => !pids.some(processExists) || Date.now() >= deadline, { everyMs: 20 });
     rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
   });
   return dir;
@@ -109,11 +109,7 @@ export function action(run: Run, kind: ActionRecord["kind"], outcome: ActionReco
 
 /** Poll `predicate` until it holds; fails after `timeoutMs`. */
 export async function waitFor(predicate: () => boolean | Promise<boolean>, timeoutMs = 5000, what = "condition"): Promise<void> {
-  const until = Date.now() + timeoutMs;
-  while (!(await predicate())) {
-    if (Date.now() > until) throw new Error(`timed out waiting for ${what}`);
-    await delay(10);
-  }
+  if (!(await pollUntil(predicate, { everyMs: 10, timeoutMs }))) throw new Error(`timed out waiting for ${what}`);
 }
 
 /** Whether a process with this pid exists (and is not a zombie). */

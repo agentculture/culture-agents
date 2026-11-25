@@ -10,13 +10,13 @@ import { request } from "node:http";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import type { TestContext } from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { validate, type ErrorBody, type Run, type RunEvent, type SchemaName } from "../../src/contract/index.js";
 import { runDir } from "../../src/store/files.js";
 import { checkLiveness } from "../../src/store/liveness.js";
 import { listRunIds } from "../../src/store/run-store.js";
+import { pollUntil } from "../../src/util/sequence.js";
 import type { FakeStep } from "../../src/worker/fake-driver.js";
 
 export const AGENT = "spark-culture-agents";
@@ -188,11 +188,7 @@ export async function waitRun(env: Env, id: string, predicate: (run: Run) => boo
 }
 
 export async function waitFor(predicate: () => boolean | Promise<boolean>, ms: number, what: string): Promise<void> {
-  const until = Date.now() + ms;
-  while (!(await predicate())) {
-    if (Date.now() > until) throw new Error(`timed out waiting for ${what}`);
-    await delay(20);
-  }
+  if (!(await pollUntil(predicate, { everyMs: 20, timeoutMs: ms }))) throw new Error(`timed out waiting for ${what}`);
 }
 
 export function processExists(pid: number): boolean {
