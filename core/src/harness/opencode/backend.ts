@@ -61,14 +61,16 @@ export function openCodeConfig(settings: OpenCodeSettings): Record<string, unkno
   };
 }
 
-const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+/** A single quote inside a single-quoted shell word: close the word, an escaped quote, open it again. */
+const ESCAPED_QUOTE = String.raw`'\''`;
+const shq = (s: string) => `'${s.replaceAll("'", ESCAPED_QUOTE)}'`;
 
 /** How long `opencode serve` may take to report that it listens. */
 export const START_TIMEOUT_MS = 30_000;
 /** How long opening the port forward to the server may take. */
 export const FORWARD_TIMEOUT_MS = 30_000;
 
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ENV_NAME = /^[A-Za-z_]\w*$/;
 
 export class OpenCodeBackend<W extends SandboxBacked> implements HarnessBackend<W> {
   constructor(

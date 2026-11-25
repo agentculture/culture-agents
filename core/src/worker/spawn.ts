@@ -117,15 +117,45 @@ async function controlReady(dir: string, pid: number): Promise<boolean> {
   }
 }
 
+/** The worker process's command line (after the node binary). */
+function workerArgs(options: SpawnWorkerOptions): string[] {
+  const args = [WORKER_ENTRY, "--state-dir", options.stateDir, "--run-id", options.run.id];
+  if (options.heartbeatMs !== undefined) args.push("--heartbeat-ms", String(options.heartbeatMs));
+  if (options.cancelGraceMs !== undefined) args.push("--cancel-grace-ms", String(options.cancelGraceMs));
+  return args;
+}
+
+function killQuietly(pid: number): void {
+  try {
+    process.kill(pid, "SIGKILL");
+  } catch {
+    // already gone
+  }
+}
+
+/**
+ * Poll until the run is durable on disk and its worker is either controllable or already finished
+ * (a very short run may end before the first ping; its files still hold, so the submit may be
+ * acknowledged). `exitedNow` says how the worker ended, or null while it runs.
+ */
+async function waitUntilDurable(dir: string, runId: RunId, pid: number, deadline: number, exitedNow: () => string | null): Promise<void> {
+  for (;;) {
+    const exited = exitedNow();
+    const ended = exited !== null;
+    if (filesDurable(dir, runId, pid) && (ended || (await controlReady(dir, pid)))) return;
+    if (ended) throw new WorkerSpawnError(`the worker exited before its run was durable (${exited}); see ${runFile(dir, "log")}`);
+    if (Date.now() > deadline) throw new WorkerSpawnError(`the worker did not make its run durable in time; see ${runFile(dir, "log")}`);
+    await delay(5);
+  }
+}
+
 /** Create the run, start its worker detached, and resolve once the worker's files are durable. */
 export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedWorker> {
   const { stateDir, run } = options;
   if (run.state !== "queued" || run.worker_pid !== null) throw new RangeError("a new run must be queued with no worker");
   const dir = createRun(stateDir, run);
   writeFileSync(runFile(dir, "driver"), `${JSON.stringify(options.driver)}\n`, { mode: FILE_MODE, flag: "wx" });
-  const args = [WORKER_ENTRY, "--state-dir", stateDir, "--run-id", run.id];
-  if (options.heartbeatMs !== undefined) args.push("--heartbeat-ms", String(options.heartbeatMs));
-  if (options.cancelGraceMs !== undefined) args.push("--cancel-grace-ms", String(options.cancelGraceMs));
+  const args = workerArgs(options);
   const logFd = openSync(runFile(dir, "log"), "a", FILE_MODE);
   let exited: string | null = null;
   const child = (() => {
@@ -149,23 +179,9 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
   try {
     if (pid === undefined) throw new WorkerSpawnError(`the worker could not be started: ${exited ?? "no pid"}`);
     const deadline = Date.now() + (options.readyTimeoutMs ?? 10_000);
-    for (;;) {
-      // Durable on disk, and either controllable or already finished (a very short run may end
-      // before the first ping; its files still hold, so the submit may be acknowledged).
-      const ended = exited !== null;
-      if (filesDurable(dir, run.id, pid) && (ended || (await controlReady(dir, pid)))) break;
-      if (ended) throw new WorkerSpawnError(`the worker exited before its run was durable (${exited}); see ${runFile(dir, "log")}`);
-      if (Date.now() > deadline) throw new WorkerSpawnError(`the worker did not make its run durable in time; see ${runFile(dir, "log")}`);
-      await delay(5);
-    }
+    await waitUntilDurable(dir, run.id, pid, deadline, () => exited);
   } catch (err) {
-    if (pid !== undefined && exited === null) {
-      try {
-        process.kill(pid, "SIGKILL");
-      } catch {
-        // already gone
-      }
-    }
+    if (pid !== undefined && exited === null) killQuietly(pid);
     throw err;
   } finally {
     child.off("exit", onExit);

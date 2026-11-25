@@ -60,6 +60,48 @@ function onlyKeys(obj: Record<string, unknown>, allowed: Set<string>, where: str
   }
 }
 
+function filesystemPolicy(value: unknown): NonNullable<SandboxPolicyInit["filesystem"]> {
+  const fs = object(value, "filesystem_policy");
+  onlyKeys(fs, FS, "filesystem_policy.");
+  return {
+    includeWorkdir: fs["include_workdir"] === undefined ? false : fs["include_workdir"] === true,
+    readOnly: fs["read_only"] === undefined ? [] : strings(fs["read_only"], "read_only"),
+    readWrite: fs["read_write"] === undefined ? [] : strings(fs["read_write"], "read_write"),
+  };
+}
+
+function landlockPolicy(value: unknown): NonNullable<SandboxPolicyInit["landlock"]> {
+  const ll = object(value, "landlock");
+  onlyKeys(ll, new Set(["compatibility"]), "landlock.");
+  const c = ll["compatibility"];
+  if (c !== "best_effort" && c !== "hard_requirement") {
+    throw new PolicyError("landlock.compatibility must be best_effort or hard_requirement");
+  }
+  return { compatibility: c };
+}
+
+function processPolicy(value: unknown): NonNullable<SandboxPolicyInit["process"]> {
+  const p = object(value, "process");
+  onlyKeys(p, new Set(["run_as_user", "run_as_group"]), "process.");
+  return {
+    runAsUser: typeof p["run_as_user"] === "string" ? p["run_as_user"] : "",
+    runAsGroup: typeof p["run_as_group"] === "string" ? p["run_as_group"] : "",
+  };
+}
+
+/**
+ * Default deny: the run policy grants no network rule of its own. Endpoints
+ * come only from attached provider profiles, which OpenShell composes in.
+ */
+function checkNetworkPolicies(value: unknown): void {
+  const net = object(value, "network_policies");
+  if (Object.keys(net).length > 0) {
+    throw new PolicyError(
+      "network_policies must be empty: run sandboxes get network access only from provider profiles",
+    );
+  }
+}
+
 /** Validate an authored policy object and convert it to the SDK's create-time shape. */
 export function toSdkPolicy(input: unknown): SandboxPolicyInit {
   const doc = object(input, "policy");
@@ -67,41 +109,9 @@ export function toSdkPolicy(input: unknown): SandboxPolicyInit {
   if (doc["version"] !== 1) throw new PolicyError("policy version must be 1");
   const out: SandboxPolicyInit = { version: 1, networkPolicies: {} };
 
-  if (doc["filesystem_policy"] !== undefined) {
-    const fs = object(doc["filesystem_policy"], "filesystem_policy");
-    onlyKeys(fs, FS, "filesystem_policy.");
-    out.filesystem = {
-      includeWorkdir: fs["include_workdir"] === undefined ? false : fs["include_workdir"] === true,
-      readOnly: fs["read_only"] === undefined ? [] : strings(fs["read_only"], "read_only"),
-      readWrite: fs["read_write"] === undefined ? [] : strings(fs["read_write"], "read_write"),
-    };
-  }
-  if (doc["landlock"] !== undefined) {
-    const ll = object(doc["landlock"], "landlock");
-    onlyKeys(ll, new Set(["compatibility"]), "landlock.");
-    const c = ll["compatibility"];
-    if (c !== "best_effort" && c !== "hard_requirement") {
-      throw new PolicyError("landlock.compatibility must be best_effort or hard_requirement");
-    }
-    out.landlock = { compatibility: c };
-  }
-  if (doc["process"] !== undefined) {
-    const p = object(doc["process"], "process");
-    onlyKeys(p, new Set(["run_as_user", "run_as_group"]), "process.");
-    out.process = {
-      runAsUser: typeof p["run_as_user"] === "string" ? p["run_as_user"] : "",
-      runAsGroup: typeof p["run_as_group"] === "string" ? p["run_as_group"] : "",
-    };
-  }
-  if (doc["network_policies"] !== undefined) {
-    const net = object(doc["network_policies"], "network_policies");
-    // Default deny: the run policy grants no network rule of its own. Endpoints
-    // come only from attached provider profiles, which OpenShell composes in.
-    if (Object.keys(net).length > 0) {
-      throw new PolicyError(
-        "network_policies must be empty: run sandboxes get network access only from provider profiles",
-      );
-    }
-  }
+  if (doc["filesystem_policy"] !== undefined) out.filesystem = filesystemPolicy(doc["filesystem_policy"]);
+  if (doc["landlock"] !== undefined) out.landlock = landlockPolicy(doc["landlock"]);
+  if (doc["process"] !== undefined) out.process = processPolicy(doc["process"]);
+  if (doc["network_policies"] !== undefined) checkNetworkPolicies(doc["network_policies"]);
   return out;
 }

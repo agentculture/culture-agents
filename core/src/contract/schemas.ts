@@ -19,10 +19,16 @@ export function schemaDir(): URL {
 /** A parsed JSON Schema document. */
 export type SchemaDocument = Record<string, unknown> & { $id: string };
 
+/** Code-unit order: the order `sort()` uses when it is given no comparator. */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
+
 /** Every schema file (all `contract/*.json` except the `api.json` index), by file name. */
 export function loadSchemaFiles(dir: URL = schemaDir()): Map<string, SchemaDocument> {
   const out = new Map<string, SchemaDocument>();
-  for (const file of readdirSync(dir).sort()) {
+  for (const file of readdirSync(dir).sort(byCodeUnit)) {
     if (!file.endsWith(".json") || file === "api.json") continue;
     out.set(file, JSON.parse(readFileSync(new URL(file, dir), "utf8")) as SchemaDocument);
   }

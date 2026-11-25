@@ -3,7 +3,7 @@
  * to normalized turn events, and decide the turn's outcome from the parts seen. Parts are read
  * structurally, so no AI SDK type crosses into the rest of core.
  */
-import { stringify } from "../common/text.js";
+import { plainString, stringify } from "../common/text.js";
 import type { TurnEvent, TurnOutcome } from "../common/types.js";
 
 /** The fields of a stream part this mapper reads. */
@@ -40,6 +40,16 @@ function finishReasonOf(value: unknown): string {
   if (typeof value === "string" && value !== "") return value.slice(0, 100);
   const unified = value !== null && typeof value === "object" ? (value as { unified?: unknown }).unified : undefined;
   return typeof unified === "string" && unified !== "" ? unified.slice(0, 100) : "unknown";
+}
+
+/** The step number as text; `?` when the part carries none. */
+const stepLabel = (step: unknown): string => (step === undefined || step === null ? "?" : plainString(step));
+
+/** Why a turn that did not complete ended, from its finish reason. */
+function unfinishedReason(finishReason: string | null): string {
+  if (finishReason === null) return "the stream ended without a finish part";
+  const meaning = UNFINISHED[finishReason];
+  return meaning ? `finish reason ${finishReason} (${meaning})` : `finish reason ${finishReason}`;
 }
 
 const toolName = (part: StreamPart) => (typeof part.toolName === "string" && part.toolName !== "" ? part.toolName.slice(0, 200) : undefined);
@@ -80,7 +90,7 @@ export class ClaudePartMapper {
       case "tool-approval-request":
         return [error("The harness asked for a tool approval; operator questions are not supported in D1.")];
       case "steering-message":
-        return [{ type: "output", data: { channel: "diagnostic", text: `steer delivered to the harness (step ${String(part.stepNumber ?? "?")})` } }];
+        return [{ type: "output", data: { channel: "diagnostic", text: `steer delivered to the harness (step ${stepLabel(part.stepNumber)})` } }];
       case "error": {
         const message = stringify(part.error, 1000);
         this.errors.push(message);
@@ -103,7 +113,7 @@ export class ClaudePartMapper {
       return this.lastText ? { kind: "completed", summary: this.lastText } : { kind: "completed" };
     }
     // A turn that did not finish normally is not committed or collected as a success.
-    const reason = this.finishReason === null ? "the stream ended without a finish part" : `finish reason ${this.finishReason}${UNFINISHED[this.finishReason] ? ` (${UNFINISHED[this.finishReason]})` : ""}`;
+    const reason = unfinishedReason(this.finishReason);
     const why = this.errors.length > 0 ? `${reason}; ${this.errors.join("; ")}` : reason;
     return { kind: "failed", error: { code: "internal", message: `The Claude Code turn failed: ${why}`.slice(0, 2000), retryable: false } };
   }

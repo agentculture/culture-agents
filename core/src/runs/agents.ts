@@ -11,6 +11,13 @@ export async function harnessDocuments(catalog: HarnessCatalog): Promise<Capabil
   return Promise.all(catalog.list().map((entry) => entry.capabilities()));
 }
 
+type AgentState = "idle" | "running" | "unavailable";
+
+function compareIds(a: Agent, b: Agent): number {
+  if (a.id < b.id) return -1;
+  return a.id > b.id ? 1 : 0;
+}
+
 /** Build the agents named by the allow-list entries, with their active runs from the store. */
 export function buildAgents(entries: Allowlist["entries"], runs: readonly Run[], harnesses: readonly Capabilities[]): Agent[] {
   const available = new Set(harnesses.filter((h) => h.available).map((h) => h.harness));
@@ -27,7 +34,8 @@ export function buildAgents(entries: Allowlist["entries"], runs: readonly Run[],
     const mesh = parseMeshId(id);
     if (mesh === null) continue;
     const active = runs.filter((run) => run.agent_id === id && isActive(run.state)).map((run) => run.id);
-    const state: "idle" | "running" | "unavailable" = active.length > 0 ? "running" : [...info.harnesses].some((h) => available.has(h)) ? "idle" : "unavailable";
+    let state: AgentState = "running";
+    if (active.length === 0) state = [...info.harnesses].some((h) => available.has(h)) ? "idle" : "unavailable";
     agents.push({
       id,
       node: mesh.node,
@@ -38,5 +46,5 @@ export function buildAgents(entries: Allowlist["entries"], runs: readonly Run[],
       active_run_ids: active,
     });
   }
-  return agents.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return agents.sort(compareIds);
 }

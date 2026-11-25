@@ -60,7 +60,9 @@ const PROCESS_TIMEOUT_MS = 30_000;
 export const realSandboxDeps: SandboxDeps = { openRunSandboxes, prepare: prepareTree, collect: collectTree };
 
 const text = (bytes: Uint8Array) => Buffer.from(bytes).toString("utf8");
-export const shq = (s: string) => `'${s.replace(/'/g, `'\\''`)}'`;
+/** A single quote inside a single-quoted shell word: close the word, an escaped quote, open it again. */
+const ESCAPED_QUOTE = String.raw`'\''`;
+export const shq = (s: string) => `'${s.replaceAll("'", ESCAPED_QUOTE)}'`;
 
 export class SandboxWorkspace implements Workspace {
   private destroyed: Promise<void> | null = null;

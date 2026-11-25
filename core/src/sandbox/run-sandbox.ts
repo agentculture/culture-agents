@@ -24,8 +24,11 @@ export const WRITE_CHUNK = 1 << 20;
 /** Exit code reported for a process that ended without sending one (cancelled). */
 export const CANCELLED_EXIT = 137;
 
+/** A single quote inside a single-quoted shell word: close the word, an escaped quote, open it again. */
+const ESCAPED_QUOTE = String.raw`'\''`;
+
 export function shellQuote(value: string): string {
-  return `'${value.replace(/'/g, `'\\''`)}'`;
+  return `'${value.replaceAll("'", ESCAPED_QUOTE)}'`;
 }
 
 export function scrubEnv(env?: Readonly<Record<string, string>>): Record<string, string> | undefined {
@@ -37,10 +40,8 @@ export function scrubEnv(env?: Readonly<Record<string, string>>): Record<string,
   return out;
 }
 
-export interface Deleter {
-  /** Delete by name with retries and wait until gone; throws SandboxCleanupError. */
-  (name: string, runId: string): Promise<void>;
-}
+/** Delete by name with retries and wait until gone; throws SandboxCleanupError. */
+export type Deleter = (name: string, runId: string) => Promise<void>;
 
 interface PushStream {
   stream: ReadableStream<Uint8Array>;
@@ -244,13 +245,10 @@ export class OpenShellRunSandbox implements RunSandbox {
   }
 
   async stop(): Promise<void> {
-    for (const proc of [...this.#processes]) {
-      await proc.cancel().catch(() => undefined);
-    }
+    // Each cancel and each close is independent of the others, and none of them may stop the rest.
+    await Promise.all([...this.#processes].map((proc) => proc.cancel().catch(() => undefined)));
     this.#processes.clear();
-    for (const fwd of this.#forwards.values()) {
-      await fwd.close().catch(() => undefined);
-    }
+    await Promise.all([...this.#forwards.values()].map((fwd) => fwd.close().catch(() => undefined)));
     this.#forwards.clear();
     if (this.#state === "ready") this.#state = "stopped";
   }

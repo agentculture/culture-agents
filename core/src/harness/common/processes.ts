@@ -19,11 +19,12 @@ export const PS_SCRIPT = `echo "${PS_SELF} $$"; ps -eo pid=,ppid=,stat=,args=`;
  */
 export function parsePs(stdout: string): Proc[] {
   const lines = stdout.split("\n");
-  const self = new RegExp(`^${PS_SELF} (\\d+)\\s*$`).exec(lines[0] ?? "");
+  const self = new RegExp(String.raw`^${PS_SELF} (\d+)\s*$`).exec(lines[0] ?? "");
   if (!self) throw new Error("the process listing did not report its own pid");
   const rows: (Proc & { stat: string })[] = [];
   for (const line of lines.slice(1)) {
-    const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.*)$/.exec(line);
+    // The arguments start at a non-space character, so the space before them is matched one way only.
+    const m = /^\s*(\d+)\s+(\d+)\s+(\S+)\s+((?:\S.*)?)$/.exec(line);
     if (!m) continue;
     rows.push({ pid: Number(m[1]), ppid: Number(m[2]), stat: m[3] as string, args: (m[4] as string).trim() });
   }

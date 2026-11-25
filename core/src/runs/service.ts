@@ -68,7 +68,11 @@ export class StoreRunService implements RunService {
     this.scan = {
       stateDir: options.stateDir,
       controllable: (id) => this.controls.has(id),
-      warn: options.warn ?? ((line) => void process.stderr.write(`${line}\n`)),
+      warn:
+        options.warn ??
+        ((line) => {
+          process.stderr.write(`${line}\n`);
+        }),
     };
   }
 

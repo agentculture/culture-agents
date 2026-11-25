@@ -103,6 +103,13 @@ export function showRun(stateDir: string, runId: RunId, options: ShowOptions = {
   return showRunAt(runDir(stateDir, runId), options);
 }
 
+/** Sort order of a run list: newest first by `created_at`, then by id, descending. */
+export function newestFirst(a: Run, b: Run): number {
+  if (a.created_at < b.created_at) return 1;
+  if (a.created_at > b.created_at) return -1;
+  return a.id < b.id ? 1 : -1;
+}
+
 export interface ListOptions extends Omit<ShowOptions, "controllable"> {
   state?: RunState;
   agentId?: string;
@@ -121,7 +128,7 @@ export function listRuns(stateDir: string, options: ListOptions = {}): Run[] {
     if (options.agentId !== undefined && shown.run.agent_id !== options.agentId) continue;
     runs.push(shown.run);
   }
-  runs.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : a.id < b.id ? 1 : -1));
+  runs.sort(newestFirst);
   return runs.slice(0, options.limit ?? 50);
 }
 
@@ -154,6 +161,53 @@ export interface FollowOptions extends LivenessOptions {
   orphanCheckMs?: number;
 }
 
+/** The bytes of the file at `path` from offset `pos` on; empty when there are none or the file does not exist yet. */
+async function readFrom(path: string, pos: number): Promise<Buffer> {
+  let chunk = Buffer.alloc(0);
+  try {
+    const fh = await open(path, "r");
+    try {
+      const { size } = await fh.stat();
+      if (size > pos) {
+        chunk = Buffer.alloc(size - pos);
+        const { bytesRead } = await fh.read(chunk, 0, chunk.length, pos);
+        chunk = chunk.subarray(0, bytesRead);
+      }
+    } finally {
+      await fh.close();
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
+  }
+  return chunk;
+}
+
+/**
+ * While a follower is idle: when a check is due, settle an orphaned run. Returns when the worker
+ * was last checked (`last` when no check was due).
+ */
+function checkOrphanWhenDue(dir: string, runId: RunId, options: FollowOptions, everyMs: number, last: number): number {
+  if (everyMs <= 0 || Date.now() - last < everyMs) return last;
+  const checked = Date.now();
+  try {
+    settleOrphan(dir, runId, options);
+  } catch (err) {
+    // The worker is not known to be dead, so nothing is settled; the next tick checks again.
+    if (!(err instanceof LivenessUnknownError)) throw err;
+  }
+  return checked;
+}
+
+/** Wait `ms`. False when `signal` aborted the wait. */
+async function pause(ms: number, signal: AbortSignal | undefined): Promise<boolean> {
+  try {
+    await delay(ms, undefined, signal ? { signal } : {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Every event with cursor greater than `after`, then live events as they are appended, with no
  * gap and no duplicate. Ends right after the terminal `run.state` event, or when `signal` aborts.
@@ -167,22 +221,7 @@ export async function* followEvents(dir: string, runId: RunId, after = 0, option
   let lastOrphanCheck = Date.now();
   const path = runFile(dir, "events");
   while (!options.signal?.aborted) {
-    let chunk = Buffer.alloc(0);
-    try {
-      const fh = await open(path, "r");
-      try {
-        const { size } = await fh.stat();
-        if (size > pos) {
-          chunk = Buffer.alloc(size - pos);
-          const { bytesRead } = await fh.read(chunk, 0, chunk.length, pos);
-          chunk = chunk.subarray(0, bytesRead);
-        }
-      } finally {
-        await fh.close();
-      }
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
-    }
+    const chunk = await readFrom(path, pos);
     // Only newline-terminated lines count. A partial final line is a write in progress or a torn
     // append that the log's writer will truncate, so it is read again from its start next time.
     const complete = chunk.subarray(0, chunk.lastIndexOf(0x0a) + 1);
@@ -197,21 +236,8 @@ export async function* followEvents(dir: string, runId: RunId, after = 0, option
       if (next.event.cursor > after) yield next.event;
       if (tail.state !== null && isTerminal(tail.state)) return;
     }
-    if (complete.length === 0) {
-      if (orphanCheckMs > 0 && Date.now() - lastOrphanCheck >= orphanCheckMs) {
-        lastOrphanCheck = Date.now();
-        try {
-          settleOrphan(dir, runId, options);
-        } catch (err) {
-          // The worker is not known to be dead, so nothing is settled; the next tick checks again.
-          if (!(err instanceof LivenessUnknownError)) throw err;
-        }
-      }
-      try {
-        await delay(pollMs, undefined, options.signal ? { signal: options.signal } : {});
-      } catch {
-        return;
-      }
-    }
+    if (complete.length > 0) continue;
+    lastOrphanCheck = checkOrphanWhenDue(dir, runId, options, orphanCheckMs, lastOrphanCheck);
+    if (!(await pause(pollMs, options.signal))) return;
   }
 }

@@ -36,26 +36,38 @@ export interface DerivedRun {
 /** The reason recorded when a run without a terminal event has no live worker. */
 export const ORPHANED_REASON = "worker exited without a terminal event";
 
+/** What the `run.state` events of a log say: the last state and its reason, when the run first ran, when it last ended. */
+interface Lifecycle {
+  state: RunState | null;
+  reason: string | null;
+  startedAt: string | null;
+  endedAt: string | null;
+}
+
+function recordedLifecycle(events: readonly RunEvent[]): Lifecycle {
+  const seen: Lifecycle = { state: null, reason: null, startedAt: null, endedAt: null };
+  for (const event of events) {
+    if (event.kind !== "run.state") continue;
+    const data = event.data as StateData;
+    seen.state = data.to;
+    seen.reason = data.reason;
+    if (data.to === "running" && seen.startedAt === null) seen.startedAt = event.time;
+    if (isTerminal(data.to)) seen.endedAt = event.time;
+  }
+  return seen;
+}
+
 /**
  * Derive the reported run. Returns null for a run whose log has no event at all: its worker
  * never wrote event 1, so the submit was never acknowledged and the run is not established.
  */
 export function deriveRun(input: DeriveInput): DerivedRun | null {
   const { record, events } = input;
-  const last = events[events.length - 1];
+  const last = events.at(-1);
   if (last === undefined) return null;
-  let state: RunState | null = null;
-  let reason: string | null = null;
-  let startedAt: string | null = null;
-  let endedAt: string | null = null;
-  for (const event of events) {
-    if (event.kind !== "run.state") continue;
-    const data = event.data as StateData;
-    state = data.to;
-    reason = data.reason;
-    if (data.to === "running" && startedAt === null) startedAt = event.time;
-    if (isTerminal(data.to)) endedAt = event.time;
-  }
+  const recorded = recordedLifecycle(events);
+  const startedAt = recorded.startedAt;
+  let { state, reason, endedAt } = recorded;
   if (state === null) return null;
   let updatedAt = last.time;
   let orphaned = false;

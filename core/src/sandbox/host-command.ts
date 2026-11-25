@@ -38,6 +38,11 @@ export function hostEnv(extra: Readonly<Record<string, string>> = {}): Record<st
   return { ...env, ...extra };
 }
 
+function exitCodeOf(error: { code?: unknown } | null): number {
+  if (!error) return 0;
+  return typeof error.code === "number" ? error.code : 1;
+}
+
 export const runCommand: CommandRunner = (file, args, options = {}) =>
   new Promise((resolve) => {
     execFile(
@@ -51,7 +56,7 @@ export const runCommand: CommandRunner = (file, args, options = {}) =>
         encoding: "utf8",
       },
       (error, stdout, stderr) => {
-        const code = error ? (typeof error.code === "number" ? error.code : 1) : 0;
+        const code = exitCodeOf(error);
         resolve({ code, stdout, stderr: stderr || (error && code !== 0 ? error.message : "") });
       },
     );

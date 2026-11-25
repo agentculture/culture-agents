@@ -152,6 +152,85 @@ function checkSubmit(ctx: RouteContext, body: unknown): SubmitRequest {
   return { ...request, repo };
 }
 
+/** What the handler of a matched route works with. */
+interface RouteCall {
+  ctx: RouteContext;
+  req: IncomingMessage;
+  res: ServerResponse;
+  url: URL;
+  /** Path parameters, already checked against their schemas. */
+  p: Record<string, string>;
+}
+
+async function agentStatus({ ctx, res, p }: RouteCall): Promise<void> {
+  const agent = await ctx.service.getAgent(p["agent_id"] ?? "");
+  if (!agent) throw notFound(`No agent ${p["agent_id"]}.`);
+  return sendJson(res, 200, "agent", agent);
+}
+
+async function harnessShow({ ctx, res, p }: RouteCall): Promise<void> {
+  const harness = await ctx.service.getHarness(p["harness"] ?? "");
+  if (!harness) throw notFound(`No harness ${p["harness"]}.`);
+  return sendJson(res, 200, "capabilities", harness);
+}
+
+async function runsList({ ctx, res, url }: RouteCall): Promise<void> {
+  const state = url.searchParams.get("state");
+  if (state !== null && !validate("run#state", state).ok) throw invalid("Query parameter state is not a run state.", "state");
+  const agent = url.searchParams.get("agent_id");
+  if (agent !== null && !validate("common#mesh_id", agent).ok) throw invalid("Query parameter agent_id is malformed.", "agent_id");
+  const query = { limit: parseIntParam(url, "limit", 1, 500, 50), ...(state !== null && { state: state as RunState }), ...(agent !== null && { agent_id: agent }) };
+  return sendJson(res, 200, "run#run_list", { runs: await ctx.service.listRuns(query) });
+}
+
+async function runsAttach({ ctx, req, res, url, p }: RouteCall): Promise<void> {
+  const run = await requireRun(ctx, p["run_id"] ?? "");
+  const after = optionalCursor(url, req);
+  if (after > run.cursor) throw invalid(`after (${after}) is beyond the run's newest cursor (${run.cursor}).`, "after");
+  return streamAttach(ctx, res, run.id, after);
+}
+
+async function runsLogs({ ctx, res, url, p }: RouteCall): Promise<void> {
+  const runId = p["run_id"] ?? "";
+  const run = await requireRun(ctx, runId);
+  const after = parseIntParam(url, "after", 0, Number.MAX_SAFE_INTEGER, 0);
+  const limit = parseIntParam(url, "limit", 1, 5000, 500);
+  if (after > run.cursor) throw invalid(`after (${after}) is beyond the run's newest cursor (${run.cursor}).`, "after");
+  const page = await ctx.service.readEvents(runId, after, limit);
+  if (!page) throw notFound(`No run ${runId}.`, { run_id: runId });
+  return sendJson(res, 200, "event#event_page", page);
+}
+
+async function steerOrCancel({ ctx, req, res, p }: RouteCall, steer: boolean): Promise<void> {
+  const runId = p["run_id"] ?? "";
+  await requireRun(ctx, runId);
+  const body = await readJsonBody(req);
+  if (steer) {
+    checkBody("control-action#steer_request", body);
+    return sendJson(res, 202, "control-action#accepted_response", { action: await ctx.service.steer(runId, body as never) });
+  }
+  checkBody("control-action#cancel_request", body);
+  return sendJson(res, 202, "control-action#accepted_response", { action: await ctx.service.cancel(runId, body as never) });
+}
+
+/** A deferred control route (pause, resume, answer): checked like any other, then refused as `unsupported`. */
+async function refuseDeferred({ ctx, req, p }: RouteCall, routeId: string): Promise<never> {
+  const deferred = DEFERRED[routeId as keyof typeof DEFERRED];
+  if (!deferred) throw new ControlError("internal", "Route table and handlers disagree.");
+  const runId = p["run_id"] ?? "";
+  await requireRun(ctx, runId);
+  const body = await readJsonBody(req);
+  checkBody(deferred[1], body);
+  const refusal = unsupported(deferred[0], `The ${deferred[0]} action is not supported in this API version.`);
+  // README: a refusal at step 4 against a live run this core controls is also written to its log.
+  try {
+    await ctx.service.recordRefusal(runId, deferred[0], body as DeferredRequest, refusal.body);
+  } catch (e) {
+    process.stderr.write(`culture-agents core: could not record the refused ${deferred[0]} on run ${runId}: ${e instanceof Error ? e.message : String(e)}\n`);
+  }
+  throw refusal;
+}
+
 /** Handle one request. Throws `ControlError` for refusals; the caller renders it. */
 export async function handle(ctx: RouteContext, req: IncomingMessage, res: ServerResponse): Promise<void> {
   let url: URL;
@@ -175,84 +254,39 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
   }
   const p = match.params;
   const svc = ctx.service;
+  const call: RouteCall = { ctx, req, res, url, p };
 
   switch (match.id) {
     case "version":
       return sendJson(res, 200, "version", { api_version: apiVersion, core_version: ctx.coreVersion, node: ctx.node });
     case "agents.list":
       return sendJson(res, 200, "agent#agent_list", await svc.listAgents());
-    case "agents.status": {
-      const agent = await svc.getAgent(p["agent_id"] ?? "");
-      if (!agent) throw notFound(`No agent ${p["agent_id"]}.`);
-      return sendJson(res, 200, "agent", agent);
-    }
+    case "agents.status":
+      return agentStatus(call);
     case "harnesses.list":
       return sendJson(res, 200, "capabilities#capabilities_list", { harnesses: await svc.listHarnesses() });
-    case "harnesses.show": {
-      const harness = await svc.getHarness(p["harness"] ?? "");
-      if (!harness) throw notFound(`No harness ${p["harness"]}.`);
-      return sendJson(res, 200, "capabilities", harness);
-    }
+    case "harnesses.show":
+      return harnessShow(call);
     case "runs.submit": {
       const request = checkSubmit(ctx, await readJsonBody(req));
       return sendJson(res, 201, "control-action#submit_response", { run: await svc.submit(request) });
     }
-    case "runs.list": {
-      const state = url.searchParams.get("state");
-      if (state !== null && !validate("run#state", state).ok) throw invalid("Query parameter state is not a run state.", "state");
-      const agent = url.searchParams.get("agent_id");
-      if (agent !== null && !validate("common#mesh_id", agent).ok) throw invalid("Query parameter agent_id is malformed.", "agent_id");
-      const query = { limit: parseIntParam(url, "limit", 1, 500, 50), ...(state !== null && { state: state as RunState }), ...(agent !== null && { agent_id: agent }) };
-      return sendJson(res, 200, "run#run_list", { runs: await svc.listRuns(query) });
-    }
+    case "runs.list":
+      return runsList(call);
     case "runs.show":
       return sendJson(res, 200, "run", await requireRun(ctx, p["run_id"] ?? ""));
-    case "runs.attach": {
-      const run = await requireRun(ctx, p["run_id"] ?? "");
-      const after = optionalCursor(url, req);
-      if (after > run.cursor) throw invalid(`after (${after}) is beyond the run's newest cursor (${run.cursor}).`, "after");
-      return streamAttach(ctx, res, run.id, after);
-    }
-    case "runs.logs": {
-      const runId = p["run_id"] ?? "";
-      const run = await requireRun(ctx, runId);
-      const after = parseIntParam(url, "after", 0, Number.MAX_SAFE_INTEGER, 0);
-      const limit = parseIntParam(url, "limit", 1, 5000, 500);
-      if (after > run.cursor) throw invalid(`after (${after}) is beyond the run's newest cursor (${run.cursor}).`, "after");
-      const page = await svc.readEvents(runId, after, limit);
-      if (!page) throw notFound(`No run ${runId}.`, { run_id: runId });
-      return sendJson(res, 200, "event#event_page", page);
-    }
+    case "runs.attach":
+      return runsAttach(call);
+    case "runs.logs":
+      return runsLogs(call);
     case "runs.result":
       await requireRun(ctx, p["run_id"] ?? "");
       return sendJson(res, 200, "run#run_result", await svc.getResult(p["run_id"] ?? ""));
     case "runs.steer":
-    case "runs.cancel": {
-      const runId = p["run_id"] ?? "";
-      await requireRun(ctx, runId);
-      const body = await readJsonBody(req);
-      if (match.id === "runs.steer") {
-        checkBody("control-action#steer_request", body);
-        return sendJson(res, 202, "control-action#accepted_response", { action: await svc.steer(runId, body as never) });
-      }
-      checkBody("control-action#cancel_request", body);
-      return sendJson(res, 202, "control-action#accepted_response", { action: await svc.cancel(runId, body as never) });
-    }
-    default: {
-      const deferred = DEFERRED[match.id as keyof typeof DEFERRED];
-      if (!deferred) throw new ControlError("internal", "Route table and handlers disagree.");
-      const runId = p["run_id"] ?? "";
-      await requireRun(ctx, runId);
-      const body = await readJsonBody(req);
-      checkBody(deferred[1], body);
-      const refusal = unsupported(deferred[0], `The ${deferred[0]} action is not supported in this API version.`);
-      // README: a refusal at step 4 against a live run this core controls is also written to its log.
-      try {
-        await svc.recordRefusal(runId, deferred[0], body as DeferredRequest, refusal.body);
-      } catch (e) {
-        process.stderr.write(`culture-agents core: could not record the refused ${deferred[0]} on run ${runId}: ${e instanceof Error ? e.message : String(e)}\n`);
-      }
-      throw refusal;
-    }
+      return steerOrCancel(call, true);
+    case "runs.cancel":
+      return steerOrCancel(call, false);
+    default:
+      return refuseDeferred(call, match.id);
   }
 }

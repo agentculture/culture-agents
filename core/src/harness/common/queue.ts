@@ -1,7 +1,7 @@
 /** A single-consumer async queue that ends once; pushes after the end are dropped. */
 export class EventQueue<T> {
-  private items: T[] = [];
-  private waiters: ((r: IteratorResult<T>) => void)[] = [];
+  private readonly items: T[] = [];
+  private readonly waiters: ((r: IteratorResult<T>) => void)[] = [];
   private ended = false;
   private failure: unknown = undefined;
 
@@ -30,7 +30,7 @@ export class EventQueue<T> {
       if (this.failure !== undefined) {
         const failure = this.failure;
         this.failure = undefined;
-        return Promise.reject(failure instanceof Error ? failure : new Error(String(failure)));
+        return Promise.reject(toError(failure));
       }
       return Promise.resolve({ value: undefined, done: true });
     }
@@ -69,5 +69,7 @@ export async function within<T>(ms: number, work: Promise<T>, signal?: AbortSign
     stop.abort(); // clears the timer
   }
 }
+
+const toError = (err: unknown): Error => (err instanceof Error ? err : new Error(String(err)));
 
 export const errorMessage = (err: unknown): string => (err instanceof Error ? err.message : String(err));

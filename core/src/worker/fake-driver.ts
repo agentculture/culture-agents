@@ -35,8 +35,8 @@ export interface FakeDriverOptions {
 }
 
 class Queue<T> {
-  private items: T[] = [];
-  private waiters: ((value: T) => void)[] = [];
+  private readonly items: T[] = [];
+  private readonly waiters: ((value: T) => void)[] = [];
   push(item: T): void {
     const waiter = this.waiters.shift();
     if (waiter) waiter(item);

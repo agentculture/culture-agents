@@ -20,7 +20,7 @@ import {
 import { readLog } from "../store/event-log.js";
 import { runDir, runFile } from "../store/files.js";
 import { checkLiveness } from "../store/liveness.js";
-import { listRunIds, showRunAt } from "../store/run-store.js";
+import { listRunIds, newestFirst, showRunAt } from "../store/run-store.js";
 
 export interface ScanOptions {
   stateDir: string;
@@ -99,7 +99,7 @@ export function scanRuns(options: ScanOptions): Run[] {
     const run = readRun(options, id);
     if (run !== null) runs.push(run);
   }
-  return runs.sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : a.id < b.id ? 1 : -1));
+  return runs.sort(newestFirst);
 }
 
 /** The active run holding a canonical repository, if any. A run whose worker survived a restart counts. */

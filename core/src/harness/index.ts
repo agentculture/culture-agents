@@ -78,7 +78,8 @@ export function listHarnesses(config: HarnessConfig): HarnessEntry[] {
         sandboxDoc(config, claudeProviders, { harness: "claude-code", transport: CLAUDE_CODE_TRANSPORT, core: claudeCodeCore() }, (l) => {
           const cli = l["dev.culture.agents.claude-code"];
           const adapter = l["dev.culture.agents.harness-claude-code"];
-          return cli ? `${cli}${adapter ? ` (AI SDK adapter ${adapter})` : ""}` : null;
+          if (!cli) return null;
+          return adapter ? `${cli} (AI SDK adapter ${adapter})` : cli;
         }),
       driver: {
         module: modulePath("./claude-code/index.js"),

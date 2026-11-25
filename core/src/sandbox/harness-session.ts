@@ -28,10 +28,23 @@ function sig(signal?: AbortSignal): { signal?: AbortSignal } {
   return signal ? { signal } : {};
 }
 
+/** The line ending `text` uses: CRLF, else LF, else a lone CR; LF when it has none. */
+function eolOf(text: string): string {
+  if (text.includes("\r\n")) return "\r\n";
+  if (text.includes("\n")) return "\n";
+  return text.includes("\r") ? "\r" : "\n";
+}
+
+/** `stat -c %F` output as the AI SDK's entry type. */
+function entryType(kind: string): "file" | "directory" | "other" {
+  if (kind.includes("regular")) return "file";
+  return kind === "directory" ? "directory" : "other";
+}
+
 /** Same slicing as the AI SDK's extractLines: 1-based, inclusive, clamped. */
 export function sliceLines(text: string, startLine?: number, endLine?: number): string {
   if (startLine == null && endLine == null) return text;
-  const eol = text.includes("\r\n") ? "\r\n" : text.includes("\n") ? "\n" : text.includes("\r") ? "\r" : "\n";
+  const eol = eolOf(text);
   const lines = text.split(eol);
   const start = Math.max(1, startLine ?? 1) - 1;
   const end = Math.min(lines.length, endLine ?? lines.length);
@@ -123,13 +136,12 @@ function sandboxSession(sb: RunSandbox): SandboxSession {
       if (res.exitCode === NOT_FOUND_EXIT) return null;
       if (res.exitCode !== 0) throw new Error(`stat ${path}: exit ${res.exitCode}`);
       const [kind = "", size = "0"] = decoder().decode(res.stdout).trim().split("|");
-      const type = kind.includes("regular") ? "file" : kind === "directory" ? "directory" : "other";
-      return { type, size: Number(size) };
+      return { type: entryType(kind), size: Number(size) };
     },
     listDirectory: async ({ path, abortSignal }) => {
       const p = q(path);
       const res = await sb.exec(
-        `[ -e ${p} ] || exit ${NOT_FOUND_EXIT}; find ${p} -mindepth 1 -maxdepth 1 -printf '%y %f\\n'`,
+        String.raw`[ -e ${p} ] || exit ${NOT_FOUND_EXIT}; find ${p} -mindepth 1 -maxdepth 1 -printf '%y %f\n'`,
         sig(abortSignal),
       );
       if (res.exitCode === NOT_FOUND_EXIT) return null;

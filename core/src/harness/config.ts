@@ -50,13 +50,13 @@ export const DEFAULT_RETAIN_FAILED_SANDBOX_DAYS = RETAIN_FAILED_SANDBOX_DAYS;
 export const MAX_RETAIN_FAILED_SANDBOX_DAYS = 90;
 
 /** An environment variable name. */
-const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const ENV_NAME = /^[A-Za-z_]\w*$/;
 /** A provider or gateway name: a plain word, never option-like, at most 63 characters. */
 const PLAIN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/;
 /** A container image reference (registry, path, tag, digest): never option-like, no spaces or shell characters. */
 const IMAGE_REF = /^[A-Za-z0-9][A-Za-z0-9._/:@-]{0,254}$/;
 /** A git revision: never option-like, no whitespace or control characters. */
-const GIT_REV = /^[^-\s\x00-\x1f\x7f][^\s\x00-\x1f\x7f]{0,254}$/; // eslint-disable-line no-control-regex
+const GIT_REV = /^[^-\s\x00-\x08\x0e-\x1f\x7f][^\s\x00-\x08\x0e-\x1f\x7f]{0,254}$/; // eslint-disable-line no-control-regex
 
 export interface HarnessConfig {
   gateway: { endpoint: string; tlsDir: string | null; name: string | null };

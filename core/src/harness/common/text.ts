@@ -18,6 +18,12 @@ export function stringify(value: unknown, max = MAX_TOOL_TEXT): string {
   return out.length > max ? `${out.slice(0, max - 3)}...` : out;
 }
 
+/** `String(value)` for a value whose shape is not known (the harness sent it, so it is read as it comes). */
+export const plainString = (value: unknown): string => String(value);
+
+/** JSON replacer for the tap: strings over 4000 characters are clipped. */
+const clipLongStrings = (_key: string, value: unknown): unknown =>
+  typeof value === "string" && value.length > 4000 ? `${value.slice(0, 4000)}...` : value;
 
 /**
  * A recorder for raw harness events (`tap` driver option), used by the live tests to capture
@@ -28,7 +34,8 @@ export function tapWriter(path: string | undefined): ((raw: unknown) => void) | 
   const t0 = Date.now();
   return (raw) => {
     try {
-      appendFileSync(path, `${JSON.stringify({ t: Date.now() - t0, raw }, (_k, v: unknown) => (typeof v === "string" && v.length > 4000 ? `${v.slice(0, 4000)}...` : v))}\n`);
+      const line = JSON.stringify({ t: Date.now() - t0, raw }, clipLongStrings);
+      appendFileSync(path, `${line}\n`);
     } catch {
       // recording is best-effort
     }

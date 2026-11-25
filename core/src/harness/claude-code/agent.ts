@@ -16,7 +16,7 @@ import { createClaudeCode } from "@ai-sdk/harness-claude-code";
 import { toHarnessSandboxSession } from "../../sandbox/harness-session.js";
 import type { ClaudeModel } from "../config.js";
 import type { SandboxWorkspace } from "../common/sandbox-workspace.js";
-import type { AgentFactory, AgentSessionLike } from "./backend.js";
+import type { AgentFactory } from "./backend.js";
 import type { StreamPart } from "./map.js";
 
 export const realAgentFactory: AgentFactory<SandboxWorkspace> = ({ workspace, model, onLog }) => {
@@ -33,9 +33,9 @@ export const realAgentFactory: AgentFactory<SandboxWorkspace> = ({ workspace, mo
       agent.createSession({ sessionId, sandboxSession, ...(abortSignal ? { abortSignal } : {}) }),
     stream: async ({ session, prompt, abortSignal }) => {
       const result = await agent.stream({ session: session as unknown as HarnessAgentSession, prompt, abortSignal });
-      return { fullStream: result.fullStream as AsyncIterable<StreamPart> };
+      return { fullStream: result.stream as AsyncIterable<StreamPart> };
     },
   };
 };
 
-export type { AgentSessionLike };
+export type { AgentSessionLike } from "./backend.js";
