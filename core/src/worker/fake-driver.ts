@@ -28,6 +28,10 @@ export interface FakeDriverOptions {
   stopDelayMs?: number;
   /** Echo each steer as `run.output` (channel `diagnostic`). Default true. */
   echoSteer?: boolean;
+  /** How long `steer` takes to deliver. Default 0. */
+  steerDelayMs?: number;
+  /** When set, `steer` fails with this message (the harness did not take the steer). */
+  steerError?: string;
 }
 
 class Queue<T> {
@@ -119,6 +123,8 @@ export class FakeDriver implements Driver {
   }
 
   async steer(message: string): Promise<void> {
+    if (this.options.steerDelayMs) await delay(this.options.steerDelayMs);
+    if (this.options.steerError !== undefined) throw new Error(this.options.steerError);
     if (this.options.echoSteer ?? true) this.emit({ type: "output", data: { channel: "diagnostic", text: `steer: ${message}` } });
   }
 
