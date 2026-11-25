@@ -7,6 +7,9 @@
   "license": "Apache-2.0",
   "main": "./dist/src/index.js",
   "types": "./dist/src/index.d.ts",
+  "bin": {
+    "culture-agents-core": "dist/src/daemon/main.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/src/index.d.ts",
@@ -16,7 +19,8 @@
   "files": [
     "dist/src",
     "dist/contract-schemas",
-    "policy"
+    "policy",
+    "image"
   ],
   "engines": {
     "node": ">=22"
