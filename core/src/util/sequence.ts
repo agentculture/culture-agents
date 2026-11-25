@@ -25,11 +25,9 @@ export interface StepOptions<T> {
   signal?: AbortSignal;
   /** The sequence's value once `signal` has aborted. Without it the sequence rejects with the signal's reason. */
   onAbort?: () => T;
-  /** Stands in for the timer between steps (tests that must not sleep). The signal does not cut it short. */
+  /** Stands in for the timer between steps (tests that must not sleep). An abort ends the wait early, as with the timer. */
   wait?: (ms: number) => Promise<void>;
 }
-
-const abortReason = (signal: AbortSignal | undefined): unknown => signal?.reason ?? new Error("aborted");
 
 /**
  * Call `step` until it returns `finish(value)`, waiting between calls as each `again(ms)` asks.
@@ -41,24 +39,28 @@ export function stepUntil<T>(step: () => Step<T> | Promise<Step<T>>, options: St
   return new Promise<T>((resolve, reject) => {
     const stop = (): void => {
       try {
-        if (onAbort === undefined) reject(abortReason(signal));
+        // Only reached once the signal has aborted, and an aborted signal always carries a reason.
+        if (onAbort === undefined) reject(signal?.reason);
         else resolve(onAbort());
       } catch (error) {
         reject(error);
       }
     };
     const pause = (ms: number): void => {
-      if (wait !== undefined) {
-        wait(ms).then(tick, reject);
-        return;
-      }
-      const timer = setTimeout(wake, ms);
+      // Whichever comes first, the end of the wait or an abort, starts the next step: once.
+      let woken = false;
+      const timer = wait === undefined ? setTimeout(wake, ms) : undefined;
       function wake(): void {
+        if (woken) return;
+        woken = true;
         clearTimeout(timer);
         signal?.removeEventListener("abort", wake);
         tick();
       }
       signal?.addEventListener("abort", wake, { once: true });
+      wait?.(ms).then(wake, (error: unknown) => {
+        if (!woken) reject(error);
+      });
     };
     const settle = (verdict: Step<T>): void => {
       if (verdict.done) resolve(verdict.value);

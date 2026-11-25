@@ -64,7 +64,13 @@ export class FakeInteractive implements InteractiveControl {
   }
 
   get output(): AsyncIterable<StreamEvent> {
-    return { [Symbol.asyncIterator]: () => ({ next: () => this.#next() }) };
+    return {
+      [Symbol.asyncIterator]: () => ({
+        next: () => this.#next(),
+        // A consumer that stops early (a `break`, or `return()` by hand) gets a finished iterator.
+        return: () => Promise.resolve({ value: undefined, done: true }),
+      }),
+    };
   }
 
   /** The next queued event, the end of the stream, or a wait for whichever `emit` or `end` brings. */

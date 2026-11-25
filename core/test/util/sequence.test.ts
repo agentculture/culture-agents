@@ -153,6 +153,33 @@ test("stepUntil uses the given wait in place of a timer", async () => {
   assert.deepEqual(waited, [1000, 3000]);
 });
 
+test("stepUntil ends a given wait early on abort, and ignores that wait when it settles later", async () => {
+  const controller = new AbortController();
+  let release: () => void = () => {};
+  let steps = 0;
+  const began = Date.now();
+  const pending = stepUntil<string>(
+    () => {
+      steps += 1;
+      return again(60_000);
+    },
+    { signal: controller.signal, onAbort: () => "closed", wait: () => new Promise<void>((resolve) => (release = resolve)) },
+  );
+  controller.abort();
+  assert.equal(await pending, "closed");
+  assert.ok(Date.now() - began < 2000, "the abort did not wait for the given wait");
+  release();
+  await delay(10);
+  assert.equal(steps, 1, "the late end of the wait starts no further step");
+});
+
+test("stepUntil rejects when the given wait rejects", async () => {
+  await assert.rejects(
+    stepUntil(() => again(5), { wait: () => Promise.reject(new Error("no clock")) }),
+    /no clock/,
+  );
+});
+
 test("stepUntil holds no growing chain: many steps without a wait neither overflow the stack nor slow down", async () => {
   let n = 0;
   const result = await stepUntil(() => {
