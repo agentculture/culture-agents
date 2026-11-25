@@ -78,9 +78,9 @@ lapses and deviations the moment they surface. Briefs quote the task from
 | t17 boundary audit | done: `docs/d0/boundary-audit.md` |
 | version bump | done: 0.13.0 |
 
-Last measured on the branch: 926 Python tests pass, 9 skipped (8 of them the
-live acceptance checks, reported NOT VERIFIED without the opt-in); 346
-TypeScript tests pass, with the opt-in live checks skipped.
+Last measured on the branch (commit `900983e`): 1228 Python tests pass, 9
+skipped (8 of them the live acceptance checks, reported NOT VERIFIED without
+the opt-in); 431 TypeScript tests pass, 8 opt-in live checks skipped.
 
 t16 found and fixed two core defects: a finished run reported no branch and no
 commits, and a cancel waited a fixed 4.5 s before recording `cancelled`
@@ -100,11 +100,32 @@ is open and pushed. Reviews so far, all acted on:
   nine nits, four fixed. Its report is `opencode-review3.txt` in the session
   scratch directory.
 
-Not taken from those reviews, about 30 lower-severity items. The larger ones:
-every request re-reads whole event logs; the host fetch from the sandbox has no
-object check or size bound; the process check after a cancel can be blinded
-from inside the sandbox; the portability waiver is per file; the CLI imports
-private agentfront symbols.
+- A second fix round took the twelve larger items left over from those
+  reviews plus the owner's decisions (second runtime dependency `jsonschema`,
+  failed work kept 7 days, bounded waits, agentfront 0.22 public API,
+  per-line portability waiver, version-bump mirrors). Live stage re-run: 16
+  of 16. Deferred follow-ups are in culture-agents#5.
+- OpenCode with `gateway/cortex` reviewed that round (`opencode-review4.txt`
+  in the scratch directory): no must-fix, one should-fix (unbounded OpenCode
+  mid-turn reads and interrupt) and four nits. All five are fixed; the
+  worker's refusal reply has no test (reachable only in a race).
+
+SonarCloud analyses the PR since 2026-11-25 (scan, quality gate and an
+open-issues gate in the `test` job; Python and TypeScript coverage). The
+first scan had 240 open issues. Three subagents and the main agent cleared
+all but about 25, which only the owner can mark Accepted on SonarCloud:
+sequential polling loops (S9382), the `/tmp` socket fallback (S5443), the
+local `http://` gateway default (S5332), the run image's root user (S6471),
+`git` by bare name in test helpers (S4036), the `BaseException` for a closed
+pipe (S5709), and a deprecated AI SDK type in `toHarnessSandboxProvider`
+(S1874), which only tests call. The generated contract types are excluded
+from analysis. The `test` job stays red until those are accepted or fixed.
+
+The run image was rebuilt from a changed Dockerfile (Node from a signed apt
+source). **It has not had a live run.** `culture-agents-run:dev` points at an
+earlier rebuild; the last live-tested image is `culture-agents-run:dev-prev`.
+The Dockerfile changed once more afterwards (package order), so rebuild
+before the live stage. The owner has not yet chosen how to run it.
 
 Local-model runs (OpenCode cortex, colleague) get no hard timeout and are
 continued in their session when interrupted (owner instruction, 2026-11-25).
@@ -114,15 +135,19 @@ seven SonarCloud issues and the three review findings; its checks pass.
 
 ## Next steps
 
-1. Wait for the owner to merge PR #4.
-2. After the merge: `/validate-delivery`, then `/summarize-delivery`.
+1. Rebuild the run image and run the live acceptance stage once the owner
+   says how.
+2. Give the owner the SonarCloud accept list; re-run CI after they act.
+3. Wait for the owner to merge PR #4.
+4. After the merge: `/validate-delivery`, then `/summarize-delivery`.
 
 ## Open items for the owner
 
 - The first npm publish was to wait until D1 passes. It now passes. `core/`
   is still `0.0.0`, so a merge publishes nothing to npm until the owner says
   go.
-- Nine lapses (l1 to l9) are filed and await adjudication.
+- Nine lapses (l1 to l9) are filed and await adjudication; l10 to l12 are
+  approved.
 - Whether to delete the unused `codex`, `claude-code` and `claude-npm`
   providers on the OpenShell gateway.
 
