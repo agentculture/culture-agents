@@ -285,8 +285,9 @@ is or how it works, update all five prompt files so they don't drift.
   included; lockfiles are excluded). Nothing credential-shaped or
   non-localhost goes in tracked files.
 - **Deploy**: a push to `main` publishes npm with provenance, then PyPI via
-  Trusted Publishing (`.github/workflows/publish.yml`). The npm step is
-  skipped while `core/package.json` is `0.0.0`. PRs do a TestPyPI dry-run.
+  Trusted Publishing (`.github/workflows/publish.yml`). `core/package.json`
+  carries the same version as `pyproject.toml`; the workflow fails when they
+  differ. PRs do an npm dry-run and a TestPyPI dry-run.
 - Keep docs grounded in what is on disk. Mark anything ahead of reality
   `(planned)`.
 
