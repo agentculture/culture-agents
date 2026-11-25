@@ -191,8 +191,11 @@ and deprecation. D2 to D6 are not built.
   dependencies; any other needs the owner's approval. `teken` and `pyyaml` are
   dev-only.
 - **Error/output contract** — handlers raise `CliError` (`cli/_errors.py`).
-  `_dispatch` wraps any other exception so no traceback leaks, and argparse
-  errors route through the same path. `cli/_output.py` writes results to
+  agentfront's `App.run_cli` wraps any other exception so no traceback leaks,
+  and argparse errors route through the same path. Every core response is
+  validated against the contract schemas (`cli/_contract.py`); an invalid one
+  is an `internal` error, exit 2. Text mode shows control characters in
+  run-originated text as visible escapes (`cli/_text.py`). `cli/_output.py` writes results to
   stdout and diagnostics to stderr, never mixed. Every command supports
   `--json`. Exit codes: `0` ok, `1` user error, `2` environment error (for
   example the core is not running), `3+` reserved. `teken cli doctor .
