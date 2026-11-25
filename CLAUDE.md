@@ -27,8 +27,12 @@ single-host control plane without chat. On disk:
   baseline (`whoami`, `learn`, `explain`, `overview`, `doctor`, `cli
   overview`);
 - the D0 record in `docs/d0/` (inventory, compatibility matrix, decisions,
-  probe results), the confirmed spec in `docs/specs/` and plan in
-  `docs/plans/`.
+  probe results, the D1 acceptance record), the confirmed spec in
+  `docs/specs/` and plan in `docs/plans/`;
+- the D1 acceptance suite in `tests/acceptance/d1/`: a mock stage that always
+  runs (real CLI, real core, stub harness) and an opt-in live stage
+  (`CULTURE_AGENTS_ACCEPTANCE_LIVE=1`) that reports NOT VERIFIED when a
+  harness is unavailable.
 
 **Not built:** D2 (fleet and recovery) through D6, `pause`, `resume`,
 `answer`, `artifacts`, Codex, and any chat integration. Nothing is archived
@@ -51,6 +55,7 @@ uv sync                                   # install
 uv run pytest -n auto                     # full suite (what culture.yaml's gate runs)
 uv run pytest tests/test_cli.py -k whoami # single file / single test
 bash .claude/skills/run-tests/scripts/test.sh --ci   # mimic CI: -n auto + coverage xml
+uv run pytest tests/acceptance/d1         # D1 acceptance: the real CLI against the built core (build core/ first)
 uv run agents whoami                      # the CLI entry point is `agents`
 uv run agents doctor --json
 ```

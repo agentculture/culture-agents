@@ -109,6 +109,7 @@ cd core && npm ci                         # install the core from the lockfile
 npm run build && npm run typecheck        # in core/: tsc, then type-check
 npm run lint && npm test                  # in core/: eslint, then build + node --test
 node dist/src/daemon/main.js              # in core/, after build: start the core daemon
+uv run pytest tests/acceptance/d1         # D1 acceptance: real CLI against the built core (docs/d0/d1-acceptance.md)
 uv run black --check culture_agents tests && uv run isort --check-only culture_agents tests
 uv run flake8 culture_agents tests && uv run bandit -c pyproject.toml -r culture_agents
 markdownlint-cli2 "**/*.md" "#**/node_modules" "#.local" "#.claude/skills" "#.teken" "#spikes"

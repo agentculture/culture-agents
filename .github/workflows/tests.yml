@@ -29,7 +29,21 @@ jobs:
 
       - run: uv sync
 
+      # The D1 acceptance suite (tests/acceptance/d1) drives the real CLI
+      # against the real core daemon, so the core is built first. Its mock
+      # stage must run here: CULTURE_AGENTS_ACCEPTANCE_REQUIRE turns a missing
+      # build into a failure. The live stage stays NOT VERIFIED on a runner.
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      - name: build the core for the acceptance suite
+        working-directory: core
+        run: npm ci && npm run build
+
       - run: uv run pytest -n auto --cov=culture_agents --cov-report=xml:coverage.xml --cov-report=term -v
+        env:
+          CULTURE_AGENTS_ACCEPTANCE_REQUIRE: "1"
 
       - name: SonarCloud Scan
         if: env.SONAR_TOKEN != ''
