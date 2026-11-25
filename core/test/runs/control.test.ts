@@ -119,10 +119,48 @@ test("steer on a harness that declares it unsupported is refused, recorded, and 
   assert.equal(refusals.length, 1);
   assert.equal(refusals[0]?.kind, "steer");
   assert.equal(refusals[0]?.error?.capability, "steer");
-  // A pause is refused by the server (deferred) whatever the harness says.
-  assert.equal((await refused(env, "POST", `/v1/runs/${run.id}/pause`, "unsupported", { caller: CALLER })).capability, "pause");
   await ok(env, "POST", `/v1/runs/${run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
   assert.equal((await waitRun(env, run.id, (r) => r.terminal, "terminal")).state, "cancelled");
+});
+
+test("pause, resume and answer are refused whatever the harness says, and recorded on a run this core controls", async (t) => {
+  const env = makeEnv(t, [HANG]);
+  await startDaemon(t, env);
+  const run = await submit(env, "fake", env.repoA);
+  await waitRun(env, run.id, (r) => r.state === "running" && r.cursor >= 3, "running");
+  const bodies = {
+    pause: { caller: CALLER, idempotency_key: "pause-1" },
+    resume: { caller: CALLER },
+    answer: { caller: CALLER, question_id: "q1", answer: "yes" },
+  } as const;
+  const before = await events(env, run.id);
+  for (const [verb, body] of Object.entries(bodies)) {
+    assert.equal((await refused(env, "POST", `/v1/runs/${run.id}/${verb}`, "unsupported", body)).capability, verb);
+  }
+  // A refusal before step 4 (here: the body) is returned to the caller only.
+  await refused(env, "POST", `/v1/runs/${run.id}/pause`, "invalid", { nope: true });
+  const log = await events(env, run.id);
+  const recorded = log.slice(before.length);
+  assert.deepEqual(recorded.map((e) => e.kind), ["run.refused", "run.refused", "run.refused"]);
+  const actions = recorded.map((e) => (e.data as RefusedData).action);
+  assert.deepEqual(actions.map((a) => [a.kind, a.outcome, a.error?.code, a.error?.capability]), [
+    ["pause", "refused", "unsupported", "pause"],
+    ["resume", "refused", "unsupported", "resume"],
+    ["answer", "refused", "unsupported", "answer"],
+  ]);
+  assert.equal(actions[0]?.idempotency_key, "pause-1");
+  assert.deepEqual(actions[0]?.caller, CALLER);
+  assert.ok(actions.every((a) => a.run_id === run.id && a.id.startsWith(`${AGENT}.act.`)));
+  assert.equal((await getRun(env, run.id)).state, "running", "a refusal changes nothing about the run");
+
+  // A terminal run: still refused, and nothing more is written.
+  await ok(env, "POST", `/v1/runs/${run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
+  await waitRun(env, run.id, (r) => r.terminal, "terminal");
+  const ended = await events(env, run.id);
+  for (const [verb, body] of Object.entries(bodies)) {
+    assert.equal((await refused(env, "POST", `/v1/runs/${run.id}/${verb}`, "unsupported", body)).capability, verb);
+  }
+  assert.equal((await events(env, run.id)).length, ended.length);
 });
 
 test("attach replays from a cursor, follows live events, and closes after the terminal state", async (t) => {

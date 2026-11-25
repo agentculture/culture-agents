@@ -9,6 +9,7 @@ import {
   type AgentList,
   type CancelRequest,
   type Capabilities,
+  type ErrorBody,
   type EventPage,
   type Run,
   type RunEvent,
@@ -18,7 +19,7 @@ import {
   type SubmitRequest,
 } from "../../src/contract/index.js";
 import { ControlError, notFound } from "../../src/daemon/errors.js";
-import type { RunListQuery, RunService } from "../../src/daemon/ports.js";
+import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../../src/daemon/ports.js";
 
 // dist/test/daemon -> repo root is four levels up.
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "contract", "fixtures");
@@ -34,6 +35,8 @@ export const stream = (name: string): RunEvent[] =>
 export class FakeRunService implements RunService {
   readonly calls: string[] = [];
   readonly submitted: SubmitRequest[] = [];
+  /** Every refusal the server asked this service to record. */
+  readonly refusals: { runId: string; kind: DeferredKind; caller: DeferredRequest["caller"]; error: ErrorBody }[] = [];
   private readonly runs = new Map<string, Run>();
   private readonly logs = new Map<string, RunEvent[]>();
   private readonly wake = new Set<() => void>();
@@ -134,6 +137,12 @@ export class FakeRunService implements RunService {
   cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse["action"]> {
     this.calls.push("cancel");
     return Promise.resolve({ ...fixture<AcceptedResponse>("valid/control-action/accepted_response.cancel.json").action, run_id: runId, caller: request.caller });
+  }
+
+  recordRefusal(runId: string, kind: DeferredKind, request: DeferredRequest, error: ErrorBody): Promise<void> {
+    this.calls.push("recordRefusal");
+    this.refusals.push({ runId, kind, caller: request.caller, error });
+    return Promise.resolve();
   }
 
   listAgents(): Promise<AgentList> {

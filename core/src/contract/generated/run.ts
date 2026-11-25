@@ -30,7 +30,7 @@ export type Run = {
   live_control: boolean;
   /** PID of the run's worker process, or null once no worker is known. */
   worker_pid: number | null;
-  /** Host branch holding the run's commits, `runs/<run_id>`, or null when there are none yet. */
+  /** Host branch holding the run's commits, `runs/<run_id>`, or null when there are none yet. At most 132 characters: `runs/` and a run id of at most 127. */
   branch: string | null;
   extension?: Extension;
 };

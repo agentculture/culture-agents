@@ -13,7 +13,7 @@ import {
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
-import type { RunService } from "./ports.js";
+import type { DeferredRequest, RunService } from "./ports.js";
 import { streamAttach } from "./sse.js";
 
 export interface RouteContext {
@@ -119,11 +119,16 @@ function parseIntParam(url: URL, name: string, min: number, max: number, fallbac
   return Number(raw);
 }
 
+/** The attach cursor: `after`, else the `Last-Event-ID` header, else 0. A header that is not a cursor is `invalid`, never 0. */
 function optionalCursor(url: URL, req: IncomingMessage): number {
   if (url.searchParams.has("after")) return parseIntParam(url, "after", 0, Number.MAX_SAFE_INTEGER, 0);
-  const last = req.headers["last-event-id"];
-  if (typeof last === "string" && /^\d+$/.test(last)) return Number(last);
-  return 0;
+  const raw = req.headers["last-event-id"];
+  if (raw === undefined) return 0;
+  const last = Array.isArray(raw) ? raw.join(",") : raw;
+  if (!/^\d+$/.test(last) || Number(last) > Number.MAX_SAFE_INTEGER) {
+    throw invalid("The Last-Event-ID header must be an event cursor (an integer of 0 or more).", "Last-Event-ID");
+  }
+  return Number(last);
 }
 
 /** Everything the control routes check before the service is asked: id format is done; run must exist. */
@@ -236,9 +241,18 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
     default: {
       const deferred = DEFERRED[match.id as keyof typeof DEFERRED];
       if (!deferred) throw new ControlError("internal", "Route table and handlers disagree.");
-      await requireRun(ctx, p["run_id"] ?? "");
-      checkBody(deferred[1], await readJsonBody(req));
-      throw unsupported(deferred[0], `The ${deferred[0]} action is not supported in this API version.`);
+      const runId = p["run_id"] ?? "";
+      await requireRun(ctx, runId);
+      const body = await readJsonBody(req);
+      checkBody(deferred[1], body);
+      const refusal = unsupported(deferred[0], `The ${deferred[0]} action is not supported in this API version.`);
+      // README: a refusal at step 4 against a live run this core controls is also written to its log.
+      try {
+        await svc.recordRefusal(runId, deferred[0], body as DeferredRequest, refusal.body);
+      } catch (e) {
+        process.stderr.write(`culture-agents core: could not record the refused ${deferred[0]} on run ${runId}: ${e instanceof Error ? e.message : String(e)}\n`);
+      }
+      throw refusal;
     }
   }
 }

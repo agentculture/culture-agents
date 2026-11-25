@@ -1,10 +1,11 @@
 /** A run whose stored state cannot be read is reported as such; it is never treated as absent. */
 import assert from "node:assert/strict";
-import { appendFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 
-import { HANG, makeEnv, processExists, refused, startDaemon, submit, submitBody, waitRun } from "./support.js";
+import type { StateData } from "../../src/contract/index.js";
+import { CALLER, HANG, attach, events, getRun, makeEnv, ok, processExists, refused, startDaemon, submit, submitBody, waitRun } from "./support.js";
 
 test("an active run with a corrupt log keeps its repository busy and is not reported as missing", async (t) => {
   const env = makeEnv(t, [HANG]);
@@ -24,4 +25,34 @@ test("an active run with a corrupt log keeps its repository busy and is not repo
   assert.match(second.message, /may be in use/);
   // Another repository is unaffected: the unreadable run's record names its own repository.
   assert.equal((await submit(env, "fake", env.repoB)).state, "queued");
+});
+
+test("a live worker whose liveness evidence cannot be read is never settled as unknown", async (t) => {
+  const env = makeEnv(t, [HANG]);
+  await startDaemon(t, env);
+  const run = await submit(env, "fake", env.repoA);
+  await waitRun(env, run.id, (r) => r.state === "running" && r.cursor >= 3, "running");
+  const stream = await attach(env, run.id, 0);
+  // The identity file exists but reading it fails (EISDIR): that is not "no worker".
+  const identity = join(env.stateDir, "runs", run.id, "worker.json");
+  const saved = readFileSync(identity, "utf8");
+  rmSync(identity);
+  mkdirSync(identity);
+
+  const shown = await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
+  assert.match(shown.message, /liveness cannot be established/);
+  await refused(env, "POST", `/v1/runs/${run.id}/cancel`, "internal", { caller: CALLER });
+  await refused(env, "POST", "/v1/runs", "internal", submitBody("fake", env.repoA));
+  await new Promise((resolve) => setTimeout(resolve, 600)); // several orphan checks of the attach follower
+  assert.ok(processExists(run.worker_pid as number), "the worker is still running");
+
+  rmSync(identity, { recursive: true });
+  writeFileSync(identity, saved, { mode: 0o600 });
+  assert.equal((await getRun(env, run.id)).state, "running");
+  assert.deepEqual((await events(env, run.id)).filter((e) => e.kind === "run.state").map((e) => (e.data as StateData).to), ["queued", "running"]);
+  // The stream stayed open through the failed checks and still ends with the real outcome.
+  await ok(env, "POST", `/v1/runs/${run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
+  await stream.closed;
+  assert.equal((stream.events.at(-1)?.data as StateData).to, "cancelled");
+  assert.deepEqual(stream.events, await events(env, run.id));
 });

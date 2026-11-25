@@ -149,6 +149,26 @@ test("built ids validate against the schemas", () => {
   assert.equal(validate("common#run_id", `${agent}.run.${"I".repeat(26)}`).ok, false, "Crockford excludes I");
 });
 
+test("the id helpers and the schemas agree on the length bounds: node 32, mesh id 96", () => {
+  const longest = `${"n".repeat(32)}-${"a".repeat(63)}`; // 96 characters
+  const cases: [id: string, ok: boolean][] = [
+    [longest, true],
+    [`${"n".repeat(33)}-culture-agents`, false], // node of 33
+    [`spark-${"a".repeat(91)}`, false], // 97 characters
+  ];
+  for (const [mesh, ok] of cases) {
+    assert.equal(parseMeshId(mesh) !== null, ok, `parseMeshId ${mesh}`);
+    assert.equal(validate("common#mesh_id", mesh).ok, ok, `mesh_id ${mesh}`);
+    assert.equal(isRunId(`${mesh}.run.${ULID}`), ok);
+    assert.equal(validate("common#run_id", `${mesh}.run.${ULID}`).ok, ok, `run_id ${mesh}`);
+    assert.equal(isSessionId(`${mesh}.ses.${ULID}`), ok);
+    assert.equal(validate("common#session_id", `${mesh}.ses.${ULID}`).ok, ok, `session_id ${mesh}`);
+    assert.equal(isActionId(`${mesh}.act.${ULID}`), ok);
+    assert.equal(validate("common#action_id", `${mesh}.act.${ULID}`).ok, ok, `action_id ${mesh}`);
+  }
+  assert.ok(validate("common#run_id", buildRunId(longest, ULID)).ok);
+});
+
 test("a run's host branch is runs/<run_id>", () => {
   const id = buildRunId("spark-culture-agents", ULID);
   assert.equal(runBranch(id), `runs/${id}`);

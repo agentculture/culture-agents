@@ -39,14 +39,38 @@ interface ProcStat {
   startTime: string;
 }
 
-/** Parse `/proc/<pid>/stat`; null when the process does not exist or `/proc` is unavailable. */
-export function readProcStat(pid: number): ProcStat | null {
-  let raw: string;
-  try {
-    raw = readFileSync(`/proc/${pid}/stat`, "utf8");
-  } catch {
-    return null;
+/**
+ * The liveness evidence could not be read (for example EMFILE, ENFILE, ENOMEM, EIO, EACCES), so the
+ * worker is neither known alive nor known dead. Callers must not settle the run on this read: a
+ * request fails, and a follower checks again on its next tick.
+ */
+export class LivenessUnknownError extends Error {
+  override readonly name = "LivenessUnknownError";
+  constructor(what: string, cause: unknown) {
+    super(`worker liveness cannot be established: ${what}: ${cause instanceof Error ? cause.message : String(cause)}`, { cause });
   }
+}
+
+/** Error codes that mean "this file or process does not exist" (a `/proc` entry that vanishes mid-read gives ESRCH). */
+const ABSENT = new Set(["ENOENT", "ESRCH", "ENOTDIR"]);
+
+/** Read a file; null only when it does not exist. Any other failure is `LivenessUnknownError`. */
+function readIfPresent(path: string, what: string): string | null {
+  try {
+    return readFileSync(path, "utf8");
+  } catch (err) {
+    if (ABSENT.has((err as NodeJS.ErrnoException).code ?? "")) return null;
+    throw new LivenessUnknownError(what, err);
+  }
+}
+
+/**
+ * Parse `/proc/<pid>/stat`; null when the process does not exist or `/proc` is unavailable. A read
+ * that fails for any other reason throws `LivenessUnknownError`: it says nothing about the process.
+ */
+export function readProcStat(pid: number): ProcStat | null {
+  const raw = readIfPresent(`/proc/${pid}/stat`, `reading /proc/${pid}/stat`);
+  if (raw === null) return null;
   // comm (field 2) is parenthesised and may contain spaces or parens: split after the last ')'.
   const rest = raw.slice(raw.lastIndexOf(")") + 2).split(" ");
   // rest[0] is field 3 (state); field 22 (starttime) is rest[19].
@@ -74,19 +98,26 @@ export function writeWorkerIdentity(dir: string, identity: WorkerIdentity): void
   atomicWriteJson(runFile(dir, "worker"), identity, true);
 }
 
+/**
+ * The recorded worker; null when none was recorded (no `worker.json`) or the file does not hold a
+ * worker identity. A file that exists but cannot be read throws `LivenessUnknownError`.
+ */
 export function readWorkerIdentity(dir: string): WorkerIdentity | null {
+  const text = readIfPresent(runFile(dir, "worker"), "reading the worker identity");
+  if (text === null) return null;
+  let value: Partial<WorkerIdentity> | null;
   try {
-    const value = JSON.parse(readFileSync(runFile(dir, "worker"), "utf8")) as Partial<WorkerIdentity>;
-    if (!Number.isInteger(value.pid) || (value.pid as number) < 1) return null;
-    return {
-      pid: value.pid as number,
-      start_time: typeof value.start_time === "string" ? value.start_time : null,
-      boot_id: typeof value.boot_id === "string" ? value.boot_id : null,
-      started_at: typeof value.started_at === "string" ? value.started_at : "",
-    };
+    value = JSON.parse(text) as Partial<WorkerIdentity> | null;
   } catch {
-    return null;
+    return null; // written atomically, so never a half-written file: this is not a worker record
   }
+  if (value === null || typeof value !== "object" || !Number.isInteger(value.pid) || (value.pid as number) < 1) return null;
+  return {
+    pid: value.pid as number,
+    start_time: typeof value.start_time === "string" ? value.start_time : null,
+    boot_id: typeof value.boot_id === "string" ? value.boot_id : null,
+    started_at: typeof value.started_at === "string" ? value.started_at : "",
+  };
 }
 
 /** Record a heartbeat (not fsynced: it is evidence for a live process, not for a crash). */
@@ -94,13 +125,10 @@ export function writeHeartbeat(dir: string, clock: () => number = Date.now): voi
   atomicWrite(runFile(dir, "heartbeat"), `${nowIso(clock)}\n`);
 }
 
+/** The last heartbeat; null when none was written. An unreadable heartbeat throws `LivenessUnknownError`. */
 export function readHeartbeat(dir: string): string | null {
-  try {
-    const text = readFileSync(runFile(dir, "heartbeat"), "utf8").trim();
-    return text === "" ? null : text;
-  } catch {
-    return null;
-  }
+  const text = readIfPresent(runFile(dir, "heartbeat"), "reading the worker heartbeat")?.trim() ?? "";
+  return text === "" ? null : text;
 }
 
 function pidExists(pid: number): boolean {
@@ -118,7 +146,11 @@ export interface LivenessOptions {
   clock?: () => number;
 }
 
-/** Decide whether the run's recorded worker is alive now. */
+/**
+ * Decide whether the run's recorded worker is alive now. `alive: false` is returned only on
+ * evidence that the worker is gone; when the evidence cannot be read this throws
+ * `LivenessUnknownError` instead, so a transient read failure never reads as a dead worker.
+ */
 export function checkLiveness(dir: string, options: LivenessOptions = {}): Liveness {
   const identity = readWorkerIdentity(dir);
   const heartbeat_at = readHeartbeat(dir);

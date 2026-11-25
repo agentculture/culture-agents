@@ -11,7 +11,7 @@ import { assertValid, isRunId, isTerminal, type Run, type RunEvent, type RunId, 
 import { deriveRun, ORPHANED_REASON, type DerivedRun } from "./derive.js";
 import { EventLogWriter, checkNext, readLog, type LogTail } from "./event-log.js";
 import { FILE_MODE, atomicWriteJson, ensureDir, fsyncDir, nowIso, runDir, runFile, runsDir } from "./files.js";
-import { checkLiveness, type Liveness, type LivenessOptions } from "./liveness.js";
+import { LivenessUnknownError, checkLiveness, type Liveness, type LivenessOptions } from "./liveness.js";
 
 /** Create a run's directory (0700) and its record (0600). Ids are never reused: an existing run is an error. */
 export function createRun(stateDir: string, record: Run): string {
@@ -56,7 +56,8 @@ export interface ShownRun extends DerivedRun {
 
 /**
  * Append `run.state` -> `unknown` to an orphaned run's log. Re-checks first: it writes only when
- * the log has no terminal event and the worker is not alive. Returns the event, or null.
+ * the log has no terminal event and the worker is not alive. Returns the event, or null. Throws
+ * `LivenessUnknownError` (and writes nothing) when the worker's liveness cannot be read.
  */
 export function settleOrphan(dir: string, runId: RunId, options: LivenessOptions = {}): RunEvent | null {
   const liveness = checkLiveness(dir, options);
@@ -70,7 +71,11 @@ export function settleOrphan(dir: string, runId: RunId, options: LivenessOptions
   }
 }
 
-/** The derived run for one run directory; null when the run is not established (no event 1). */
+/**
+ * The derived run for one run directory; null when the run is not established (no event 1). Throws
+ * when the record, the log or the worker's liveness cannot be read: the caller reports the run as
+ * unreadable for that request, and nothing is settled.
+ */
 export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | null {
   const record = readRecord(dir);
   let liveness = checkLiveness(dir, options);
@@ -156,8 +161,8 @@ export interface FollowOptions extends LivenessOptions {
 export async function* followEvents(dir: string, runId: RunId, after = 0, options: FollowOptions = {}): AsyncGenerator<RunEvent> {
   const pollMs = options.pollMs ?? 20;
   const orphanCheckMs = options.orphanCheckMs ?? 250;
+  /** Offset just past the last complete line consumed; a partial final line is re-read, never kept. */
   let pos = 0;
-  let pending = Buffer.alloc(0);
   let tail: LogTail = { cursor: 0, state: null };
   let lastOrphanCheck = Date.now();
   const path = runFile(dir, "events");
@@ -171,7 +176,6 @@ export async function* followEvents(dir: string, runId: RunId, after = 0, option
           chunk = Buffer.alloc(size - pos);
           const { bytesRead } = await fh.read(chunk, 0, chunk.length, pos);
           chunk = chunk.subarray(0, bytesRead);
-          pos += bytesRead;
         }
       } finally {
         await fh.close();
@@ -179,24 +183,28 @@ export async function* followEvents(dir: string, runId: RunId, after = 0, option
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "ENOENT") throw err;
     }
-    pending = Buffer.concat([pending, chunk]);
+    // Only newline-terminated lines count. A partial final line is a write in progress or a torn
+    // append that the log's writer will truncate, so it is read again from its start next time.
+    const complete = chunk.subarray(0, chunk.lastIndexOf(0x0a) + 1);
+    pos += complete.length;
+    let from = 0;
     let nl: number;
-    while ((nl = pending.indexOf(0x0a)) >= 0) {
-      const line = pending.subarray(0, nl).toString("utf8");
-      pending = pending.subarray(nl + 1);
+    while ((nl = complete.indexOf(0x0a, from)) >= 0) {
+      const line = complete.subarray(from, nl).toString("utf8");
+      from = nl + 1;
       const next = checkNext(runId, tail, JSON.parse(line), tail.cursor + 1);
       tail = next.tail;
       if (next.event.cursor > after) yield next.event;
       if (tail.state !== null && isTerminal(tail.state)) return;
     }
-    if (chunk.length === 0) {
+    if (complete.length === 0) {
       if (orphanCheckMs > 0 && Date.now() - lastOrphanCheck >= orphanCheckMs) {
         lastOrphanCheck = Date.now();
-        // A torn tail left by a dead worker is dropped by the writer; restart reading from the
-        // last complete line so the settled event is read cleanly.
-        if (settleOrphan(dir, runId, options) !== null && pending.length > 0) {
-          pos -= pending.length;
-          pending = Buffer.alloc(0);
+        try {
+          settleOrphan(dir, runId, options);
+        } catch (err) {
+          // The worker is not known to be dead, so nothing is settled; the next tick checks again.
+          if (!(err instanceof LivenessUnknownError)) throw err;
         }
       }
       try {

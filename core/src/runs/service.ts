@@ -17,6 +17,7 @@ import {
   type AgentList,
   type CancelRequest,
   type Capabilities,
+  type ErrorBody,
   type EventPage,
   type Run,
   type RunEvent,
@@ -27,14 +28,14 @@ import {
 } from "../contract/index.js";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { ControlError, notFound, unavailable, unsupported } from "../daemon/errors.js";
-import type { RunListQuery, RunService } from "../daemon/ports.js";
+import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../daemon/ports.js";
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
 import { followEvents, readEvents } from "../store/run-store.js";
 import { WorkerSpawnError, spawnWorker, type WorkerControl } from "../worker/spawn.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
-import { control, type ControlKind } from "./control.js";
+import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
 import type { HarnessCatalog } from "./ports.js";
 import { activeRunFor, readRun, resultOf, scanRuns, unreadableRunHolding, UnreadableRunError, type ScanOptions } from "./scan.js";
 
@@ -225,6 +226,18 @@ export class StoreRunService implements RunService {
     const capabilities = entry ? await entry.capabilities() : null;
     const worker = run.live_control ? (this.controls.get(run.id) ?? null) : null;
     return control(kind, { run, capabilities, worker, now: this.now }, request);
+  }
+
+  /** Step 4, decided by the server: write the refusal to the log of a live run this core controls. Never rejects. */
+  async recordRefusal(runId: string, kind: DeferredKind, request: DeferredRequest, error: ErrorBody): Promise<void> {
+    try {
+      const run = this.read(runId);
+      if (run === null) return;
+      const worker = run.live_control ? (this.controls.get(run.id) ?? null) : null;
+      await recordDeferredRefusal(kind, { run, worker, now: this.now }, request, error);
+    } catch {
+      // Nothing was recorded (the run cannot be read now); the caller still gets the refusal.
+    }
   }
 
   async listAgents(): Promise<AgentList> {

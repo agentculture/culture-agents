@@ -59,14 +59,16 @@ sets `additionalProperties: false`, except the one opaque `extension` object
 - **Mesh id**, written `<node>-<agent>`, for example `spark-culture-agents`.
   `<node>` is `[a-z0-9]{1,32}` and has no hyphen, so the first hyphen always
   ends the node. `<agent>` is the culture.yaml `suffix`. Agents and principals
-  both use this form. The core reads `<node>` from the local `server.yaml` file and
-  must reject a name that does not match the pattern. Reading the file needs
-  no running chat server, and validating a payload needs no network.
+  both use this form. A mesh id is at most 96 characters. The core reads
+  `<node>` from the local `server.yaml` file and must reject a name that does
+  not match the pattern. Reading the file needs no running chat server, and
+  validating a payload needs no network.
 - **Run id**, written `<node>-<agent>.run.<ULID>`. The agent part is the
   executing agent's mesh id. **Session id** is `<node>-<agent>.ses.<ULID>` and
   **action id** is `<node>-<agent>.act.<ULID>`, using the run's agent. Ids are
-  assigned by the core, never by the client, and are never reused.
-- A run's host branch is `runs/<run_id>`.
+  assigned by the core, never by the client, and are never reused. Each is at
+  most 127 characters: a mesh id, then the 31 characters of `.run.<ULID>`.
+- A run's host branch is `runs/<run_id>`, at most 132 characters.
 - `agent.id` must equal `<node>-<suffix>`. A run's `id` and `session_id` must
   start with its `agent_id` followed by `.`. The tests check these rules, and
   the core must keep them.
@@ -284,8 +286,10 @@ After a restart, the core rebuilds every run from disk:
     the stream is idle, the core sends a comment line `: keepalive` at least
     every 15 seconds.
   - If `after` is absent, the core uses the `Last-Event-ID` header. If both
-    are absent, it uses 0. To reconnect, a client attaches again with
-    `after` set to the last cursor it received.
+    are absent, it uses 0. A `Last-Event-ID` that is not an integer of 0 or
+    more gets `invalid` with `field: "Last-Event-ID"`. It is never read as 0.
+    To reconnect, a client attaches again with `after` set to the last cursor
+    it received.
   - Errors that happen before the stream starts are ordinary JSON error
     responses. If the stream breaks after it starts, the client reconnects.
 - **Logs** (`GET .../events?after=N&limit=M`): returns events with cursor
@@ -427,7 +431,7 @@ The CLI also maps these cases, which produce no error body:
   `run.json`.
 - An invalid fixture's label starts with the one JSON Schema keyword it breaks
   (`required`, `pattern`, `const`, `enum`, `type`, `additionalProperties`,
-  `minItems`, `maxItems`, `minimum`, `minLength`, `not`), followed by the
+  `minItems`, `maxItems`, `minimum`, `minLength`, `maxLength`, `not`), followed by the
   reason. Its top-level validation errors all carry that keyword. The only
   exception is an `anyOf` echo, which appears where a property such as event
   `data` is an `anyOf`.
