@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] - 2026-11-25
+
+### Added
+
+- The D1 control plane: a TypeScript core daemon (`core/`, npm package `@culture.dev/agents`, not yet published) that serves the control API over a Unix socket, stores runs on disk with one detached worker process per run, and runs harnesses inside an NVIDIA OpenShell sandbox. A run's repository enters the sandbox as a git bundle and its commits return to a `runs/<id>` branch; the host checkout is never written.
+- Two harnesses: Claude Code through the Vercel AI SDK adapter and OpenCode v2 through its own server API, plus a stub driver for tests. Each declares its capabilities; `pause`, `resume` and `answer` are refused as `unsupported`. Codex is not verified.
+- `contract/`: JSON Schemas (API version 1.0) for agents, runs, sessions, events, control actions, capabilities, errors and the allow-list, with fixtures tested from both the core and the CLI.
+- `agents agents list|status` and `agents runs submit|list|show|attach|steer|cancel|logs|result`, clients of the core. Dispatch is denied unless an allow-list entry names the agent, harness and repository.
+- `docs/d0/`: the consumer inventory, compatibility matrix, decision record, probe results, the D1 acceptance record and the boundary audit; the confirmed spec and plan under `docs/specs/` and `docs/plans/`.
+- `tests/acceptance/d1/`: the real CLI against the real core. A mock stage always runs; an opt-in live stage covers Claude Code and OpenCode v2 and reports NOT VERIFIED when a harness is unavailable.
+- CI: a `core` job (build, type-check, lint, tests from the lockfile), the core build before the Python tests, a secret scan and the 400-line cap extended to TypeScript.
+
+### Changed
+
+- The CLI is built on `agentfront`, the one approved runtime dependency, so `learn`, `explain` and `overview` describe exactly the registered verbs.
+- The publish workflow publishes npm with provenance before PyPI, and skips npm while `core/package.json` is `0.0.0`.
+- All five prompt files describe the D1 slice.
+
 ## [0.12.0] - 2026-11-21
 
 ### Added
