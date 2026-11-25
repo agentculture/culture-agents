@@ -17,10 +17,10 @@
       "pattern": "^[a-z0-9_]+(-[a-z0-9_]+)*$"
     },
     "mesh_id": {
-      "description": "A mesh identity in `<node>-<agent>` form, used for agents and for principals (operators and agents).",
+      "description": "A mesh identity in `<node>-<agent>` form, used for agents and for principals (operators and agents). The node is 1 to 32 characters and the whole id at most 96.",
       "type": "string",
       "maxLength": 96,
-      "pattern": "^[a-z0-9]+-[a-z0-9_]+(-[a-z0-9_]+)*$"
+      "pattern": "^[a-z0-9]{1,32}-[a-z0-9_]+(-[a-z0-9_]+)*$"
     },
     "ulid": {
       "description": "A ULID: 26 Crockford base32 characters, uppercase.",
@@ -28,19 +28,22 @@
       "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
     },
     "run_id": {
-      "description": "Stable run id: `<node>-<agent>.run.<ULID>`, where `<node>-<agent>` is the executing agent's mesh id.",
+      "description": "Stable run id: `<node>-<agent>.run.<ULID>`, where `<node>-<agent>` is the executing agent's mesh id. At most 127 characters: a mesh id of at most 96, then the 31 of `.run.<ULID>`.",
       "type": "string",
-      "pattern": "^[a-z0-9]+-[a-z0-9_]+(-[a-z0-9_]+)*\\.run\\.[0-9A-HJKMNP-TV-Z]{26}$"
+      "maxLength": 127,
+      "pattern": "^[a-z0-9]{1,32}-[a-z0-9_]+(-[a-z0-9_]+)*\\.run\\.[0-9A-HJKMNP-TV-Z]{26}$"
     },
     "session_id": {
-      "description": "Stable session id: `<node>-<agent>.ses.<ULID>`.",
+      "description": "Stable session id: `<node>-<agent>.ses.<ULID>`. At most 127 characters: a mesh id of at most 96, then the 31 of `.ses.<ULID>`.",
       "type": "string",
-      "pattern": "^[a-z0-9]+-[a-z0-9_]+(-[a-z0-9_]+)*\\.ses\\.[0-9A-HJKMNP-TV-Z]{26}$"
+      "maxLength": 127,
+      "pattern": "^[a-z0-9]{1,32}-[a-z0-9_]+(-[a-z0-9_]+)*\\.ses\\.[0-9A-HJKMNP-TV-Z]{26}$"
     },
     "action_id": {
-      "description": "Stable control-action id: `<node>-<agent>.act.<ULID>`, using the target run's agent.",
+      "description": "Stable control-action id: `<node>-<agent>.act.<ULID>`, using the target run's agent. At most 127 characters: a mesh id of at most 96, then the 31 of `.act.<ULID>`.",
       "type": "string",
-      "pattern": "^[a-z0-9]+-[a-z0-9_]+(-[a-z0-9_]+)*\\.act\\.[0-9A-HJKMNP-TV-Z]{26}$"
+      "maxLength": 127,
+      "pattern": "^[a-z0-9]{1,32}-[a-z0-9_]+(-[a-z0-9_]+)*\\.act\\.[0-9A-HJKMNP-TV-Z]{26}$"
     },
     "harness_id": {
       "description": "Harness identifier, a free lowercase string (for example `claude-code`, `opencode`). Deliberately not an enum.",

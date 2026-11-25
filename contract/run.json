@@ -107,12 +107,13 @@
       "minimum": 1
     },
     "branch": {
-      "description": "Host branch holding the run's commits, `runs/<run_id>`, or null when there are none yet.",
+      "description": "Host branch holding the run's commits, `runs/<run_id>`, or null when there are none yet. At most 132 characters: `runs/` and a run id of at most 127.",
       "type": [
         "string",
         "null"
       ],
-      "pattern": "^runs/[a-z0-9]+-[a-z0-9_]+(-[a-z0-9_]+)*\\.run\\.[0-9A-HJKMNP-TV-Z]{26}$"
+      "maxLength": 132,
+      "pattern": "^runs/[a-z0-9]{1,32}-[a-z0-9_]+(-[a-z0-9_]+)*\\.run\\.[0-9A-HJKMNP-TV-Z]{26}$"
     },
     "extension": {
       "$ref": "common.json#/$defs/extension"

@@ -9,19 +9,19 @@ export type MeshNode = string;
 /** Agent suffix, the `<agent>` part of a `<node>-<agent>` identity (culture.yaml `suffix`). */
 export type Suffix = string;
 
-/** A mesh identity in `<node>-<agent>` form, used for agents and for principals (operators and agents). */
+/** A mesh identity in `<node>-<agent>` form, used for agents and for principals (operators and agents). The node is 1 to 32 characters and the whole id at most 96. */
 export type MeshId = string;
 
 /** A ULID: 26 Crockford base32 characters, uppercase. */
 export type Ulid = string;
 
-/** Stable run id: `<node>-<agent>.run.<ULID>`, where `<node>-<agent>` is the executing agent's mesh id. */
+/** Stable run id: `<node>-<agent>.run.<ULID>`, where `<node>-<agent>` is the executing agent's mesh id. At most 127 characters: a mesh id of at most 96, then the 31 of `.run.<ULID>`. */
 export type RunId = string;
 
-/** Stable session id: `<node>-<agent>.ses.<ULID>`. */
+/** Stable session id: `<node>-<agent>.ses.<ULID>`. At most 127 characters: a mesh id of at most 96, then the 31 of `.ses.<ULID>`. */
 export type SessionId = string;
 
-/** Stable control-action id: `<node>-<agent>.act.<ULID>`, using the target run's agent. */
+/** Stable control-action id: `<node>-<agent>.act.<ULID>`, using the target run's agent. At most 127 characters: a mesh id of at most 96, then the 31 of `.act.<ULID>`. */
 export type ActionId = string;
 
 /** Harness identifier, a free lowercase string (for example `claude-code`, `opencode`). Deliberately not an enum. */
