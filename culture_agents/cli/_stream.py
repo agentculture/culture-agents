@@ -51,6 +51,8 @@ if TYPE_CHECKING:
 
 _STREAM_TIMEOUT = 45.0  # the core sends a keepalive at least every 15 s
 _MAX_STALLED_RECONNECTS = 5
+# One stream line carries one event; the core never sends one near this size.
+_MAX_LINE_BYTES = 4 * 1024 * 1024
 _BACKOFF = (0.2, 0.5, 1.0, 2.0)  # seconds between reconnect attempts; the last one repeats
 _TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled", "timed_out", "unknown"})
 
@@ -198,9 +200,11 @@ def parse_sse(resp: http.client.HTTPResponse) -> Iterator[dict[str, Any]]:
     """
     data_lines: list[str] = []
     while True:
-        line = resp.readline()
+        line = resp.readline(_MAX_LINE_BYTES + 1)
         if not line:
             return  # EOF; a half-received message is dropped and replayed on reconnect
+        if len(line) > _MAX_LINE_BYTES:
+            raise _internal(f"the core sent a stream line over {_MAX_LINE_BYTES} bytes")
         text = line.decode("utf-8", "replace").rstrip("\r\n")
         if text == "":
             payload = "\n".join(data_lines)

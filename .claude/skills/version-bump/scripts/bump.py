@@ -98,7 +98,9 @@ def bump(version: str, part: str) -> str:
 def write_version(path: Path, old: str, new: str) -> None:
     """Replace old version with new in pyproject.toml."""
     text = path.read_text()
-    updated = text.replace(f'version = "{old}"', f'version = "{new}"', 1)
+    # Anchored like read_version, so an earlier look-alike string is never touched.
+    pattern = rf'^(version\s*=\s*"){re.escape(old)}(")'
+    updated = re.sub(pattern, rf"\g<1>{new}\g<2>", text, count=1, flags=re.MULTILINE)
     path.write_text(updated)
 
 

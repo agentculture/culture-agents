@@ -110,3 +110,17 @@ def test_this_repo_declares_the_core_package_as_mirrors() -> None:
     for mirror in config["mirror"]:
         assert (ROOT / mirror["path"]).is_file()
     assert config["placeholder"] == "0.0.0"
+
+
+def test_write_version_only_touches_the_anchored_version_line(tmp_path):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "bump_anchor", ".claude/skills/version-bump/scripts/bump.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    target = tmp_path / "pyproject.toml"
+    target.write_text('# was: version = "1.2.3"\n[project]\nversion = "1.2.3"\n')
+    module.write_version(target, "1.2.3", "1.3.0")
+    assert target.read_text() == '# was: version = "1.2.3"\n[project]\nversion = "1.3.0"\n'
