@@ -19,7 +19,8 @@ import { readCursorFile, readLog } from "../store/event-log.js";
 import { FILE_MODE, runDir, runFile, type RunFile } from "../store/files.js";
 import { checkLiveness, readWorkerIdentity, type Liveness } from "../store/liveness.js";
 import { createRun } from "../store/run-store.js";
-import { ControlUnavailableError, controlRequest, type ControlReply } from "./control.js";
+import { ControlUnavailableError, controlRequest, type ControlReply, type ControlRequest } from "./control.js";
+import { settleFromLog } from "./delivery.js";
 import type { DriverSelection } from "./driver.js";
 
 /** The compiled worker entry point. */
@@ -36,15 +37,25 @@ export class WorkerControl {
     return controlRequest(this.runDir, { op: "ping" }, this.timeoutMs);
   }
   steer(action: ActionRecord, message: string): Promise<ControlReply> {
-    return controlRequest(this.runDir, { op: "steer", action, message }, this.timeoutMs);
+    return this.deliver({ op: "steer", action, message }, "run.control");
   }
   cancel(action: ActionRecord, reason?: string): Promise<ControlReply> {
     const req = reason === undefined ? { op: "cancel" as const, action } : { op: "cancel" as const, action, reason };
-    return controlRequest(this.runDir, req, this.timeoutMs);
+    return this.deliver(req, "run.control");
   }
   /** Have the worker record a refusal the core decided (`run.refused`). */
   refuse(action: ActionRecord): Promise<ControlReply> {
-    return controlRequest(this.runDir, { op: "refuse", action }, this.timeoutMs);
+    return this.deliver({ op: "refuse", action }, "run.refused");
+  }
+
+  /** Send an action; with no reply, settle its outcome from the run's log (see `settleFromLog`). */
+  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused"): Promise<ControlReply> {
+    try {
+      return await controlRequest(this.runDir, request, this.timeoutMs);
+    } catch (err) {
+      if (err instanceof ControlUnavailableError) return settleFromLog(this.runDir, request.action, recordedAs, err);
+      throw err;
+    }
   }
 }
 
