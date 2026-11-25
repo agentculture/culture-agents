@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T00:51:52Z",
+  "updated": "2026-11-25T06:58:42Z",
   "claims": [
     {
       "id": "c1",
@@ -1664,7 +1664,7 @@
       "behavior": "The npm package @culture.dev/agents-core publishes with provenance before the PyPI publish starts, and a failed npm publish leaves nothing published to PyPI.",
       "source_text": "The TS core is published to npm as @culture.dev/agents-core, following embeddings-tumbler's publish workflow (npm provenance via id-token, PyPI publish waits for npm so a failed npm publish leaves nothing published).",
       "origin": "llm",
-      "status": "proposed"
+      "status": "rejected"
     },
     {
       "id": "o16",
@@ -1691,7 +1691,7 @@
       "behavior": "The npm package @culture.dev/agents publishes with provenance before the PyPI publish starts, and a failed npm publish leaves nothing published to PyPI.",
       "source_text": "The TS core is published to npm as @culture.dev/agents, following embeddings-tumbler's publish workflow (npm provenance via id-token, PyPI publish waits for npm so a failed npm publish leaves nothing published).",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ]
 }

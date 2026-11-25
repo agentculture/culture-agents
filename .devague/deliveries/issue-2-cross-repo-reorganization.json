@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-25T06:49:56Z",
+  "updated": "2026-11-25T06:58:36Z",
   "deviations": [
     {
       "id": "d1",
@@ -65,7 +65,7 @@
       "reason": "The chat servers are the owner's live mesh; stopping them is disruptive and was not authorized. Unprivileged user namespaces are disabled on this host, so the suite could not be run in an isolated process and network namespace either.",
       "affects": [],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 5
     }
