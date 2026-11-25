@@ -1,6 +1,6 @@
 {
   "name": "@culture.dev/agents",
-  "version": "0.0.0",
+  "version": "0.15.0",
   "description": "TypeScript core of the culture-agents control plane",
   "private": false,
   "type": "module",

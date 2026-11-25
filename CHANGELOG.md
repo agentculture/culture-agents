@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.0] - 2026-11-25
+
+### Added
+
+- The TypeScript core is released to npm as `@culture.dev/agents`, at the same version as the Python package. `core/` gains a README and the license file, which ship in the package.
+
 ## [0.14.2] - 2026-11-25
 
 ### Changed

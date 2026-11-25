@@ -131,9 +131,9 @@ from guildmaster instead.
 - **Every tracked Python and TypeScript file stays at or under 400 lines**
   (`spikes/` and vendored skills are exempt). Split modules before crossing
   the cap.
-- **Deploy**: pushing to `main` publishes npm (skipped while
-  `core/package.json` is `0.0.0`) and then PyPI via Trusted Publishing
-  (`.github/workflows/publish.yml`); PRs do a TestPyPI dry-run.
+- **Deploy**: pushing to `main` publishes npm and then PyPI via Trusted Publishing
+  (`.github/workflows/publish.yml`); `core/package.json` carries the same
+  version as `pyproject.toml`. PRs do an npm dry-run and a TestPyPI dry-run.
 
 ## Commands
 
