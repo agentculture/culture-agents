@@ -56,6 +56,10 @@ of PR #4, also passed 16 of 16: cancel took 7.6 s (Claude Code) and 8.8 s
 `openshell sandbox list` showed no sandbox; that was checked by hand, and no
 test checks it. The table shows the first two runs.
 
+A fourth full run, after the second round of review fixes (hardened fetch,
+process check by pid, bounded waits), passed 16 of 16: cancel took 6.2 s
+(Claude Code) and 8.9 s (OpenCode).
+
 | Target | Mock (stub) | Claude Code | OpenCode v2 |
 | --- | --- | --- | --- |
 | Submit returns a run ID in under 2 s | 0.28 s, 0.27 s | 0.47 s, 0.47 s | 0.50 s, 0.36 s |
@@ -136,6 +140,23 @@ in an isolated namespace either.
    driver then waited a fixed 1.5 s three times before recording `cancelled`.
    It now polls and continues once the harness's processes are gone. The
    remaining time is mostly the gateway deleting the sandbox.
+
+## Keeping a failed run's work
+
+Checked live once, with Claude Code, outside the suite. The collect was made
+to fail after the turn completed (the host repository was pointed at the
+run's branch name, which the core refuses to fetch into). Observed:
+
+- the run ended `failed`, and its reason named the sandbox, the date it is
+  kept until (7 days ahead) and the commands to fetch the work;
+- `retained.json` was written in the run directory;
+- the sandbox was still on the gateway after the run and after a daemon
+  restart, whose start-up reclaim left it alone;
+- following the commands in the message fetched `runs/<id>` with `hello.txt`
+  into the host repository.
+
+Not checked: that the sandbox is deleted once the 7 days are over (covered by
+a unit test with a past date), and the same path with OpenCode.
 
 ## Observations
 

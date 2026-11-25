@@ -16,11 +16,14 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `docs/d0/`: the consumer inventory, compatibility matrix, decision record, probe results, the D1 acceptance record and the boundary audit; the confirmed spec and plan under `docs/specs/` and `docs/plans/`.
 - `tests/acceptance/d1/`: the real CLI against the real core. A mock stage always runs; an opt-in live stage covers Claude Code and OpenCode v2 and reports NOT VERIFIED when a harness is unavailable.
 - CI: a `core` job (build, type-check, lint, tests from the lockfile), the core build before the Python tests, a secret scan and the 400-line cap extended to TypeScript.
+- When a run's turn completed but its commits could not be brought to the host, the sandbox is kept for 7 days (`retainFailedSandboxDays`) and the failure message says how to fetch the work.
+- The CLI validates every core response against the contract schemas (new runtime dependency `jsonschema`), shows control characters in run output as visible escapes, and `runs attach` survives a core restart.
+- `version-bump` moves mirrored version files (the npm package in `core/`) together with `pyproject.toml`.
 - The core reclaims the sandboxes of its own finished runs at startup and every five minutes, takes a second lock on its state directory, reports an unreadable run as `internal` (keeping its repository busy while its worker lives), and bounds its calls into the sandbox.
 
 ### Changed
 
-- The CLI is built on `agentfront`, the one approved runtime dependency, so `learn`, `explain` and `overview` describe exactly the registered verbs.
+- The CLI is built on `agentfront` 0.22's public API, so `learn`, `explain` and `overview` describe exactly the registered verbs.
 - The publish workflow publishes npm with provenance before PyPI, and skips npm while `core/package.json` is `0.0.0`.
 - All five prompt files describe the D1 slice.
 

@@ -17,6 +17,9 @@ single-host control plane without chat. On disk:
 - a core daemon that serves the control API over a Unix socket, stores runs
   on disk (one detached worker process per run), and runs harnesses inside an
   NVIDIA OpenShell sandbox;
+- a run whose turn completed but whose commits could not be collected keeps
+  its sandbox for 7 days, and the failure message says how to fetch the work;
+  the daemon reclaims the sandboxes of its other finished runs;
 - two harnesses, Claude Code (through the Vercel AI SDK adapter) and OpenCode
   v2 (through its own server API), plus a stub driver for tests. Codex is not
   verified;
