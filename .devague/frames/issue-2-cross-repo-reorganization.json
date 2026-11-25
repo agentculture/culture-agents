@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T09:01:27Z",
+  "updated": "2026-11-25T09:02:50Z",
   "claims": [
     {
       "id": "c1",
@@ -1536,6 +1536,17 @@
       "skipped_check": "test-first: a failing test observed before the fix",
       "refs": [
         "runs/fix-store a1c9218"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l11",
+      "code": "control-absent",
+      "what": "The CLI fix agent wrote _text.py and _contract.py before their tests, and one broken-pipe case (runs logs --json) passes without the fix",
+      "skipped_check": "test-first: a failing test observed before the fix",
+      "refs": [
+        "runs/fix-cli 396e324"
       ],
       "origin": "llm",
       "status": "proposed"
