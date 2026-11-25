@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.1] - 2026-11-25
+
+### Changed
+
+- The prompt files state the control socket fallback (the per-user state directory, never `/tmp`) and the API version. The delivery summary and the handoff note are brought up to date after 0.14.0.
+- Added `docs/current-spec.md`, derived from the delivery ledger.
+
 ## [0.14.0] - 2026-11-25
 
 ### Changed

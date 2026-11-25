@@ -3,12 +3,18 @@
 plan: `issue-2-cross-repo-reorganization` · run: `partial` · date: `2026-11-24`
 baseline: `devague summary skeleton`
 
-The run is `partial` for two reasons: task `t5`'s pull request in the culture
-repository is still open, and the `Tests` workflow on `main` failed at the
-SonarCloud quality gate right after the merge (see Evidence and Remaining
-Work). Everything else in the plan merged in
+The run is `partial` for one reason: task `t5`'s pull request in the culture
+repository is still open. Everything else in the plan merged in
 [PR #4](https://github.com/agentculture/culture-agents/pull/4) as commit
 `92937aa`.
+
+Updated on 2026-11-25 after two follow-up pull requests. When this summary was
+first written the `Tests` workflow on `main` had failed at the SonarCloud
+quality gate, the API version was 1.0 and the ledger records were proposed.
+[PR #7](https://github.com/agentculture/culture-agents/pull/7) fixed the gate
+(`main` is green at `46ed39a`, 0 open issues) and set the API version to 2.0,
+and the owner confirmed evidence `e1` to `e17` and deltas `b1` to `b4`. The
+sections below keep what was true at the merge and mark what changed since.
 
 ## Intent
 
@@ -92,7 +98,7 @@ behavioural delta where it changes behaviour:
 - The control socket's fallback moved out of `/tmp` to
   `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`, and
   `contract/api.json` changed with it while the API version stayed 1.0
-  (delta `b3`). The owner has not yet decided whether to bump the version.
+  (delta `b3`). The owner then chose to bump: the API is 2.0 since PR #7.
 - The CLI validates every core response against the contract schemas, which
   added `jsonschema` as a second runtime dependency, approved by the owner
   (delta `b4`).
@@ -113,9 +119,9 @@ behavioural delta where it changes behaviour:
 | `t16` (`d5`) | The chat servers are the owner's live mesh; stopping them is disruptive and was not authorized. Unprivileged user namespaces are disabled on this host, so the suite could not be run in an isolated process and network namespace either. | `acceptable` |
 | `t5` | The workspace map is not on culture's `main`: agentculture/culture#532 is open. No record covers this. | `needs-follow-up` |
 | `t10` | A sandbox is kept for 7 days when a run's commits could not be collected, where the plan had it deleted at every terminal state (delta `b2`). No deviation record covers this. | `acceptable` |
-| `t6` | `contract/api.json` changed (`socket_fallback`) without an API version bump, where the obligation on `c42` says a schema change bumps the version (delta `b3`). No deviation record covers this. | `needs-follow-up` |
+| `t6` | `contract/api.json` changed (`socket_fallback`) without an API version bump, where the obligation on `c42` says a schema change bumps the version (delta `b3`). No deviation record covers this. Resolved in PR #7: API version 2.0. | `acceptable` |
 | `t15` | The npm-before-PyPI order has never run: the npm step is skipped at `0.0.0`, so the merge published to PyPI alone. No record covers this. | `needs-follow-up` |
-| `t7` | The `Tests` workflow on `main` failed after the merge at the SonarCloud quality gate, though every check on the pull request passed. No record covers this. | `risky` |
+| `t7` | The `Tests` workflow on `main` failed after the merge at the SonarCloud quality gate, though every check on the pull request passed. No record covers this. Resolved in PR #7: `main` is green at `46ed39a`. | `acceptable` |
 
 ## Evidence
 
@@ -144,15 +150,15 @@ All runs below were made on 2026-11-25 at the merged commit `92937aa`.
 - PRs / issues: #4 (merged), agentculture/culture#532 (open),
   agentculture/agentfront#60 (merged), #5 (D2 follow-ups),
   agentculture/guildmaster#157
-- delivery ledger: evidence `e1` to `e17` and deltas `b1` to `b4`, all filed
-  as proposed and awaiting the owner's adjudication
+- CI on `main` at `46ed39a` (after PR #7): `Tests` passed and SonarCloud
+  lists 0 open issues on the `main` branch
+- delivery ledger: evidence `e1` to `e17` and deltas `b1` to `b4`, confirmed
+  by the owner on 2026-11-25
 
 ## Delivery Claims
 
 The evidence ids refer to records in the delivery ledger
-(`devague evidence --list`). They are proposed records: the confidence below
-is this summary's reading of them, and it stands only if the owner confirms
-them.
+(`devague evidence --list`). The owner confirmed all of them on 2026-11-25.
 
 | Claim | Confidence | Evidence |
 |-------|------------|----------|
@@ -176,7 +182,7 @@ them.
 | D0 inventory, matrix and decisions describe the sibling repositories accurately | medium | `docs/d0/`. Capped by lapses `l1`, `l2`, `l3` (citations checked for existence, not meaning; status taken from issue #2; one count corrected) |
 | The probe's single-trial results for steer and cancel hold | medium | Lapse `l4` applied to the probe; six later live runs passed the same actions for both harnesses |
 | The loop refactor changed no behaviour | medium | Independent cortex review found no defects; `readInstanceInfo` now has direct tests (`b9a0d80`). Lapse `l15` records that this was first checked by reading only |
-| `main` is green after the merge | unverified | The `Tests` workflow on `main` failed at the SonarCloud gate. Not claimed |
+| `main` is green | high | Red at `92937aa` and `7de103b`; green at `46ed39a` after PR #7 (`Tests` run 45660059203) |
 | The Codex harness works | unverified | Not built (`d1`). Not claimed |
 
 Lapse ledger evidence:
@@ -201,17 +207,10 @@ Lapse ledger evidence:
 
 ## Remaining Work / Follow-up
 
-- `Tests` on `main` is red at the SonarCloud quality gate — fix or accept the
-  34 findings the branch analysis shows (mostly the `uv` steps in the two
-  workflow files) in a follow-up pull request. Owner decides which, if any,
-  to accept.
 - `t5` — agentculture/culture#532 is open; the workspace map is delivered
   when the culture maintainers merge it.
-- Evidence `e1` to `e17` and deltas `b1` to `b4` are proposed — the owner
-  confirms or rejects them (`devague evidence --confirm`, `devague delta
-  --confirm`).
-- API version — decide whether the `socket_fallback` change calls for a bump
-  from 1.0 (`b3`).
+- Delta `b5` (API version 2.0, replacing `b3`) is proposed — the owner
+  confirms or rejects it.
 - npm — the owner bootstraps `@culture.dev/agents`, then Trusted Publishing
   takes over; until then `c55` stays unverified.
 - Codex — not verified (`d1`); tracked for a later gate.

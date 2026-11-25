@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-25T16:43:36Z",
+  "updated": "2026-11-25T17:03:53Z",
   "deviations": [
     {
       "id": "d1",
@@ -444,6 +444,20 @@
       ],
       "origin": "llm",
       "status": "approved",
+      "superseded": false
+    },
+    {
+      "id": "b5",
+      "kind": "amended",
+      "behavior_text": "Without XDG_RUNTIME_DIR the control socket is ${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock, not a path under /tmp. The control API version is 2.0 since release 0.14.0: by the contract's rule the socket change is a major one, and a 1.x client and a 2.0 core refuse each other with exit 2 naming both versions.",
+      "caused_by": [
+        "c42"
+      ],
+      "evidence_refs": [
+        "e4"
+      ],
+      "origin": "llm",
+      "status": "proposed",
       "superseded": false
     }
   ],
