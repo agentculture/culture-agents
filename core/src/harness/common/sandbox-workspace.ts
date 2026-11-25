@@ -99,11 +99,12 @@ export class SandboxWorkspace implements Workspace {
       hostRepo: this.hostRepo,
       runId: this.runId,
       remotePath: this.prepared.path,
+      baseCommit: this.prepared.baseCommit,
       openshellBin: this.settings.openshellBin,
       ...(this.settings.gateway.name ? { gatewayName: this.settings.gateway.name } : {}),
     };
     const tree = await this.deps.collect(this.sandbox, options);
-    return { branch: tree.branch, commit: tree.commit, commits: count };
+    return { branch: tree.branch, commit: tree.commit, commits: count, shas: tree.commits };
   }
 
   private async commitCount(): Promise<number> {

@@ -26,13 +26,13 @@ test("success: started, output, collect, destroy, then completed with the summar
   backend.turn.end({ kind: "completed", summary: "all done" });
   const events = await done;
   assert.equal(events[0]?.type, "started");
-  assert.deepEqual(lastEvent(events), { type: "completed", summary: "all done" });
+  assert.deepEqual(lastEvent(events), { type: "completed", summary: "all done", collected: { branch: "runs/x", commits: ["abc"] } });
   const ws = factory.workspace;
   assert.ok(ws);
   assert.deepEqual(ws.calls.slice(-3), ["commit", "collect", "destroy"]);
   assert.equal(backend.closed, 1, "the harness is closed before collect");
   assert.equal(ws.destroyed, 1);
-  assert.deepEqual(driver.collected, { branch: "runs/x", commit: "abc", commits: 1 });
+  assert.deepEqual(driver.collected, { branch: "runs/x", commit: "abc", commits: 1, shas: ["abc"] });
   await driver.dispose();
   assert.equal(ws.destroyed, 1, "dispose after the end does not destroy twice");
 });

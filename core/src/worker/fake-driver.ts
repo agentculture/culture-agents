@@ -13,7 +13,7 @@ export type FakeStep =
   | { op: "started" }
   | { op: "output"; data: OutputData }
   | { op: "error"; error: ErrorBody }
-  | { op: "completed"; summary?: string }
+  | { op: "completed"; summary?: string; collected?: { branch: string; commits: string[] } }
   | { op: "failed"; error: ErrorBody }
   /** Throw from the event stream (an unexpected driver crash). */
   | { op: "throw"; message: string }
@@ -101,7 +101,7 @@ export class FakeDriver implements Driver {
             this.emit({ type: "error", error: step.error });
             break;
           case "completed":
-            this.emit(step.summary === undefined ? { type: "completed" } : { type: "completed", summary: step.summary });
+            this.emit({ type: "completed", ...(step.summary === undefined ? {} : { summary: step.summary }), ...(step.collected ? { collected: step.collected } : {}) });
             this.finish();
             return;
           case "failed":

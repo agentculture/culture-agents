@@ -101,6 +101,12 @@ test("the daemon bin serves the real registry: the stub harness runs submit, att
   const result = await ok<{ state: string; summary: string | null; branch: string | null; commits: string[] }>(env, "GET", `/v1/runs/${first.id}/result`, 200, "run#run_result");
   assert.equal(result.state, "succeeded");
   assert.match(result.summary ?? "", /stub wrote 2 file\(s\): a\.txt, b\.txt/);
+  // The result names where the work landed: the branch and its commits, as the host repository has them.
+  assert.equal(result.branch, `runs/${first.id}`);
+  const onBranch = execFileSync("git", ["rev-list", "--reverse", `main..runs/${first.id}`], { cwd: env.repoA, encoding: "utf8" }).trim().split("\n");
+  assert.deepEqual(result.commits, onBranch);
+  assert.equal(result.commits.length, 1);
+  assert.equal((await getRun(env, first.id)).branch, `runs/${first.id}`);
 
   // A run that hangs: steer, then cancel.
   const second = (await ok<{ run: Run }>(env, "POST", "/v1/runs", 201, "control-action#submit_response", { ...submitBody("stub", env.repoA), task: "hang" })).run;

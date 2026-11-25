@@ -15,7 +15,7 @@ export type DriverEvent =
   /** A non-fatal error (a `run.error` event with `fatal: false`). */
   | { type: "error"; error: ErrorBody }
   /** Outcome: the harness reported its turn completed (`succeeded`). */
-  | { type: "completed"; summary?: string }
+  | { type: "completed"; summary?: string; collected?: { branch: string; commits: string[] } }
   /** Outcome: an established failure (`run.error` fatal, then `failed`). */
   | { type: "failed"; error: ErrorBody }
   /** Outcome: the harness stopped after `cancel` (`cancelled` or `timed_out`, by what started the stop). */

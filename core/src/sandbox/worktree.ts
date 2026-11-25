@@ -58,6 +58,8 @@ export interface CollectOptions {
   readonly openshellBin?: string;
   /** Gateway name passed as `-g` to the CLI, when not the CLI's default. */
   readonly gatewayName?: string;
+  /** The commit the run started from; when given, the result lists the commits after it. */
+  readonly baseCommit?: string;
   readonly runner?: CommandRunner;
 }
 
@@ -65,6 +67,8 @@ export interface CollectedTree {
   readonly branch: string;
   /** Tip of `runs/<id>` in the host repository after the fetch. */
   readonly commit: string;
+  /** Commits after `baseCommit` on the branch, oldest first; empty when no base was given. */
+  readonly commits: string[];
 }
 
 async function git(
@@ -182,7 +186,8 @@ export async function collect(sandbox: RunSandbox, options: CollectOptions): Pro
       env,
     );
     const commit = await git(runner, host, ["rev-parse", "--verify", "--quiet", target]);
-    return { branch, commit };
+    const listed = options.baseCommit ? await git(runner, host, ["rev-list", "--reverse", `${options.baseCommit}..${target}`]) : "";
+    return { branch, commit, commits: listed.split("\n").filter(Boolean) };
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

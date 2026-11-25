@@ -20,7 +20,7 @@ import {
   type RunState,
 } from "../contract/index.js";
 import { EventLogWriter, type EventInput } from "../store/event-log.js";
-import { runDir, runFile } from "../store/files.js";
+import { atomicWriteJson, runDir, runFile } from "../store/files.js";
 import { identityOf, writeHeartbeat, writeWorkerIdentity } from "../store/liveness.js";
 import { readRecord, writeRecord } from "../store/run-store.js";
 import { closeControl, listenControl, type ControlReply, type ControlRequest } from "./control.js";
@@ -180,6 +180,7 @@ export class RunWorker {
         return;
       case "completed":
         if (state === "queued") this.transition("running", "the harness completed before reporting a start");
+        if (event.collected) this.recordCollected(event.collected);
         this.transition("succeeded", null);
         return;
       case "failed":
@@ -190,6 +191,13 @@ export class RunWorker {
         else this.fail(internal("The harness stopped without a stop request."));
         return;
     }
+  }
+
+  /** Where the run's commits landed: the branch on the record, the SHAs beside it, both before the terminal event. */
+  private recordCollected(collected: { branch: string; commits: string[] }): void {
+    atomicWriteJson(runFile(this.dir, "collected"), { branch: collected.branch, commits: collected.commits }, true);
+    this.record = { ...this.record, branch: collected.branch };
+    writeRecord(this.dir, this.record, true); // before the terminal event: a reader that sees `succeeded` sees the branch
   }
 
   private finishStop(note: string | null): void {

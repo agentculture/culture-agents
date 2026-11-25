@@ -171,7 +171,11 @@ export class RunDriver<W extends Workspace> implements Driver {
       if (!(await this.destroyWorkspace())) {
         this.queue.push({ type: "error", error: this.error("unavailable", "The run's sandbox could not be deleted.", true) });
       }
-      this.finish(outcome.summary === undefined ? { type: "completed" } : { type: "completed", summary: outcome.summary });
+      this.finish({
+        type: "completed",
+        ...(outcome.summary === undefined ? {} : { summary: outcome.summary }),
+        ...(this.collected ? { collected: { branch: this.collected.branch, commits: this.collected.shas } } : {}),
+      });
     } catch (err) {
       if (this.stopping) return await this.stopAll();
       await this.release();

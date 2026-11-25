@@ -116,7 +116,12 @@ test("collect fetches runs/<id> over OpenShell's ssh config without touching the
   const { calls, runner } = recorder();
   const { sb } = await sandboxWithClone();
   const out = await collect(sb, { hostRepo: HOST, runId: "r1", runner, gatewayName: "openshell", openshellBin: "openshell" });
-  assert.deepEqual(out, { branch: "runs/r1", commit: SHA });
+  assert.deepEqual(out, { branch: "runs/r1", commit: SHA, commits: [] });
+  assert.equal(calls.some((c) => subcommand(c.args) === "rev-list"), false, "no base commit, no listing");
+  const listing = recorder((r) => (subcommand(r.args) === "rev-list" ? { code: 0, stdout: `${"1".repeat(40)}\n${SHA}\n`, stderr: "" } : undefined));
+  const listed = await collect(sb, { hostRepo: HOST, runId: "r1", runner: listing.runner, baseCommit: "f".repeat(40) });
+  assert.deepEqual(listed.commits, ["1".repeat(40), SHA], "commits after the base, oldest first");
+  assert.deepEqual(must(listing.calls.find((c) => subcommand(c.args) === "rev-list")).args, ["rev-list", "--reverse", `${"f".repeat(40)}..refs/heads/runs/r1`]);
   const cli = must(calls.find((c) => c.file === "openshell"));
   assert.deepEqual(cli.args, ["-g", "openshell", "sandbox", "ssh-config", sb.name]);
   const fetch = must(calls.find((c) => subcommand(c.args) === "fetch"));

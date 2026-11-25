@@ -54,7 +54,8 @@ export class StubWorkspace implements Workspace {
     const head = await runCommand("git", ["symbolic-ref", "--quiet", "HEAD"], { cwd: this.hostRepo, env: hostEnv() });
     if (head.code === 0 && head.stdout.trim() === target) throw new Error(`host repository has ${this.branch} checked out`);
     await git(this.hostRepo, ["-c", "gc.auto=0", "fetch", "--no-tags", "--no-write-fetch-head", "--end-of-options", this.workdir, `${target}:${target}`]);
-    return { branch: this.branch, commit: await git(this.hostRepo, ["rev-parse", "--verify", target]), commits: count };
+    const shas = (await git(this.hostRepo, ["rev-list", "--reverse", `${this.baseCommit}..${target}`])).split("\n").filter(Boolean);
+    return { branch: this.branch, commit: await git(this.hostRepo, ["rev-parse", "--verify", target]), commits: count, shas };
   }
 
   destroy(): Promise<void> {

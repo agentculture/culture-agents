@@ -4,7 +4,7 @@
  * orphaned run (no live worker, no terminal event) by appending `unknown`, because the core is
  * then the log's only writer (README: `unknown`).
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 import {
   isActive,
@@ -18,7 +18,7 @@ import {
   type TerminalState,
 } from "../contract/index.js";
 import { readLog } from "../store/event-log.js";
-import { runDir } from "../store/files.js";
+import { runDir, runFile } from "../store/files.js";
 import { listRunIds, showRunAt } from "../store/run-store.js";
 
 export interface ScanOptions {
@@ -57,13 +57,29 @@ export function activeRunFor(options: ScanOptions, repo: string): Run | null {
   return scanRuns(options).find((run) => run.repo === repo && isActive(run.state)) ?? null;
 }
 
+const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
+
+/** The commits the worker recorded for a run's branch, oldest first; empty when none were recorded or the file is unusable. */
+function collectedCommits(dir: string, branch: string | null): string[] {
+  if (branch === null) return [];
+  try {
+    const value = JSON.parse(readFileSync(runFile(dir, "collected"), "utf8")) as { branch?: unknown; commits?: unknown };
+    if (value.branch !== branch || !Array.isArray(value.commits)) return [];
+    return value.commits.every((c) => typeof c === "string" && SHA.test(c)) ? (value.commits as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * The outcome of a terminal run, from its log. `summary` is the concatenation of the harness's
  * `text` output deltas (null when there were none); `error` is the last fatal `run.error`, and a
- * `failed` run without one reports its state reason as `internal`.
+ * `failed` run without one reports its state reason as `internal`. `branch` and `commits` are what
+ * the worker recorded when it collected the run's commits; a run that collected none has neither.
  */
 export function resultOf(options: ScanOptions, run: Run): RunResult {
-  const log = readLog(runDir(options.stateDir, run.id), run.id);
+  const dir = runDir(options.stateDir, run.id);
+  const log = readLog(dir, run.id);
   let text: string | null = null;
   let fatal: ErrorBody | null = null;
   for (const event of log.events) {
@@ -85,7 +101,7 @@ export function resultOf(options: ScanOptions, run: Run): RunResult {
     state,
     summary: text,
     branch: run.branch,
-    commits: [],
+    commits: collectedCommits(dir, run.branch),
     ended_at: run.ended_at ?? run.updated_at,
     error,
   } as RunResult; // `state` is a union value here; TS cannot correlate it with the `error` variants

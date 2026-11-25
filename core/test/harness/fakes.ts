@@ -45,7 +45,7 @@ export class FakeWorkspace implements Workspace {
   async collect(): Promise<Collected | null> {
     this.calls.push("collect");
     if (this.failAt === "collect") throw new Error("fetch failed");
-    return { branch: "runs/x", commit: "abc", commits: 1 };
+    return { branch: "runs/x", commit: "abc", commits: 1, shas: ["abc"] };
   }
 
   async destroy(): Promise<void> {

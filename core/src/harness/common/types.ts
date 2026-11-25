@@ -19,6 +19,8 @@ export interface Collected {
   commit: string;
   /** Number of commits on the branch beyond the run's base commit. */
   commits: number;
+  /** Those commits as full SHAs in the host repository, oldest first. */
+  shas: string[];
 }
 
 /** Where a harness runs for one run. Every method is safe to call after `destroy` fails. */
