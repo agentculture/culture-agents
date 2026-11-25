@@ -78,9 +78,9 @@ lapses and deviations the moment they surface. Briefs quote the task from
 | t17 boundary audit | done: `docs/d0/boundary-audit.md` |
 | version bump | done: 0.13.0 |
 
-Last measured on the branch (commit `900983e`): 1228 Python tests pass, 9
+Last measured on the branch (commit `da75696`): 1228 Python tests pass, 9
 skipped (8 of them the live acceptance checks, reported NOT VERIFIED without
-the opt-in); 431 TypeScript tests pass, 8 opt-in live checks skipped.
+the opt-in); 446 TypeScript tests pass, 8 opt-in live checks skipped.
 
 t16 found and fixed two core defects: a finished run reported no branch and no
 commits, and a cancel waited a fixed 4.5 s before recording `cancelled`
@@ -112,32 +112,28 @@ is open and pushed. Reviews so far, all acted on:
 
 SonarCloud analyses the PR since 2026-11-25 (scan, quality gate and an
 open-issues gate in the `test` job; Python and TypeScript coverage). The
-first scan had 240 open issues. Three subagents and the main agent cleared
-all but about 25, which only the owner can mark Accepted on SonarCloud:
-sequential polling loops (S9382), the `/tmp` socket fallback (S5443), the
-local `http://` gateway default (S5332), the run image's root user (S6471),
-`git` by bare name in test helpers (S4036), the `BaseException` for a closed
-pipe (S5709), and a deprecated AI SDK type in `toHarnessSandboxProvider`
-(S1874), which only tests call. The generated contract types are excluded
-from analysis. The `test` job stays red until those are accepted or fixed.
+first scan had 240 open issues; there are none now and every check on the PR
+passes (commit `da75696`). One issue was accepted by the owner (the
+plain-HTTP default of the local model gateway, S5332), the generated contract
+types are excluded from analysis, and the rest were fixed in code. Notable
+changes from that round: sequential loops run on `core/src/util/sequence.ts`;
+the socket fallback moved from `/tmp` to the per-user state directory (a
+contract change); the run image declares uid 1000 and installs Node.js from a
+signed apt source; `toHarnessSandboxProvider` is removed.
 
-The run image was rebuilt from a changed Dockerfile (Node from a signed apt
-source). **It has not had a live run.** `culture-agents-run:dev` points at an
-earlier rebuild; the last live-tested image is `culture-agents-run:dev-prev`.
-The Dockerfile changed once more afterwards (package order), so rebuild
-before the live stage. The owner has not yet chosen how to run it.
+A fifth live run passed 16 of 16 on the rebuilt image, selected with
+`CULTURE_AGENTS_RUN_IMAGE=culture-agents-run:sonar`. The tag
+`culture-agents-run:dev`, which the core uses by default, still points at
+an older untested rebuild; `:dev-prev` is the image of the first four live
+runs. The owner has not said whether to move `:dev`.
 
-Local-model runs (OpenCode cortex, colleague) get no hard timeout and are
-continued in their session when interrupted (owner instruction, 2026-11-25).
-
-agentculture/agentfront#60 has a second commit (`b7d15e8`) that clears the
-seven SonarCloud issues and the three review findings; its checks pass.
+The SonarCloud skill can mark an issue Accepted with the token held by
+`grant`; do that only for an issue the owner has approved.
 
 ## Next steps
 
-1. Rebuild the run image and run the live acceptance stage once the owner
-   says how.
-2. Give the owner the SonarCloud accept list; re-run CI after they act.
+1. Ask the owner whether to move `culture-agents-run:dev` to the tested image.
+2. (done) SonarCloud is clean.
 3. Wait for the owner to merge PR #4.
 4. After the merge: `/validate-delivery`, then `/summarize-delivery`.
 
