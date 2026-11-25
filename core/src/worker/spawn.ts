@@ -11,7 +11,6 @@
  */
 import { spawn } from "node:child_process";
 import { closeSync, openSync, statSync, writeFileSync } from "node:fs";
-import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import type { ActionRecord, Run, RunId } from "../contract/index.js";
@@ -19,6 +18,7 @@ import { readCursorFile, readLog } from "../store/event-log.js";
 import { FILE_MODE, runDir, runFile, type RunFile } from "../store/files.js";
 import { checkLiveness, readWorkerIdentity, type Liveness } from "../store/liveness.js";
 import { createRun } from "../store/run-store.js";
+import { again, finish, stepUntil, type Step } from "../util/sequence.js";
 import { ControlUnavailableError, controlRequest, type ControlReply, type ControlRequest } from "./control.js";
 import { settleFromLog } from "./delivery.js";
 import type { DriverSelection } from "./driver.js";
@@ -138,15 +138,15 @@ function killQuietly(pid: number): void {
  * (a very short run may end before the first ping; its files still hold, so the submit may be
  * acknowledged). `exitedNow` says how the worker ended, or null while it runs.
  */
-async function waitUntilDurable(dir: string, runId: RunId, pid: number, deadline: number, exitedNow: () => string | null): Promise<void> {
-  for (;;) {
+function waitUntilDurable(dir: string, runId: RunId, pid: number, deadline: number, exitedNow: () => string | null): Promise<void> {
+  return stepUntil(async (): Promise<Step<void>> => {
     const exited = exitedNow();
     const ended = exited !== null;
-    if (filesDurable(dir, runId, pid) && (ended || (await controlReady(dir, pid)))) return;
+    if (filesDurable(dir, runId, pid) && (ended || (await controlReady(dir, pid)))) return finish(undefined);
     if (ended) throw new WorkerSpawnError(`the worker exited before its run was durable (${exited}); see ${runFile(dir, "log")}`);
     if (Date.now() > deadline) throw new WorkerSpawnError(`the worker did not make its run durable in time; see ${runFile(dir, "log")}`);
-    await delay(5);
-  }
+    return again(5);
+  });
 }
 
 /** Create the run, start its worker detached, and resolve once the worker's files are durable. */

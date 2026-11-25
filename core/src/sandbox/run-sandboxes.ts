@@ -3,6 +3,7 @@
 // adapter's start fails (docs/d0/probe.md, obstacle 7), so every path here
 // either returns a tracked handle or deletes what it created, and any run's
 // sandbox can be deleted from its run id alone.
+import { again, finish, inOrder, stepUntil } from "../util/sequence.js";
 import { withTimeout } from "./timeout.js";
 import {
   isAlreadyExists,
@@ -81,29 +82,43 @@ class OpenShellRunSandboxes implements RunSandboxes {
     const deadline = Date.now() + budget;
     const left = () => deadline - Date.now();
     let lastError: unknown = new Error("the deadline passed before the gateway was asked");
-    for (let attempt = 1; attempt <= DELETE_ATTEMPTS && left() > 0; attempt++) {
-      try {
-        await withTimeout(`asking the gateway to delete sandbox ${name}`, Math.min(DELETE_CALL_TIMEOUT_MS, left()), () => this.client.delete(name, { allowMissing: true }));
-        // The wait gets the time left, both as its own timeout and as a bound on a wait that ignores it.
-        const waitMs = Math.max(1, left());
-        const waitSecs = Math.max(1, Math.min(this.config.deleteTimeoutSecs ?? 120, Math.ceil(waitMs / 1000)));
-        await withTimeout(`waiting for sandbox ${name} to be gone`, waitMs, () => this.client.waitDeleted(name, waitSecs)).catch((error: unknown) => {
-          if (!isNotFound(error)) throw error;
-        });
-        this.#pendingCleanup.delete(runId);
-        this.#log(`deleted sandbox ${name} (run ${runId})`);
-        return;
-      } catch (error) {
-        lastError = error;
-        if (attempt < DELETE_ATTEMPTS && left() > 0) await this.#sleep(Math.min(250 * attempt, Math.max(0, left())));
-      }
-    }
+    let attempt = 1;
+    // One attempt at a time. A failed one is followed by a growing pause while attempts and time are left.
+    const deleted = await stepUntil<boolean>(
+      async () => {
+        if (!(attempt <= DELETE_ATTEMPTS && left() > 0)) return finish(false);
+        try {
+          await this.#deleteOnce(name, runId, left);
+          return finish(true);
+        } catch (error) {
+          lastError = error;
+          const pause = attempt < DELETE_ATTEMPTS && left() > 0 ? Math.min(250 * attempt, Math.max(0, left())) : undefined;
+          attempt += 1;
+          return again(pause);
+        }
+      },
+      { wait: this.#sleep },
+    );
+    if (deleted) return;
     this.#pendingCleanup.add(runId);
     throw new SandboxCleanupError(
       `could not confirm deletion of sandbox ${name} (run ${runId}) within the overall deadline of ${Math.round(budget / 1000)} s: ${(lastError as Error)?.message}`,
       { cause: lastError },
     );
   };
+
+  /** One delete and the wait for it to take effect, within what `left` says remains of the deadline. */
+  async #deleteOnce(name: string, runId: string, left: () => number): Promise<void> {
+    await withTimeout(`asking the gateway to delete sandbox ${name}`, Math.min(DELETE_CALL_TIMEOUT_MS, left()), () => this.client.delete(name, { allowMissing: true }));
+    // The wait gets the time left, both as its own timeout and as a bound on a wait that ignores it.
+    const waitMs = Math.max(1, left());
+    const waitSecs = Math.max(1, Math.min(this.config.deleteTimeoutSecs ?? 120, Math.ceil(waitMs / 1000)));
+    await withTimeout(`waiting for sandbox ${name} to be gone`, waitMs, () => this.client.waitDeleted(name, waitSecs)).catch((error: unknown) => {
+      if (!isNotFound(error)) throw error;
+    });
+    this.#pendingCleanup.delete(runId);
+    this.#log(`deleted sandbox ${name} (run ${runId})`);
+  }
 
   async #bind(runId: string, name: string, signal?: AbortSignal): Promise<OpenShellRunSandbox> {
     const probe = await this.client.exec(name, ["sh", "-c", "pwd"], {
@@ -240,9 +255,9 @@ class OpenShellRunSandboxes implements RunSandboxes {
       doomed.add(runId);
     }
     const deleted: string[] = [];
-    for (const runId of doomed) {
-      if (kept.has(runId) || this.#live.has(runId)) continue;
-      if (wanted !== null && !wanted.has(runId)) continue;
+    await inOrder(doomed, async (runId) => {
+      if (kept.has(runId) || this.#live.has(runId)) return;
+      if (wanted !== null && !wanted.has(runId)) return;
       try {
         await this.destroy(runId);
         deleted.push(runId);
@@ -250,7 +265,7 @@ class OpenShellRunSandboxes implements RunSandboxes {
         // Keep going; a failed run id stays queued for the next sweep.
         this.#log(`sweep: run ${runId}: ${(error as Error).message}`);
       }
-    }
+    });
     return deleted;
   }
 }

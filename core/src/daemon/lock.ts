@@ -3,6 +3,7 @@ import { closeSync, mkdirSync, openSync, readFileSync, realpathSync, renameSync,
 import { createServer, type Server } from "node:net";
 import { join } from "node:path";
 
+import { again, finish, stepUntil } from "../util/sequence.js";
 import type { DaemonPaths } from "./paths.js";
 
 /**
@@ -145,18 +146,26 @@ export function removeInstanceInfo(paths: DaemonPaths): void {
  * Read the running instance's info. The holder removes a dead predecessor's file and writes its own
  * right after taking the lock, so retry briefly while the file is missing or names a dead pid.
  */
-export async function readInstanceInfo(paths: DaemonPaths, attempts = 20, delayMs = 25): Promise<InstanceInfo | null> {
-  for (let i = 0; i < attempts; i++) {
-    const text = readFileSafe(paths.info);
-    if (text) {
-      try {
-        const info = JSON.parse(text) as InstanceInfo;
-        if (Number.isInteger(info.pid) && pidAlive(info.pid)) return info;
-      } catch {
-        /* partially written; retry */
-      }
-    }
-    await new Promise((r) => setTimeout(r, delayMs));
+export function readInstanceInfo(paths: DaemonPaths, attempts = 20, delayMs = 25): Promise<InstanceInfo | null> {
+  let tried = 0;
+  // Every failed read is followed by the delay, the last one too, as a second instance expects.
+  return stepUntil<InstanceInfo | null>(() => {
+    if (tried >= attempts) return finish(null);
+    tried += 1;
+    const info = liveInstanceInfo(paths);
+    return info ? finish(info) : again(delayMs);
+  });
+}
+
+/** The info file's content when it parses and names a live pid. */
+function liveInstanceInfo(paths: DaemonPaths): InstanceInfo | null {
+  const text = readFileSafe(paths.info);
+  if (!text) return null;
+  try {
+    const info = JSON.parse(text) as InstanceInfo;
+    if (Number.isInteger(info.pid) && pidAlive(info.pid)) return info;
+  } catch {
+    /* partially written; retry */
   }
   return null;
 }

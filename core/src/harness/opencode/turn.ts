@@ -7,6 +7,7 @@
 import { SandboxTimeoutError, withTimeout } from "../../sandbox/timeout.js";
 import { EventQueue, errorMessage, sleep, within } from "../common/queue.js";
 import type { Sink, TurnEvent, TurnHandle, TurnOutcome } from "../common/types.js";
+import { again, finish, stepUntil, type Step } from "../../util/sequence.js";
 import type { OpenCodeClient } from "./client.js";
 import { OpenCodeEventMapper } from "./map.js";
 
@@ -57,25 +58,31 @@ export async function startOpenCodeTurn(
     if (/^10*$/.test(String(droppedBlocks))) queue.push(diag(`${droppedBlocks} OpenCode event(s) could not be parsed or were over the size limit and were not recorded`));
   };
 
-  const pump = async () => {
-    let attempt = 0;
-    while (!stop.aborted) {
-      try {
-        // The server sends `server.connected` first, so the first event marks the subscription live.
-        for await (const event of client.events(stop, dropped)) {
-          markConnected();
-          timing.tap?.(event);
-          for (const e of mapper.map(event)) queue.push(e);
-        }
-      } catch {
-        // Connection refused or dropped; retried below while the turn lives.
+  const streamOnce = async (): Promise<void> => {
+    try {
+      // The server sends `server.connected` first, so the first event marks the subscription live.
+      for await (const event of client.events(stop, dropped)) {
+        markConnected();
+        timing.tap?.(event);
+        for (const e of mapper.map(event)) queue.push(e);
       }
-      if (stop.aborted) break;
-      attempt += 1;
-      queue.push(diag(`the OpenCode event stream dropped (reconnect ${attempt}); output in the gap is not recorded`));
-      await sleep(Math.min(2000, 200 * attempt), stop);
+    } catch {
+      // Connection refused or dropped; retried by the pump while the turn lives.
     }
   };
+  let attempt = 0;
+  // One connection after another, with a growing pause, until the turn or the backend stops.
+  const pump = (): Promise<void> =>
+    stepUntil(
+      async (): Promise<Step<void>> => {
+        await streamOnce();
+        if (stop.aborted) return finish(undefined);
+        attempt += 1;
+        queue.push(diag(`the OpenCode event stream dropped (reconnect ${attempt}); output in the gap is not recorded`));
+        return again(Math.min(2000, 200 * attempt));
+      },
+      { signal: stop, onAbort: () => undefined },
+    );
   void pump();
   await within(timing.connectMs ?? 5000, connected);
 
@@ -100,26 +107,25 @@ export async function startOpenCodeTurn(
     }
   };
 
-  const authority = async (): Promise<SessionOutcome> => {
-    let failures = 0;
-    while (!closed.aborted) {
-      try {
-        // The long-poll is legitimately open for a whole turn, so its bound only forces a look at the
-        // session. The two reads answer at once on a healthy server: a hung one counts as a failure.
-        if (failures === 0) await longPoll();
-        const info = await withTimeout("reading the OpenCode session", callMs, (bound) => client.getSession(sessionId, bound), closed);
-        const active = await withTimeout("listing the active OpenCode sessions", callMs, (bound) => client.activeSessions(bound), closed);
-        failures = 0;
-        if (!active.has(sessionId) && info.outcome && (info.time.idle ?? 0) > idleBefore) return info.outcome;
-      } catch (err) {
-        if (closed.aborted) break;
-        failures += 1;
-        if (failures >= (timing.maxFailures ?? 30)) throw new Error(`the OpenCode server stopped answering: ${errorMessage(err)}`);
-      }
-      await sleep(pollMs, closed);
+  let failures = 0;
+  /** One authority check: the session's outcome, or another check after the poll pause. */
+  const check = async (): Promise<Step<SessionOutcome>> => {
+    try {
+      // The long-poll is legitimately open for a whole turn, so its bound only forces a look at the
+      // session. The two reads answer at once on a healthy server: a hung one counts as a failure.
+      if (failures === 0) await longPoll();
+      const info = await withTimeout("reading the OpenCode session", callMs, (bound) => client.getSession(sessionId, bound), closed);
+      const active = await withTimeout("listing the active OpenCode sessions", callMs, (bound) => client.activeSessions(bound), closed);
+      failures = 0;
+      if (!active.has(sessionId) && info.outcome && (info.time.idle ?? 0) > idleBefore) return finish(info.outcome);
+    } catch (err) {
+      if (closed.aborted) return finish("closed");
+      failures += 1;
+      if (failures >= (timing.maxFailures ?? 30)) throw new Error(`the OpenCode server stopped answering: ${errorMessage(err)}`);
     }
-    return "closed";
+    return again(pollMs);
   };
+  const authority = (): Promise<SessionOutcome> => stepUntil<SessionOutcome>(check, { signal: closed, onAbort: () => "closed" });
 
   const outcome = (async (): Promise<TurnOutcome> => {
     let result: TurnOutcome;
