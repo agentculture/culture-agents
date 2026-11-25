@@ -66,14 +66,15 @@ COPY pnpm-shim.sh /usr/local/bin/pnpm
 # exactly /usr/local/bin/opencode reach the model gateway. No AI SDK OpenCode
 # bridge is installed: that adapter targets the OpenCode 1.x server API.
 COPY opencode /usr/local/bin/opencode
-RUN chmod 0755 /usr/local/bin/pnpm /usr/local/bin/opencode && /usr/local/bin/opencode --version
+# The last step drops the default user's extra groups (adm, sudo, ...), so the
+# user declared below carries no more than the sandbox gives.
+RUN chmod 0755 /usr/local/bin/pnpm /usr/local/bin/opencode && /usr/local/bin/opencode --version \
+ && if id ubuntu >/dev/null 2>&1; then usermod -G "" ubuntu; fi
 
 # OpenShell runs every sandbox process as uid 1000 whatever the image says
 # (measured: same uid, capabilities, seccomp, readable paths and blocked egress
 # with and without this line). Declaring it keeps a plain `docker run` of the
-# image from being root too. The user's extra groups (adm, sudo, ...) are
-# dropped first, so the declared user carries no more than the sandbox gives.
-RUN if id ubuntu >/dev/null 2>&1; then usermod -G "" ubuntu; fi
+# image from being root too.
 USER 1000:1000
 
 LABEL org.opencontainers.image.title="culture-agents run image" \

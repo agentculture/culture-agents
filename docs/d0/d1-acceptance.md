@@ -60,6 +60,13 @@ A fourth full run, after the second round of review fixes (hardened fetch,
 process check by pid, bounded waits), passed 16 of 16: cancel took 6.2 s
 (Claude Code) and 8.9 s (OpenCode).
 
+A fifth full run on 2026-11-25, after the SonarCloud round: 16 passed in
+113 s. It ran on a rebuilt run image (Node.js from a signed apt source, a
+declared non-root user) selected with `CULTURE_AGENTS_RUN_IMAGE`, and on the
+core after its sequential loops moved to a shared helper and the socket
+fallback moved out of `/tmp`. Docker's event log shows the sandboxes were
+created from that image. Submit returned in 0.40 to 0.49 s.
+
 | Target | Mock (stub) | Claude Code | OpenCode v2 |
 | --- | --- | --- | --- |
 | Submit returns a run ID in under 2 s | 0.28 s, 0.27 s | 0.47 s, 0.47 s | 0.50 s, 0.36 s |

@@ -139,6 +139,9 @@ class Core:
             "XDG_CONFIG_HOME": str(self.config_home),
         }
         if self.live:
+            # Which run image the live stage uses is the operator's choice (default: the core's).
+            if os.environ.get("CULTURE_AGENTS_RUN_IMAGE"):
+                env["CULTURE_AGENTS_RUN_IMAGE"] = os.environ["CULTURE_AGENTS_RUN_IMAGE"]
             # The openshell CLI keeps its gateway registration under the config home.
             source = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
             if (source / "openshell").is_dir():

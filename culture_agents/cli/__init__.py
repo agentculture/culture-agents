@@ -36,31 +36,33 @@ from culture_agents.cli._errors import EXIT_ENV_ERROR, CliError
 from culture_agents.cli._output import emit_error
 
 
-class _StdoutClosed(SystemExit):
-    """The reader of stdout went away: a request to exit quietly, not an error.
-
-    A ``SystemExit`` because ``run_cli`` lets a handler's exit request through,
-    while it wraps every ``Exception`` a handler raises as an "unexpected" error.
-    """
-
-
 class _PipeGuard:
-    """Stands in for ``sys.stdout`` and turns ``BrokenPipeError`` into :class:`_StdoutClosed`."""
+    """Stands in for ``sys.stdout``: when its reader goes away, it asks for a quiet exit.
+
+    The request is a plain ``SystemExit``, which ``run_cli`` lets through (it wraps
+    every ``Exception`` a handler raises as an "unexpected" error, and this is not
+    one). ``closed`` tells :func:`main` that the exit came from here.
+    """
 
     def __init__(self, stream: Any) -> None:
         self._stream = stream
+        self.closed = False
+
+    def _reader_gone(self) -> SystemExit:
+        self.closed = True
+        return SystemExit(0)
 
     def write(self, text: str) -> int:
         try:
             return self._stream.write(text)
         except BrokenPipeError:
-            raise _StdoutClosed from None
+            raise self._reader_gone() from None
 
     def flush(self) -> None:
         try:
             self._stream.flush()
         except BrokenPipeError:
-            raise _StdoutClosed from None
+            raise self._reader_gone() from None
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._stream, name)
@@ -87,7 +89,8 @@ def main(argv: list[str] | None = None) -> int:
     # A streaming verb prints as it goes, so it needs the mode before dispatch.
     prior = _mode.JSON_MODE.set("--json" in tokens)
     stdout = sys.stdout
-    sys.stdout = _PipeGuard(stdout)
+    guard = _PipeGuard(stdout)
+    sys.stdout = guard
     try:
         code = get_app().run_cli(tokens)
         try:
@@ -102,7 +105,9 @@ def main(argv: list[str] | None = None) -> int:
             emit_error(failure, json_mode=_mode.JSON_MODE.get())
             return failure.code
         return code
-    except _StdoutClosed:
+    except SystemExit:
+        if not guard.closed:
+            raise
         _discard_stdout(stdout)
         return 0
     finally:

@@ -1,6 +1,6 @@
 /** Shared helpers for the harness tests: temp host repos, run records, fakes, event collection. */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestContext } from "node:test";
@@ -11,15 +11,16 @@ import type { DriverEvent } from "../../src/worker/driver.js";
 
 export const AGENT = "spark-culture-agents";
 
+/** git by absolute path, from fixed system directories only: never whatever a writable PATH entry offers. */
+const GIT = ["/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git", "/bin/git"].find((path) => existsSync(path)) ?? "/usr/bin/git";
+
 /** A temp host repo on `main` with one commit and an uncommitted operator file. */
 export function hostRepo(t: TestContext): { dir: string; git: (...args: string[]) => string } {
   const root = mkdtempSync(join(tmpdir(), "ca-harness-host-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const dir = join(root, "host");
-  // git is looked up in fixed system directories only, never in a directory a test could write to.
-  const env = { ...hostEnv(), PATH: "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin" };
-  execFileSync("git", ["init", "-q", "-b", "main", dir], { env });
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, encoding: "utf8", env }).trim();
+  execFileSync(GIT, ["init", "-q", "-b", "main", dir], { env: hostEnv() });
+  const git = (...args: string[]) => execFileSync(GIT, args, { cwd: dir, encoding: "utf8", env: hostEnv() }).trim();
   writeFileSync(join(dir, "README"), "host\n");
   git("add", "README");
   git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "-m", "one");

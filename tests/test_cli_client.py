@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 import pytest
 
 from culture_agents.cli import _client, _stream
