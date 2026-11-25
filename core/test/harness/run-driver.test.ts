@@ -125,10 +125,33 @@ test("cancel during the turn: interrupt, process checks, kill leftovers, destroy
   assert.deepEqual(report.afterClose.map((p) => p.pid), [60]);
   assert.deepEqual(report.killed, [60]);
   assert.deepEqual(report.remaining, []);
+  assert.deepEqual(report.listingFailed, {});
   assert.equal(report.destroyed, true);
   assert.equal(ws.destroyed, 1);
   assert.ok(!ws.calls.includes("collect"), "a cancelled run is not collected");
   assert.ok(events.some((e) => e.type === "output" && e.data.channel === "diagnostic" && e.data.text.startsWith("stop:")));
+});
+
+test("a process listing that fails after a cancel is reported as failed, never as nothing left", async () => {
+  const { factory, backend, driver } = setup();
+  const done = drive(driver.start());
+  await backend.turnStarted;
+  const ws = factory.workspace;
+  assert.ok(ws);
+  ws.procFailure = "ps failed (exit 127)";
+  await driver.cancel();
+  const events = await done;
+  assert.equal(lastEvent(events)?.type, "stopped");
+  const report = driver.stopReport;
+  assert.ok(report);
+  assert.deepEqual(report.listingFailed, { afterInterrupt: "ps failed (exit 127)", afterClose: "ps failed (exit 127)", remaining: "ps failed (exit 127)" });
+  assert.deepEqual(report.killed, [], "nothing can be killed without a listing");
+  const stop = events.flatMap((e) => (e.type === "output" && e.data.text.startsWith("stop:") ? [e.data.text] : []))[0] ?? "";
+  assert.match(stop, /after interrupt could not be listed \(ps failed \(exit 127\)\)/);
+  assert.match(stop, /after harness close could not be listed/);
+  assert.match(stop, /remaining could not be listed/);
+  assert.ok(!/\bnone\b/.test(stop), "a failed listing is not reported as none");
+  assert.equal(ws.destroyed, 1, "the workspace is still destroyed");
 });
 
 test("cancel does not wait out the settle time once the harness's processes are gone", async () => {

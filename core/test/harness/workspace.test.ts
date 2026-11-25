@@ -6,17 +6,18 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { newProcesses, parsePs, PS_MARKER } from "../../src/harness/common/processes.js";
+import { newProcesses, parsePs, PS_SCRIPT, PS_SELF } from "../../src/harness/common/processes.js";
 import { SandboxWorkspaceFactory, type SandboxDeps, type SandboxSettings } from "../../src/harness/common/sandbox-workspace.js";
 import { OpenCodeBackend, openCodeConfig, type SandboxBacked } from "../../src/harness/opencode/backend.js";
 import type { RunProcess, RunSandbox, RunSandboxes } from "../../src/sandbox/index.js";
 
-const PS = `
+const PS = `${PS_SELF} 200
     1     0 Ss   /sbin/init-ish
    99     1 Sl   /usr/local/bin/opencode serve --hostname 127.0.0.1 --port 4096
   164     1 S    sleep 120
   170     1 Z    [defunct]
-  200     1 Ss   sh -c : ${PS_MARKER}; ps -eo pid=,ppid=,stat=,args=
+  190     1 Ss   exec-helper
+  200   190 Ss   sh -c ${PS_SCRIPT}
   201   200 R    ps -eo pid=,ppid=,stat=,args=
 `;
 
@@ -24,6 +25,25 @@ test("ps parsing drops zombies and the check's own processes; the diff keeps onl
   const procs = parsePs(PS);
   assert.deepEqual(procs.map((p) => p.pid), [1, 99, 164]);
   assert.deepEqual(newProcesses([{ pid: 1, ppid: 0, args: "/sbin/init-ish" }], procs).map((p) => p.pid), [99, 164]);
+});
+
+test("the check's own processes are known by pid: a process that only looks like the check is still listed", () => {
+  // A harness child cannot hide by carrying the old marker, by looking like the listing, or by claiming to be the check.
+  const disguised = `${PS_SELF} 200
+    1     0 Ss   /sbin/init-ish
+   50     1 S    opencode serve
+   60    50 S    sh -c : ca-proc-check; exec sleep 1e9
+   61    60 S    ps -eo pid=,ppid=,stat=,args=
+   62    50 S    sh -c echo "${PS_SELF} 50"; sleep 1e9
+  200     1 Ss   sh -c ${PS_SCRIPT}
+  201   200 R    ps -eo pid=,ppid=,stat=,args=
+${PS_SELF} 50
+`;
+  assert.deepEqual(parsePs(disguised).map((p) => p.pid), [1, 50, 60, 61, 62], "only pid 200 and its child are the check's");
+  // A shell that exec'd the listing in place (one process with the reported pid) is the check too.
+  assert.deepEqual(parsePs(`${PS_SELF} 7\n    1     0 Ss   init\n    7     1 R    ps -eo pid=,ppid=,stat=,args=\n`).map((p) => p.pid), [1]);
+  assert.match(PS_SCRIPT, /\$\$/, "the script reports its own shell pid");
+  assert.throws(() => parsePs("    1     0 Ss   init\n"), /did not report its own pid/, "a listing without the pid line is a failure, not an empty list");
 });
 
 const settings: SandboxSettings = {

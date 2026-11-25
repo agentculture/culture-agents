@@ -86,6 +86,11 @@ export interface StopReport {
   killed: number[];
   /** New processes after the kill (must be empty). */
   remaining: Proc[];
+  /**
+   * Why a listing above could not be taken, by field. A field named here is empty because the
+   * check could not look, not because nothing was running.
+   */
+  listingFailed: { afterInterrupt?: string; afterClose?: string; remaining?: string };
   /** Whether the workspace was destroyed. */
   destroyed: boolean;
 }

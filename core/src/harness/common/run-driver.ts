@@ -31,6 +31,12 @@ export interface RunDriverOptions {
   processSettleMs?: number;
 }
 
+/** One process check: what was found, or why the check could not look. */
+interface Listing {
+  procs: Proc[];
+  failed: string | null;
+}
+
 const clip = (text: string) => (text.length > 2000 ? `${text.slice(0, 1997)}...` : text);
 const diagnostic = (text: string): DriverEvent => ({ type: "output", data: { channel: "diagnostic", text } });
 
@@ -204,25 +210,27 @@ export class RunDriver<W extends Workspace> implements Driver {
     return this.destroying;
   }
 
-  private async listNew(): Promise<Proc[]> {
-    if (!this.workspace) return [];
+  /** The new processes, or why they could not be listed (never an empty list standing in for a failure). */
+  private async listNew(): Promise<Listing> {
+    if (!this.workspace) return { procs: [], failed: null };
     try {
-      return newProcesses(this.baseline, await this.workspace.processes());
-    } catch {
-      return [];
+      return { procs: newProcesses(this.baseline, await this.workspace.processes()), failed: null };
+    } catch (err) {
+      return { procs: [], failed: errorMessage(err) };
     }
   }
 
   /**
-   * The new processes once none is left, or what is still there after `maxMs`. Polled, so a
-   * harness that stops promptly does not hold the run in `cancelling` for the whole wait.
+   * The new processes once none is left, or what is still there (or the listing failure) after
+   * `maxMs`. Polled, so a harness that stops promptly does not hold the run in `cancelling` for
+   * the whole wait.
    */
-  private async settled(maxMs: number): Promise<Proc[]> {
+  private async settled(maxMs: number): Promise<Listing> {
     const deadline = Date.now() + maxMs;
     for (;;) {
-      const procs = await this.listNew();
+      const listing = await this.listNew();
       const left = deadline - Date.now();
-      if (procs.length === 0 || left <= 0) return procs;
+      if ((listing.failed === null && listing.procs.length === 0) || left <= 0) return listing;
       await sleep(Math.min(250, left));
     }
   }
@@ -231,18 +239,26 @@ export class RunDriver<W extends Workspace> implements Driver {
   private async stopAll(): Promise<void> {
     if (this.queue.isEnded) return;
     const settle = this.options.processSettleMs ?? 1500;
-    const report: StopReport = { afterInterrupt: [], afterClose: [], killed: [], remaining: [], destroyed: false };
+    const report: StopReport = { afterInterrupt: [], afterClose: [], killed: [], remaining: [], listingFailed: {}, destroyed: false };
+    const record = (field: "afterInterrupt" | "afterClose" | "remaining", listing: Listing): void => {
+      report[field] = listing.procs;
+      if (listing.failed !== null) report.listingFailed[field] = listing.failed;
+    };
     const began = Date.now();
     if (this.workspace && !this.disposed) {
       // What the interrupt alone left running is only reported; the harness itself is still up here.
       await sleep(Math.min(settle, 500));
-      report.afterInterrupt = await this.listNew();
+      record("afterInterrupt", await this.listNew());
       await this.session?.close().catch(() => undefined);
-      report.afterClose = await this.settled(settle);
-      if (report.afterClose.length > 0) {
-        report.killed = report.afterClose.map((p) => p.pid);
+      const afterClose = await this.settled(settle);
+      record("afterClose", afterClose);
+      if (afterClose.failed !== null) {
+        // Nothing to aim a kill at; deleting the workspace below is what ends its processes.
+        record("remaining", afterClose);
+      } else if (afterClose.procs.length > 0) {
+        report.killed = afterClose.procs.map((p) => p.pid);
         await this.workspace.kill(report.killed).catch(() => undefined);
-        report.remaining = await this.settled(settle);
+        record("remaining", await this.settled(settle));
       }
     } else {
       await this.session?.close().catch(() => undefined);
@@ -250,11 +266,15 @@ export class RunDriver<W extends Workspace> implements Driver {
     const processesMs = Date.now() - began;
     report.destroyed = await this.destroyWorkspace();
     this.stopReport = report;
+    const seen = (field: "afterInterrupt" | "afterClose" | "remaining"): string => {
+      const failed = report.listingFailed[field];
+      return failed === undefined ? describeProcs(report[field]) : `could not be listed (${failed.slice(0, 200)})`;
+    };
     if (this.workspace) {
       this.queue.push(
         diagnostic(
-          `stop: after interrupt ${describeProcs(report.afterInterrupt)}; after harness close ${describeProcs(report.afterClose)}; ` +
-            `killed ${report.killed.length}; remaining ${describeProcs(report.remaining)}; workspace destroyed ${report.destroyed}; ` +
+          `stop: after interrupt ${seen("afterInterrupt")}; after harness close ${seen("afterClose")}; ` +
+            `killed ${report.killed.length}; remaining ${seen("remaining")}; workspace destroyed ${report.destroyed}; ` +
             `took ${Date.now() - began} ms (${processesMs} ms closing the harness and its processes)`,
         ),
       );
