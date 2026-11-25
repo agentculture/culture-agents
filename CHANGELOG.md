@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.1] - 2026-11-25
+
+### Added
+
+- The delivery record for D0 and D1 of issue #2: `docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md`, with 17 evidence records and 4 behavioural deltas in the delivery ledger (run at the merged commit, including a sixth live acceptance run).
+
 ## [0.13.0] - 2026-11-25
 
 ### Added
