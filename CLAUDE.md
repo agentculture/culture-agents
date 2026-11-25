@@ -187,9 +187,9 @@ and deprecation. D2 to D6 are not built.
   (`agents.py`, `runs.py` are the control-plane groups); `cli/_client.py` is
   the stdlib HTTP-over-Unix-socket client of the core. The code was cited from
   teken's `python-cli` reference (cite-don't-import), so it is ours to modify.
-  **Dependency rule:** `agentfront` is the one approved runtime dependency;
-  every further runtime dependency needs the owner's approval. `teken` and
-  `pyyaml` are dev-only.
+  **Dependency rule:** `agentfront` and `jsonschema` are the approved runtime
+  dependencies; any other needs the owner's approval. `teken` and `pyyaml` are
+  dev-only.
 - **Error/output contract** — handlers raise `CliError` (`cli/_errors.py`).
   `_dispatch` wraps any other exception so no traceback leaks, and argparse
   errors route through the same path. `cli/_output.py` writes results to
@@ -270,8 +270,8 @@ is or how it works, update all five prompt files so they don't drift.
 - **Cross-repo work** (culture-chat, culture-rules, embodiment, cultureagent,
   agent-lifecycle) goes through the `communicate` skill as tracked issues on
   the sibling repo, not edits made from here.
-- **Dependencies** — Python runtime: only `agentfront`; anything else needs
-  the owner's approval. npm: every dependency in `core/package.json` is an
+- **Dependencies** — Python runtime: only `agentfront` and `jsonschema`;
+  anything else needs the owner's approval. npm: every dependency in `core/package.json` is an
   exact pin (no `^` or `~`), changed together with `package-lock.json`.
 - **Secrets** — `scripts/scan-secrets.py` scans every tracked file (TypeScript
   included; lockfiles are excluded). Nothing credential-shaped or

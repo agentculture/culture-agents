@@ -71,7 +71,7 @@ def test_learn_json(capsys: pytest.CaptureFixture[str]) -> None:
     rc = main(["learn", "--json"])
     assert rc == 0
     payload = json.loads(capsys.readouterr().out)
-    assert payload["tool"] == "agents"
+    assert payload["name"] == "agents"
     assert payload["version"] == __version__
     assert payload["json_support"] is True
 

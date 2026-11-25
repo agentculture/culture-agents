@@ -152,9 +152,9 @@ culture.yaml              mesh identity (suffix + backend)
 - The vendored skills under `.claude/skills/` are cited **verbatim** from
   guildmaster — never propose editing their scripts; the fix belongs upstream
   (`docs/skill-sources.md` has the re-sync procedure).
-- **Dependencies:** `agentfront` is the one approved Python runtime
-  dependency; any other needs the owner's approval. `teken` and `pyyaml` are
-  dev-only. Every npm dependency in `core/package.json` is an exact pin.
+- **Dependencies:** `agentfront` and `jsonschema` are the approved Python
+  runtime dependencies; any other needs the owner's approval. `teken` and
+  `pyyaml` are dev-only. Every npm dependency in `core/package.json` is an exact pin.
 - **Every tracked Python and TypeScript file stays at or under 400 lines**
   (`spikes/` and vendored skills are exempt). Split modules before crossing
   the cap.

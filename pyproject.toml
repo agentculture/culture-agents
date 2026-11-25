@@ -14,7 +14,8 @@ classifiers = [
     "Intended Audience :: Developers",
 ]
 dependencies = [
-    "agentfront>=0.21.3,<0.22",
+    "agentfront>=0.22,<0.23",
+    "jsonschema>=4.23,<5",
 ]
 
 [project.urls]
@@ -31,6 +32,23 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["culture_agents"]
 
+# The control-API schemas the CLI validates every core response against. They
+# are copied into the wheel from the one copy in contract/ at build time (no
+# second copy is kept in the tree). tests/test_contract_packaging.py fails when
+# this list and contract/*.json differ.
+[tool.hatch.build.targets.wheel.force-include]
+"contract/agent.json" = "culture_agents/contract/agent.json"
+"contract/allowlist.json" = "culture_agents/contract/allowlist.json"
+"contract/api.json" = "culture_agents/contract/api.json"
+"contract/capabilities.json" = "culture_agents/contract/capabilities.json"
+"contract/common.json" = "culture_agents/contract/common.json"
+"contract/control-action.json" = "culture_agents/contract/control-action.json"
+"contract/error.json" = "culture_agents/contract/error.json"
+"contract/event.json" = "culture_agents/contract/event.json"
+"contract/run.json" = "culture_agents/contract/run.json"
+"contract/session.json" = "culture_agents/contract/session.json"
+"contract/version.json" = "culture_agents/contract/version.json"
+
 [dependency-groups]
 dev = [
     "pytest>=8.0",
@@ -42,7 +60,6 @@ dev = [
     "black>=23.7.0",
     "teken>=0.8",
     "pyyaml>=6.0",
-    "jsonschema==4.25.1",
 ]
 
 [tool.coverage.run]

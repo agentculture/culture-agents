@@ -6,7 +6,8 @@ against exactly what the contract says the wire looks like. It records every
 request, so tests can validate what the CLI *sent* against the schemas.
 
 Per-route behaviour can be replaced with :meth:`FakeCore.respond`; stream
-behaviour with ``attach_cutoffs``.
+behaviour with ``attach_cutoffs``. :meth:`FakeCore.stop` and
+:meth:`FakeCore.start` take the core away and bring it back on the same socket.
 """
 
 from __future__ import annotations
@@ -58,6 +59,12 @@ _PATTERNS = [
 
 def stream_events(name: str = "succeeded") -> list[dict]:
     return cs.read_stream(cs.FIXTURES / "streams" / "valid" / f"{name}.jsonl")
+
+
+def sse_frame(event: dict) -> bytes:
+    """One event as the contract frames it on the attach stream."""
+    frame = f"id: {event['cursor']}\nevent: {event['kind']}\ndata: {json.dumps(event)}\n\n"
+    return frame.encode("utf-8")
 
 
 class _Server(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
@@ -118,9 +125,14 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(status, payload)
         after = int(query.get("after", 0))
         pending = [e for e in core.events if e["cursor"] > after]
+        raw = None
         if core.attach_cutoffs:
             cutoff = core.attach_cutoffs.pop(0)
-            if cutoff is not None:
+            if isinstance(cutoff, tuple):
+                return self._json(*cutoff)
+            if isinstance(cutoff, bytes):
+                raw = cutoff
+            elif cutoff is not None:
                 pending = pending[:cutoff]
         self.send_response(200)
         self.send_header("Content-Type", "text/event-stream")
@@ -128,10 +140,15 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.close_connection = True
         self.wfile.write(b": keepalive\n\n")
+        if raw is not None:
+            self.wfile.write(raw)
+            return self.wfile.flush()
         for event in pending:
-            frame = f"id: {event['cursor']}\nevent: {event['kind']}\ndata: {json.dumps(event)}\n\n"
-            self.wfile.write(frame.encode("utf-8"))
+            self.wfile.write(sse_frame(event))
         self.wfile.flush()
+        if core.stop_after_attach:
+            core.stop_after_attach = False
+            core.stop()
 
     def do_GET(self) -> None:  # noqa: N802 - http.server API
         self._route("GET")
@@ -149,14 +166,31 @@ class FakeCore:
         self.overrides: dict[str, tuple[int, Any]] = {}
         self.overrides_by_name: dict[str, tuple[int, Any]] = {}
         self.events = stream_events()
-        #: One entry per attach connection: send at most N events, then close.
-        self.attach_cutoffs: list[int | None] = []
-        self._server = _Server(str(socket_path), _Handler)
-        self._server.core = self
-        self._thread = threading.Thread(
-            target=lambda: self._server.serve_forever(poll_interval=0.01), daemon=True
-        )
-        self._thread.start()
+        #: One entry per attach connection. An int: send at most N events, then
+        #: close. ``None``: send them all. ``bytes``: send exactly these bytes as
+        #: the stream body. A ``(status, payload)`` tuple: answer with that JSON.
+        self.attach_cutoffs: list[int | None | bytes | tuple[int, Any]] = []
+        #: Stop the core right after the next attach stream has been sent.
+        self.stop_after_attach = False
+        self._server: _Server | None = None
+        self.start()
+
+    def start(self) -> None:
+        """Listen on the socket (again, after :meth:`stop`)."""
+        server = _Server(str(self.socket_path), _Handler)
+        server.core = self
+        self._server = server
+        threading.Thread(
+            target=lambda: server.serve_forever(poll_interval=0.01), daemon=True
+        ).start()
+
+    def stop(self) -> None:
+        """Go away as a stopped core does: nothing listens and the socket file is gone."""
+        if self._server is not None:
+            self._server.shutdown()
+            self._server.server_close()
+            self._server = None
+        self.socket_path.unlink(missing_ok=True)
 
     def respond(self, key: str, status: int, payload: Any) -> None:
         """Replace one route's answer (``key`` like ``"POST /v1/runs"``, or ``attach``)."""
@@ -169,5 +203,4 @@ class FakeCore:
         return [r for r in self.requests if r["method"] == method and r["path"] == path]
 
     def close(self) -> None:
-        self._server.shutdown()
-        self._server.server_close()
+        self.stop()

@@ -7,7 +7,7 @@ import re
 
 import pytest
 
-from culture_agents.cli._app import derive_parser, get_app
+from culture_agents.cli._app import get_app
 from culture_agents.explain import known_paths, resolve
 from tests.cli_support import run
 
@@ -31,7 +31,7 @@ def _tool_paths() -> set[tuple[str, ...]]:
 
 
 def test_parser_prog_is_agents() -> None:
-    parser = derive_parser(get_app())
+    parser = get_app().cli()
     assert parser.prog == "agents"
     assert "culture-agents" not in (parser.description or "")
 
@@ -58,7 +58,7 @@ def _leaf_parsers(parser: argparse.ArgumentParser):
 
 
 def test_every_leaf_verb_supports_json() -> None:
-    leaves = list(_leaf_parsers(derive_parser(get_app())))
+    leaves = list(_leaf_parsers(get_app().cli()))
     assert len(leaves) >= 6 + len(NEW_VERBS)
     for leaf in leaves:
         assert any("--json" in a.option_strings for a in leaf._actions), leaf.prog
@@ -76,15 +76,17 @@ def test_learn_and_overviews_list_every_registered_verb(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     learn = run(capsys, "learn", "--json").json()
-    listed = {tuple(c["path"]) for c in learn["commands"]}
-    assert _tool_paths() <= listed
-    assert {("learn",), ("explain",), ("overview",), ("doctor",)} <= listed
+    listed = {tuple(c["path"]) for c in learn["tools"]}
+    assert listed == _tool_paths()  # agentfront's learn lists exactly the registry
+    meta = [("learn",), ("explain",), ("overview",), ("doctor",)]
     text = run(capsys, "learn").out
     for path in _tool_paths():
+        assert f"  - {' '.join(path)}: " in text
+    for path in meta:  # the meta-verbs are not registry tools; our learn section names them
         assert f"agents {' '.join(path)} - " in text
     cli = run(capsys, "cli", "overview", "--json").json()
     verbs = next(s for s in cli["sections"] if s["title"] == "Verbs")["items"]
-    assert len(verbs) == len(listed)
+    assert len(verbs) == len(listed) + len(meta)
 
 
 def test_json_errors_carry_the_triple(capsys: pytest.CaptureFixture[str]) -> None:

@@ -4,11 +4,11 @@ requires-python = ">=3.12"
 
 [[package]]
 name = "agentfront"
-version = "0.21.3"
+version = "0.22.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1f/66/23093539cc0857a26dee06910ea333005d5cd5a442f3a31c58904ac2c941/agentfront-0.21.3.tar.gz", hash = "sha256:7ffdae45e94c084c31ee5ad8abc7b74b96f293ff91e1d34271ddf446b8e80f36", size = 569065, upload-time = "2026-10-31T18:49:38.798Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/60/57/6e7665f5a4a34f7580148c06b3a9c9b6a604a15a1e9615e0fbb9b1e85ab9/agentfront-0.22.0.tar.gz", hash = "sha256:930e61db23293a0758f2286bd8b518cabc94bd807c9b8abec0f4e0d20302c8a9", size = 579991, upload-time = "2026-11-25T08:46:06.202Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/1d/70/daeba9f3f4ea2be718a5bedb7ed51e08deaa284f7a2ba39737b9da99c74b/agentfront-0.21.3-py3-none-any.whl", hash = "sha256:2f73c01873385742181148e3f09ed18e3bed0416f9323afca6b1712dc4d250db", size = 153457, upload-time = "2026-10-31T18:49:37.365Z" },
+    { url = "https://files.pythonhosted.org/packages/18/2f/ac57d11881467ecb254752e92f4300b74898d98d4905454a3bc7459891b0/agentfront-0.22.0-py3-none-any.whl", hash = "sha256:531bab47b6dc45a05f3b3b3397652e729c05e1f209183ad09d804f98fc4f07c2", size = 156999, upload-time = "2026-11-25T08:46:05.199Z" },
 ]
 
 [[package]]
@@ -178,6 +178,7 @@ version = "0.13.0"
 source = { editable = "." }
 dependencies = [
     { name = "agentfront" },
+    { name = "jsonschema" },
 ]
 
 [package.dev-dependencies]
@@ -186,7 +187,6 @@ dev = [
     { name = "black" },
     { name = "flake8" },
     { name = "isort" },
-    { name = "jsonschema" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-xdist" },
@@ -195,7 +195,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "agentfront", specifier = ">=0.21.3,<0.22" }]
+requires-dist = [
+    { name = "agentfront", specifier = ">=0.22,<0.23" },
+    { name = "jsonschema", specifier = ">=4.23,<5" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -203,7 +206,6 @@ dev = [
     { name = "black", specifier = ">=23.7.0" },
     { name = "flake8", specifier = ">=6.1" },
     { name = "isort", specifier = ">=5.12.0" },
-    { name = "jsonschema", specifier = "==4.25.1" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-cov", specifier = ">=4.1" },
     { name = "pytest-xdist", specifier = ">=3.0" },

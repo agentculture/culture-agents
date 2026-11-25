@@ -15,9 +15,9 @@ import sys
 from typing import Any
 from urllib.parse import quote
 
-from agentfront._registry import Flag
+from agentfront import Flag
 
-from culture_agents.cli import _mode, _render
+from culture_agents.cli import _mode, _render, _text
 from culture_agents.cli._client import CoreClient
 from culture_agents.cli._render import Rendered
 
@@ -189,10 +189,8 @@ def runs_cancel(
 
 def runs_attach(run_id: str, after: int | None = None) -> None:
     """Follow a run's events live until it reaches a terminal state."""
-    import json
-
     json_mode = _mode.JSON_MODE.get()
     for event in CoreClient().attach(run_id, after or 0):
-        line = json.dumps(event, ensure_ascii=False) if json_mode else _render.event_line(event)
+        line = _text.json_line(event) if json_mode else _render.event_line(event)
         sys.stdout.write(line + "\n")
         sys.stdout.flush()

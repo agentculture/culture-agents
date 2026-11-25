@@ -1,24 +1,24 @@
 """The agentfront :class:`App`: the one registry the CLI is derived from.
 
 Every verb is declared once here. agentfront builds the argparse tree, the
-``--json`` flag and the nested noun groups from it. Two things stay ours:
+``--json`` flag, ``--version`` and the nested noun groups from it, and
+``App.run_cli`` parses and dispatches. Only agentfront's public API is used:
 
-* ``learn``, ``explain``, ``overview`` and ``doctor`` are agentfront's reserved
-  meta-verbs. Their generic output cannot describe this repo (identity doctor,
-  the explain catalog), so :func:`derive_parser` points them at our handlers.
-  That is the only place the generated parser is touched.
+* ``explain``, ``overview`` and ``doctor`` are agentfront's meta-verbs. Their
+  generic output cannot describe this repo (identity doctor, the explain
+  catalog), so ``App.meta_verb`` points them at our handlers.
+* ``learn`` stays agentfront's own, because its listing is the registry. What
+  the registry cannot know is added with ``App.add_learn_section``.
 * Errors are :class:`CliError` (agentfront's ``AgentfrontError``), so
-  agentfront's dispatcher renders them and no traceback leaks.
+  ``run_cli`` renders them and no traceback leaks.
 """
 
 from __future__ import annotations
 
-import argparse
 from functools import lru_cache
 from typing import Any, Callable
 
-from agentfront import App
-from agentfront._registry import Flag
+from agentfront import App, Flag
 
 from culture_agents import __version__
 from culture_agents.cli._commands import agents as agents_cmd
@@ -27,7 +27,7 @@ from culture_agents.cli._commands import runs as runs_cmd
 from culture_agents.cli._commands import whoami as whoami_cmd
 from culture_agents.cli._commands.doctor import cmd_doctor
 from culture_agents.cli._commands.explain import cmd_explain
-from culture_agents.cli._commands.learn import cmd_learn
+from culture_agents.cli._commands.learn import sections as learn_sections
 from culture_agents.cli._commands.overview import cmd_overview
 from culture_agents.explain.catalog import ENTRIES
 
@@ -54,7 +54,6 @@ _TOOLS: tuple[tuple[tuple[str, ...], str, Callable[..., Any], tuple[Flag, ...]],
 )
 
 _META_HANDLERS = {
-    "learn": cmd_learn,
     "explain": cmd_explain,
     "overview": cmd_overview,
     "doctor": cmd_doctor,
@@ -70,22 +69,13 @@ def build_app() -> App:
         if text not in seen:  # several keys alias one entry
             seen.add(text)
             app.add_doc(slug="-".join(path) or "agents", title=text.splitlines()[0][2:], text=text)
+    for verb, handler in _META_HANDLERS.items():
+        app.meta_verb(verb, handler)
+    for title, text in learn_sections(app):
+        app.add_learn_section(title, text)
     return app
 
 
 @lru_cache(maxsize=1)
 def get_app() -> App:
     return build_app()
-
-
-def derive_parser(app: App) -> argparse.ArgumentParser:
-    """The agentfront CLI for *app*, with our meta-verbs and ``--version``."""
-    parser = app.cli()
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
-    subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
-    for name, handler in _META_HANDLERS.items():
-        verb = subparsers.choices[name]
-        if not any("--json" in a.option_strings for a in verb._actions):
-            verb.add_argument("--json", action="store_true", help="emit JSON")
-        verb.set_defaults(func=handler)
-    return parser

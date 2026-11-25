@@ -70,7 +70,10 @@ _LEARN = """\
 # agents learn
 
 Prints a structured self-teaching prompt covering purpose, command map,
-exit-code policy, `--json` support, and the `explain` pointer.
+exit-code policy, `--json` support, and the `explain` pointer. The docs and
+the command list come from the registry. `--json` gives `name`, `version`,
+`purpose`, `docs`, `tools`, `sections`, `exit_codes`, `json_support` and
+`explain`.
 
 ## Usage
 

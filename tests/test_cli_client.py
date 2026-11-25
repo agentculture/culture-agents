@@ -1,4 +1,4 @@
-"""The stdlib socket client: transport rules, version rule, error table, shapes."""
+"""The stdlib socket client: transport rules, version rule, error table."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from culture_agents.cli import _client, _shapes
+from culture_agents.cli import _client, _stream
 from culture_agents.cli._client import (
     CLIENT_API_VERSION,
     EXIT_FOR_CODE,
@@ -73,52 +73,6 @@ def test_an_unrecognised_error_body_is_internal() -> None:
         assert (err.code, err.error_code) == (2, "internal")
 
 
-# --- shapes are pinned to the contract fixtures ------------------------------
-
-_FIXTURE_SHAPES = {
-    ("version", "root"): "version",
-    ("agent", "root"): "agent",
-    ("agent", "agent_list"): "agent_list",
-    ("capabilities", "root"): "capabilities",
-    ("run", "root"): "run",
-    ("run", "run_list"): "run_list",
-    ("run", "run_result"): "run_result",
-    ("control-action", "submit_response"): "submit_response",
-    ("control-action", "accepted_response"): "accepted_response",
-    ("event", "root"): "event",
-    ("event", "event_page"): "event_page",
-    ("error", "root"): "error",
-}
-
-
-def _valid_fixtures():
-    for path in sorted((cs.FIXTURES / "valid").glob("*/*.json")):
-        key = (path.parent.name, path.name.split(".", 1)[0])
-        if key in _FIXTURE_SHAPES:
-            yield pytest.param(path, _FIXTURE_SHAPES[key], id=f"{path.parent.name}/{path.name}")
-
-
-@pytest.mark.parametrize(("path", "shape"), _valid_fixtures())
-def test_shapes_accept_every_valid_fixture(path, shape: str) -> None:
-    assert _shapes.check(shape, cs.load_json(path)) is None
-
-
-@pytest.mark.parametrize("path", sorted((cs.FIXTURES / "streams" / "valid").glob("*.jsonl")))
-def test_event_shape_accepts_every_stream_fixture(path) -> None:
-    assert all(_shapes.check("event", e) is None for e in cs.read_stream(path))
-
-
-def test_shapes_reject_the_obvious() -> None:
-    run = fixture("run", "root.running")
-    assert "missing required key" in _shapes.check(
-        "run", {k: v for k, v in run.items() if k != "state"}
-    )
-    assert _shapes.check("run", {**run, "cursor": "6"})
-    assert _shapes.check("run", {**run, "cursor": True})  # a bool is not an integer
-    assert _shapes.check("run_list", {"runs": "none"})
-    assert _shapes.check("event", [])
-
-
 # --- over the socket ---------------------------------------------------------
 
 
@@ -142,7 +96,7 @@ def test_unreachable_socket_raises_unavailable(no_core) -> None:
 
 
 def test_attach_gives_up_after_repeated_empty_reconnects(core, monkeypatch) -> None:
-    monkeypatch.setattr(_client.time, "sleep", lambda _s: None)
+    monkeypatch.setattr(_stream.time, "sleep", lambda _s: None)
     core.attach_cutoffs = [0] * 20  # every connection closes without an event
     with pytest.raises(CoreError) as exc:
         list(CoreClient().attach(fixture("run", "root.running")["id"]))

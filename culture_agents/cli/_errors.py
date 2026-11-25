@@ -24,6 +24,8 @@ from agentfront.errors import (
     AgentfrontError,
 )
 
+from culture_agents.cli._text import visible
+
 # Exit-code policy. Documented in ``agents learn`` output.
 # 0      = success
 # 1      = user-input error (bad flag, missing required arg, unknown path)
@@ -42,6 +44,10 @@ class CoreError(CliError):
     error body (``capability``, ``active_run_id``, ``client_api_version`` ...).
     Both are added to the JSON error output next to the standard
     ``{code, message, remediation}`` triple.
+
+    The message may quote text that came from a run, so ``message`` (what text
+    mode prints after ``error:``) has its control characters made visible,
+    while the JSON output carries ``raw_message``, the exact text.
     """
 
     def __init__(
@@ -53,12 +59,14 @@ class CoreError(CliError):
         error_code: str = "internal",
         detail: dict[str, Any] | None = None,
     ) -> None:
-        super().__init__(code=code, message=message, remediation=remediation)
+        super().__init__(code=code, message=visible(message), remediation=remediation)
+        self.raw_message = message
         self.error_code = error_code
         self.detail = dict(detail or {})
 
     def to_dict(self) -> dict[str, object]:
         data = super().to_dict()
+        data["message"] = self.raw_message
         data["error_code"] = self.error_code
         data.update(self.detail)
         return data
