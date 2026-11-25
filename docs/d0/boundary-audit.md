@@ -35,7 +35,7 @@ The comparison found one difference across the 14 checkouts:
 
 | Repo | Difference | Caused by |
 | --- | --- | --- |
-| culture | New worktree `/home/ori/git/.worktrees.culture/workspace-map` on `docs/workspace-map` (`afadaa1`) | This work (plan task t5) |
+| culture | New worktree `~/git/.worktrees.culture/workspace-map` on `docs/workspace-map` (`afadaa1`) | This work (plan task t5) |
 
 In every checkout, including `culture`, the HEAD commit, the branch and the
 status lines are identical to the baseline. No working file in any of the 14
@@ -62,8 +62,8 @@ modified after the baseline time.
 
 | Repo | Branch | Worktree | Pull request | State |
 | --- | --- | --- | --- | --- |
-| culture | `docs/workspace-map` | `/home/ori/git/.worktrees.culture/workspace-map` | [agentculture/culture#532](https://github.com/agentculture/culture/pull/532) | open, one commit `afadaa1` |
-| agentfront | `feat/public-cli-hooks` | `/home/ori/git/.worktrees.agentfront/public-cli-hooks` | [agentculture/agentfront#60](https://github.com/agentculture/agentfront/pull/60) | open, one commit `3e220ea`, reviewed as request-changes |
+| culture | `docs/workspace-map` | `~/git/.worktrees.culture/workspace-map` | [agentculture/culture#532](https://github.com/agentculture/culture/pull/532) | open, one commit `afadaa1` |
+| agentfront | `feat/public-cli-hooks` | `~/git/.worktrees.agentfront/public-cli-hooks` | [agentculture/agentfront#60](https://github.com/agentculture/agentfront/pull/60) | open, one commit `3e220ea`, reviewed as request-changes |
 
 These are the only two remote branches this work pushed. Neither pull request
 is merged.
@@ -75,7 +75,7 @@ Other changes outside this repository:
   guildmaster, cultureagent and agent-lifecycle, linked from
   [issue #2](https://github.com/agentculture/culture-agents/issues/2#issuecomment-7146902139).
   An issue is not a change to a repository's files.
-- **`/home/ori/git/CLAUDE.md`**, the workspace-root prompt file, which is not
+- **`~/git/CLAUDE.md`**, the workspace-root prompt file, which is not
   in any repository: one line now points at `culture/docs/workspace-map.md`.
 - **Tool files in the two worktrees:** an untracked `.devex/` directory in the
   culture worktree and a modified `.agex/data/pr/events.jsonl` in the

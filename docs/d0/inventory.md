@@ -7,7 +7,7 @@ consumes it. It is the D0 deliverable that later tasks build on.
 
 It was written on 2026-11-25 against the upstream `main` of each repo, read
 through `gh` and throw-away shallow clones, never through the sibling checkouts
-under `/home/ori/git/` (those are stale and dirty; their state is frozen in
+under `~/git/` (those are stale and dirty; their state is frozen in
 [`sibling-baseline.txt`](sibling-baseline.txt)).
 
 ## Pinned commits
@@ -132,7 +132,7 @@ Source is about 14.7k lines across `agentirc/`; the largest modules are
   and a runtime socket directory. Other stores: rooms
   (`agentirc:agentirc/room_store.py:13-14`), threads
   (`agentirc:agentirc/thread_store.py:13-14`) and `accounts.json`
-  (`agentirc:agentirc/accounts.py:58`). The `~/.culture` default means the path
+  (`agentirc:agentirc/accounts.py:58`). The `.culture` default under the home directory means the path
   names an older product, not culture-chat.
 
 ### agentirc known consumers

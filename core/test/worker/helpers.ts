@@ -1,5 +1,5 @@
 /** Shared helpers for store and worker tests: temp state dirs, run records, process cleanup. */
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { TestContext } from "node:test";
@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
 import { buildRunId, buildSessionId, newUlid, type ActionRecord, type Run } from "../../src/contract/index.js";
-import { checkLiveness } from "../../src/store/liveness.js";
+import { checkLiveness, readWorkerIdentity } from "../../src/store/liveness.js";
 import type { DriverSelection } from "../../src/worker/driver.js";
 import type { FakeDriverOptions } from "../../src/worker/fake-driver.js";
 
@@ -26,7 +26,30 @@ export function fakeDriver(options: FakeDriverOptions): DriverSelection {
  */
 export function stateDir(t: TestContext): string {
   const dir = mkdtempSync(join(tmpdir(), "ca-store-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 }));
+  // Hooks run in registration order, so this one runs before `killAfter`: stop the store's workers
+  // here first, or a worker still writing its heartbeat makes the removal fail (ENOTEMPTY).
+  t.after(async () => {
+    const pids: number[] = [];
+    try {
+      for (const run of readdirSync(join(dir, "runs"))) {
+        const runDir = join(dir, "runs", run);
+        const pid = checkLiveness(runDir).alive ? readWorkerIdentity(runDir)?.pid : undefined;
+        if (pid !== undefined && pid !== process.pid) pids.push(pid); // a test may record itself as the worker
+      }
+    } catch {
+      // no runs directory: nothing was spawned
+    }
+    for (const pid of pids) {
+      try {
+        process.kill(pid, "SIGKILL");
+      } catch {
+        // already gone
+      }
+    }
+    const deadline = Date.now() + 5000;
+    while (pids.some(processExists) && Date.now() < deadline) await delay(20);
+    rmSync(dir, { recursive: true, force: true, maxRetries: 20, retryDelay: 50 });
+  });
   return dir;
 }
 

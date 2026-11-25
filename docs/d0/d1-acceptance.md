@@ -100,8 +100,8 @@ checked instead:
 
 - **Mock stage.** While a run was steered and cancelled, the core process and
   the worker process held no TCP socket at all, read from `/proc`. The core's
-  `HOME` was a temporary directory, so no `~/.culture` configuration was
-  readable.
+  `HOME` was a temporary directory, so no `.culture` configuration of the
+  operator was readable.
 - **Live stage.** During a run, no TCP socket of the core or its workers had
   a chat server's listening port as its remote port. The remote ports seen
   were the gateway's (17670) and two to four other ports per run, which were

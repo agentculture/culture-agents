@@ -54,10 +54,22 @@ GUILD_HARNESS = {
 #: are upstream's to fix (never patch a verbatim vendored copy), so they are
 #: WAIVED — reported every run, never silently dropped. Any finding outside
 #: this allowlist fails the check.
+#:
+#: The issue-2 devague records are waived for a different reason: their
+#: confirmed claims and scope findings name the workspace root by its absolute
+#: path. devague state is never hand-edited, and amending a confirmed claim
+#: sends it back to the owner, so the frame, the plan and their three exports
+#: keep the owner-confirmed wording.
+_ISSUE_2 = "issue-2-cross-repo-reorganization"
 STEWARD_WAIVED_PORTABILITY_PATHS = frozenset(
     {
         ".claude/skills/recall/SKILL.md",
         ".claude/skills/remember/SKILL.md",
+        f".devague/frames/{_ISSUE_2}.json",
+        f".devague/plans/{_ISSUE_2}.json",
+        f"docs/specs/2026-11-24-{_ISSUE_2}.md",
+        f"docs/plans/2026-11-24-{_ISSUE_2}.md",
+        f"docs/plans/2026-11-24-{_ISSUE_2}-split.md",
     }
 )
 

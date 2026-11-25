@@ -123,7 +123,7 @@ and `delete`, so each required member has a counterpart.
 - **The sandbox never holds the secret.** Inside the sandbox each credential
   variable holds an `openshell:resolve:env:` placeholder that the proxy resolves
   at egress.
-- **Codex needs a launcher.** Codex reads `~/.codex/auth.json`, not environment
+- **Codex needs a launcher.** Codex reads `auth.json` in its `.codex` home directory, not environment
   variables, and parses its tokens as JWTs. The probe wrote that file inside
   the sandbox from the placeholders, wrapping each in the documented JWT-shaped
   alias with the real tokens' non-secret claims. Authentication then passed

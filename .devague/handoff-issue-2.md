@@ -16,7 +16,7 @@ out of scope and tracked by issues on the sibling repos.
 
 ## Where the work is
 
-- Repo `/home/ori/git/culture-agents`, local branch `runs/d0-d1-spec`, about 55
+- Repo `~/git/culture-agents`, local branch `runs/d0-d1-spec`, about 55
   commits ahead of `main`, version 0.13.0. **Nothing is pushed.** No PR exists for this repo.
 - One file is modified and deliberately never committed:
   `.eidetic/memory/default__public.jsonl` (a recall counter bumped by `/recall`).
@@ -29,7 +29,7 @@ out of scope and tracked by issues on the sibling repos.
 devague flow: scope, think, challenge, spec-to-plan, assign-to-workforce.
 Frame and plan slug `issue-2-cross-repo-reorganization`, both converged.
 Each plan task runs in a subagent in its own worktree under
-`/home/ori/git/.worktrees.culture-agents/<name>` on a `runs/<name>` branch.
+`~/git/.worktrees.culture-agents/<name>` on a `runs/<name>` branch.
 The main agent merges with `--no-ff` only if tests pass before and after, then
 removes the worktree. Subagents never run `devague`; the main agent files
 lapses and deviations the moment they surface. Briefs quote the task from
@@ -155,10 +155,10 @@ directory. Treat it as a second opinion to verify.
 - Docker images: `culture-agents-run:dev` and `culture-agents-probe:0.1` to
   `0.5`. No sandboxes exist.
 - Sibling worktrees created by this work:
-  `/home/ori/git/.worktrees.culture/workspace-map` (PR #532) and
-  `/home/ori/git/.worktrees.agentfront/public-cli-hooks` (PR #60). Other
+  `~/git/.worktrees.culture/workspace-map` (PR #532) and
+  `~/git/.worktrees.agentfront/public-cli-hooks` (PR #60). Other
   worktrees in those repos belong to the owner.
-- `/home/ori/git/CLAUDE.md` now points at the workspace map.
+- `~/git/CLAUDE.md` now points at the workspace map.
 - Published explainer: <https://claude.ai/artifact/RoWVa9am389rfeHhFxEpD7>,
   source in the scratch directory as `issue-2-reorg-map.html`. It predates the
   OpenCode and OpenShell decisions.
