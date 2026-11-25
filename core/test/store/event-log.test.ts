@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { appendFileSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { setTimeout as delay } from "node:timers/promises";
 import { test } from "node:test";
 
 import { validate, type RunEvent } from "../../src/contract/index.js";
@@ -7,6 +8,7 @@ import { EventLogCorruptError, EventLogWriter, readCursorFile, readLog } from ".
 import { runFile } from "../../src/store/files.js";
 import { createRun, followEvents, readEvents, settleOrphan, showRunAt } from "../../src/store/run-store.js";
 import { newRun, stateDir } from "../worker/helpers.js";
+import { errno, stubFs } from "./fs-stub.js";
 
 function seeded(t: Parameters<typeof stateDir>[0]) {
   const run = newRun();
@@ -112,4 +114,101 @@ test("followEvents on a run with no live worker settles it as unknown and ends",
   for await (const event of followEvents(dir, run.id, 3, { pollMs: 5, orphanCheckMs: 10 })) seen.push(event);
   assert.equal(seen.length, 1);
   assert.equal((seen[0]?.data as { to: string }).to, "unknown");
+});
+
+type Write = (fd: number, data: Buffer | string, offset?: number, length?: number) => number;
+const MORE = { kind: "run.output", data: { channel: "text", text: " and more output" } } as const;
+
+/** The log's next write puts only 10 bytes in the file; every later write does `then` (default: the real write). */
+function shortWrite(t: Parameters<typeof stateDir>[0], then?: () => never): () => void {
+  let calls = 0;
+  return stubFs(t, "writeSync", (real) => ((fd: number, data: Buffer | string, offset?: number, length?: number) => {
+    const write = real as unknown as Write;
+    calls += 1;
+    if (calls > 1) return then ? then() : write(fd, data, offset, length);
+    return typeof data === "string" ? write(fd, data.slice(0, 10)) : write(fd, data, offset ?? 0, Math.min(10, length ?? data.length));
+  }) as unknown as typeof real);
+}
+
+test("a short write is continued until the whole line is in the file", (t) => {
+  const { run, dir, writer } = seeded(t);
+  t.after(() => writer.close());
+  const restore = shortWrite(t);
+  const event = writer.append(MORE);
+  restore();
+  assert.equal(event.cursor, 4);
+  const log = readLog(dir, run.id);
+  assert.equal(log.torn, false);
+  assert.deepEqual(log.events[3], event);
+});
+
+test("a write that fails part-way appends nothing: no joined line, and the cursor is not advanced", (t) => {
+  const { run, dir, writer } = seeded(t);
+  t.after(() => writer.close());
+  const restore = shortWrite(t, () => {
+    throw errno("ENOSPC", "write");
+  });
+  assert.throws(() => writer.append(MORE), /ENOSPC/);
+  restore();
+  assert.equal(writer.cursor, 3);
+  assert.equal(readLog(dir, run.id).torn, false, "the partial line was dropped");
+  const next = writer.append(MORE);
+  assert.equal(next.cursor, 4);
+  const log = readLog(dir, run.id);
+  assert.deepEqual(log.events.map((e) => e.cursor), [1, 2, 3, 4]);
+  assert.equal(readCursorFile(dir), 4);
+});
+
+test("a partial line that cannot be dropped at once reads as a torn tail and is repaired by the next append", (t) => {
+  const { run, dir, writer } = seeded(t);
+  t.after(() => writer.close());
+  const restoreWrite = shortWrite(t, () => {
+    throw errno("ENOSPC", "write");
+  });
+  const restoreTruncate = stubFs(t, "ftruncateSync", () => (() => {
+    throw errno("EIO", "ftruncate");
+  }) as never);
+  assert.throws(() => writer.append(MORE), /ENOSPC/);
+  restoreWrite();
+  const broken = readLog(dir, run.id);
+  assert.equal(broken.torn, true);
+  assert.deepEqual(broken.events.map((e) => e.cursor), [1, 2, 3]);
+  assert.throws(() => writer.append(MORE), /EIO/, "nothing is written while the partial line cannot be dropped");
+  restoreTruncate();
+  assert.equal(writer.append(MORE).cursor, 4);
+  const log = readLog(dir, run.id);
+  assert.equal(log.torn, false);
+  assert.deepEqual(log.events.map((e) => e.cursor), [1, 2, 3, 4]);
+});
+
+test("an fsync failure after the line is written does not let the next append reuse its cursor", (t) => {
+  const { run, dir, writer } = seeded(t);
+  t.after(() => writer.close());
+  const restore = stubFs(t, "fsyncSync", () => (() => {
+    throw errno("EIO", "fsync");
+  }) as never);
+  assert.throws(() => writer.append(MORE, true), /EIO/);
+  restore();
+  assert.equal(writer.cursor, 4, "the event is in the file, so its cursor is taken");
+  assert.equal(writer.transition("succeeded", null).cursor, 5);
+  const log = readLog(dir, run.id);
+  assert.deepEqual(log.events.map((e) => e.cursor), [1, 2, 3, 4, 5]);
+  assert.equal(readCursorFile(dir), 5);
+});
+
+test("followEvents never joins a torn partial line onto the line written after it", async (t) => {
+  const { run, dir, writer } = seeded(t);
+  writer.close();
+  // The torn bytes are the start of a different event than the one written next.
+  appendFileSync(runFile(dir, "events"), '{"run_id":"' + run.id + '","cursor":4,"time":"2026-11-25T10:00:00.000Z","kind":"run.output","data":{"channel":"te');
+  const seen: RunEvent[] = [];
+  const follower = (async () => {
+    for await (const event of followEvents(dir, run.id, 3, { pollMs: 2, orphanCheckMs: 0 })) seen.push(event);
+  })();
+  await delay(30); // the follower has read the partial bytes
+  const again = EventLogWriter.open(dir, run.id); // drops the torn tail
+  t.after(() => again.close());
+  again.transition("succeeded", null);
+  await follower;
+  assert.deepEqual(seen.map((e) => [e.cursor, (e.data as { to: string }).to]), [[4, "succeeded"]]);
 });

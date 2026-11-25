@@ -29,6 +29,7 @@ export {
   readWorkerIdentity,
   writeHeartbeat,
   writeWorkerIdentity,
+  LivenessUnknownError,
 } from "./liveness.js";
 export type { Liveness, LivenessOptions, WorkerIdentity } from "./liveness.js";
 export {

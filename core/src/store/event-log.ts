@@ -131,12 +131,21 @@ export function readCursorFile(dir: string): number | null {
 
 /**
  * The single writer of a run's log. Opening it validates the existing log and drops a torn
- * final line. Appends are synchronous, one `write` per event, so a crash leaves at most one
- * torn line. `durable` appends are fsynced together with the cursor file.
+ * final line. Appends are synchronous, so a crash leaves at most one torn line. `durable` appends
+ * are fsynced together with the cursor file.
+ *
+ * A line counts only once every byte of it, newline included, is in the file. An append that fails
+ * before that (a short write followed by ENOSPC, for example) leaves at most a partial line with
+ * no newline, which readers already ignore as a torn tail; the writer truncates it, at once when
+ * it can and otherwise before its next append, so a later line never joins onto it.
  */
 export class EventLogWriter {
   private readonly fd: number;
   private tail: LogTail;
+  /** Bytes of complete lines: where the next line starts. */
+  private bytes: number;
+  /** True when a failed append may have left bytes past `bytes`. */
+  private torn = false;
 
   private constructor(
     private readonly dir: string,
@@ -153,6 +162,7 @@ export class EventLogWriter {
       fsyncSync(this.fd);
     }
     this.tail = parsed.tail;
+    this.bytes = parsed.completeBytes;
   }
 
   static open(dir: string, runId: RunId, clock: () => number = Date.now): EventLogWriter {
@@ -167,7 +177,39 @@ export class EventLogWriter {
     return this.tail.state;
   }
 
-  /** Append one event at the next cursor; throws (and writes nothing) if it breaks the contract. */
+  /** Drop what a failed append left after the last complete line. Throws when it cannot. */
+  private repair(): void {
+    if (!this.torn) return;
+    ftruncateSync(this.fd, this.bytes);
+    this.torn = false;
+  }
+
+  /** Write every byte of `line` (a short write is continued); on failure the partial line is dropped. */
+  private writeLine(line: Buffer): void {
+    let written = 0;
+    try {
+      while (written < line.length) {
+        const n = writeSync(this.fd, line, written, line.length - written);
+        if (n <= 0) throw new Error("the event log accepted no bytes");
+        written += n;
+      }
+    } catch (err) {
+      this.torn = true; // assume bytes landed even when the failing call reported none
+      try {
+        this.repair();
+      } catch {
+        // Still torn: readers ignore the partial line, and the next append repairs before it writes.
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Append one event at the next cursor; throws (and writes nothing) if it breaks the contract.
+   * When the write itself fails, nothing is appended and the cursor does not advance. Once the
+   * whole line is in the file the cursor advances, before the fsync: if the fsync or the cursor
+   * file then fails, this throws but the event stays in the log and its cursor is never reused.
+   */
   append(input: EventInput, durable = false): RunEvent {
     const candidate = {
       run_id: this.runId,
@@ -177,9 +219,12 @@ export class EventLogWriter {
       data: input.data,
     };
     const checked = checkNext(this.runId, this.tail, assertValid("event", candidate), candidate.cursor);
-    writeSync(this.fd, `${JSON.stringify(checked.event)}\n`);
-    if (durable) fsyncSync(this.fd);
+    const line = Buffer.from(`${JSON.stringify(checked.event)}\n`, "utf8");
+    this.repair();
+    this.writeLine(line);
+    this.bytes += line.length;
     this.tail = checked.tail;
+    if (durable) fsyncSync(this.fd);
     atomicWrite(runFile(this.dir, "cursor"), `${checked.tail.cursor}\n`, durable);
     return checked.event;
   }
