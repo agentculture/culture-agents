@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import type { StateData } from "../../src/contract/index.js";
-import { CALLER, HANG, attach, events, getRun, makeEnv, ok, processExists, refused, startDaemon, submit, submitBody, waitRun } from "./support.js";
+import { CALLER, HANG, attach, events, getRun, makeEnv, ok, processExists, refused, startDaemon, submit, submitBody, waitFor, waitRun } from "./support.js";
 
 test("an active run with a corrupt log keeps its repository busy and is not reported as missing", async (t) => {
   const env = makeEnv(t, [HANG]);
@@ -33,6 +33,9 @@ test("a live worker whose liveness evidence cannot be read is never settled as u
   const run = await submit(env, "fake", env.repoA);
   await waitRun(env, run.id, (r) => r.state === "running" && r.cursor >= 3, "running");
   const stream = await attach(env, run.id, 0);
+  // The stream must be past its replay before the fault: on a slow runner the core otherwise
+  // handles the attach after it, refuses it as unreadable, and the stream never carries an event.
+  await waitFor(() => stream.events.length >= 3, 5000, "the attach stream to replay");
   // The identity file exists but reading it fails (EACCES): that is not "no worker". The mode
   // change is one step, so no reader ever sees the file missing (replacing it with a directory
   // left a moment without it, in which the attach follower rightly settled the run as unknown).

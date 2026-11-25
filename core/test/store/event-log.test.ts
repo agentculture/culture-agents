@@ -96,10 +96,15 @@ test("followEvents replays after the cursor, then picks up new events and ends a
   const { run, dir, writer } = seeded(t);
   t.after(() => writer.close());
   const seen: RunEvent[] = [];
+  // Aborted after the test whatever happens: a failed assertion must not leave the follower
+  // polling forever (on a slow runner that hung the whole test file instead of failing it).
+  const stop = new AbortController();
+  t.after(() => stop.abort());
   const follower = (async () => {
-    for await (const event of followEvents(dir, run.id, 1, { pollMs: 5, orphanCheckMs: 0 })) seen.push(event);
+    for await (const event of followEvents(dir, run.id, 1, { pollMs: 5, orphanCheckMs: 0, signal: stop.signal })) seen.push(event);
   })();
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  // Wait for the replay rather than a fixed 30 ms, which a loaded runner can exceed.
+  for (const deadline = Date.now() + 5000; seen.length < 2 && Date.now() < deadline; ) await new Promise((resolve) => setTimeout(resolve, 5));
   assert.deepEqual(seen.map((e) => e.cursor), [2, 3]);
   writer.append({ kind: "run.output", data: { channel: "text", text: " more" } });
   writer.transition("succeeded", null);

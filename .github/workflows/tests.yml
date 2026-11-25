@@ -9,6 +9,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     # Promote SONAR_TOKEN to job env so the SonarCloud step can gate on
@@ -124,6 +125,7 @@ jobs:
     # so a PR that breaks the build, types, lint or tests fails here.
     # `spikes/` is outside `core/` and is never built or linted.
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     defaults:
