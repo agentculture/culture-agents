@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-24T19:18:40Z",
-  "updated": "2026-11-25T09:20:21Z",
+  "updated": "2026-11-25T13:16:01Z",
   "claims": [
     {
       "id": "c1",
@@ -1561,6 +1561,39 @@
       ],
       "origin": "llm",
       "status": "approved"
+    },
+    {
+      "id": "l13",
+      "code": "assumption-for-measurement",
+      "what": "Reported culture-agents-run:dev as unchanged after a declined command; the retag in that command had taken effect and :dev pointed at an untested rebuild.",
+      "skipped_check": "docker images after the declined command",
+      "refs": [
+        "PR #4 SonarCloud round"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l14",
+      "code": "assumption-for-measurement",
+      "what": "Told the owner only they could mark a SonarCloud issue Accepted; the vendored sonarclaude skill can, with the token held by grant.",
+      "skipped_check": "reading .claude/skills/sonarclaude/SKILL.md",
+      "refs": [
+        "PR #4 SonarCloud round"
+      ],
+      "origin": "llm",
+      "status": "proposed"
+    },
+    {
+      "id": "l15",
+      "code": "control-absent",
+      "what": "The loop refactor (core/src/util/sequence.ts, 16 sites) was checked against the other Sonar rules by reading, got no independent review, and readInstanceInfo has no direct test; equivalence at that site rests on reading.",
+      "skipped_check": "ask-colleague review; a direct test of readInstanceInfo",
+      "refs": [
+        "commit 5bba691"
+      ],
+      "origin": "llm",
+      "status": "proposed"
     }
   ],
   "obligations": [
