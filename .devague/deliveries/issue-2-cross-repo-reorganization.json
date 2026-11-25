@@ -2,7 +2,7 @@
   "plan_slug": "issue-2-cross-repo-reorganization",
   "schema_version": 2,
   "created": "2026-11-24T22:42:35Z",
-  "updated": "2026-11-25T06:58:36Z",
+  "updated": "2026-11-25T16:36:42Z",
   "deviations": [
     {
       "id": "d1",
@@ -70,7 +70,382 @@
       "seq": 5
     }
   ],
-  "evidence": [],
-  "deltas": [],
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "tests/test_cli_runs.py::test_incompatible_core_is_refused_naming_both_versions",
+      "behavior_text": "asserts exit 2, empty stdout, a message naming the client and core versions, and that the only request the fake core received was GET /v1/version",
+      "contract_text": "On connect the CLI reads the core's API version and refuses an incompatible one with exit 2 and a message naming both versions; it never sends a request to an incompatible core.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green in the full Python suite (1228 passed) at the merged commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 6
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o2",
+      "test_ref": "tests/acceptance/d1/test_mock.py::test_without_a_core_the_cli_exits_2_and_guesses_nothing",
+      "behavior_text": "asserts every runs verb exits 2 with a hint on stderr, nothing on stdout and no traceback when no core is listening, using the real CLI",
+      "contract_text": "When the socket is absent or refuses, every runs verb exits 2 with a remediation hint on stderr, nothing on stdout, and no traceback.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green in the mock acceptance stage (real CLI, no core) at the merged commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 7
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o3",
+      "test_ref": "core/test/daemon/api.test.ts 'allow-list matches agent, harness and repo exactly; a symlinked repo path is canonicalized' + tests/acceptance/d1/test_mock.py::test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused",
+      "behavior_text": "asserts a submit outside the allow-list file is refused with a typed error and that the default empty list denies every dispatch",
+      "contract_text": "The core rejects a submit whose agent, harness or repo is not in the local allow-list, before any worker or sandbox is created, and the allow-list can only be changed by the operator's config file.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "both ran green at the merged commit (core 451 passed; mock acceptance 8 passed). No test asserts that the allow-list has no other way to change; that part rests on reading the code",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 8
+    },
+    {
+      "id": "e4",
+      "obligation_ref": "o4",
+      "test_ref": "tests/test_cli_validation.py (every fixture accepted or rejected; invalid run, list, capability document and stream event refused) + core/test/contract/fixtures.test.ts + core/test/contract/generated-types.test.ts",
+      "behavior_text": "asserts both sides validate the same fixtures against contract/ and that the CLI refuses an invalid core response as an internal error, exit 2",
+      "contract_text": "Every payload either side emits or accepts validates against the versioned JSON Schemas in contract/; a schema change bumps the API version.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green in both suites at the merged commit. NOT covered: nothing tests that a schema change bumps the API version, and this delivery changed contract/api.json's socket_fallback while staying at 1.0",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 9
+    },
+    {
+      "id": "e5",
+      "obligation_ref": "o5",
+      "test_ref": "tests/test_contract.py::test_no_ai_sdk_openshell_or_vendor_sdk_name + core/test/contract/schemas.test.ts 'the contract module imports nothing from the sandbox layer and names no vendor types'",
+      "behavior_text": "asserts no AI SDK, OpenShell or vendor SDK name appears in any schema or fixture, and that the contract module imports no vendor type",
+      "contract_text": "No AI-SDK, OpenShell or vendor-SDK type name appears in a schema, CLI output or event; harness-specific data is carried only in an opaque, documented extension field.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green in both suites at the merged commit. CLI output and live events are checked only through schema validation, not by a name scan of real output",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 10
+    },
+    {
+      "id": "e6",
+      "obligation_ref": "o6",
+      "test_ref": "core/test/runs/control.test.ts 'submit acknowledges a durable queued run; a busy repository is refused until its run ends' + core/test/runs/restart.test.ts 'a worker survives a daemon SIGKILL: reported from disk, no live control, busy held, terminal state reached'",
+      "behavior_text": "asserts the run record and event log exist on disk when submit returns, and that a worker keeps writing its log to a terminal state after the daemon is killed with SIGKILL",
+      "contract_text": "The worker's PID, event log and cursor are on disk before the core acknowledges the submit, and the worker keeps writing its event log if the core dies.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green in the core suite at the merged commit; the live stage's kill -9 test passed for both harnesses",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 11
+    },
+    {
+      "id": "e7",
+      "obligation_ref": "o7",
+      "test_ref": "tests/acceptance/d1/test_live.py::test_live_kill_9_and_restart_reports_every_run_truthfully[claude-code|opencode] + core/test/runs/restart.test.ts 'a worker survives a daemon SIGKILL: reported from disk, no live control, busy held, terminal state reached' + core/test/worker/worker.test.ts 'reconnectWorker reaches a surviving worker and never stops it'",
+      "behavior_text": "asserts that after kill -9 of the core and a restart, each run is reported from its event log, control on a surviving run is refused as unavailable, and the worker is not terminated",
+      "contract_text": "After a restart the core reports a surviving worker's run from its on-disk event log, marks live control as unavailable for that run, and never terminates the worker.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "live stage ran green for both harnesses in real sandboxes at the merged commit (16 passed in 114 s)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:33:30Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 12
+    },
+    {
+      "id": "e8",
+      "obligation_ref": "o8",
+      "test_ref": "core/test/store/derive.test.ts 'no terminal event and no live worker: unknown, never succeeded' + tests/acceptance/d1/test_mock.py::test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_success",
+      "behavior_text": "asserts state is derived from the event log or a live worker, and reads unknown, never succeeded, when neither establishes the outcome",
+      "contract_text": "A run's state shown to a caller is always derived from the run store or a live worker; when neither establishes the outcome the state is 'unknown'.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green in the core suite and both acceptance stages at the merged commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 13
+    },
+    {
+      "id": "e9",
+      "obligation_ref": "o9",
+      "test_ref": "core/test/daemon/lifecycle.test.ts 'a second start exits 2 and names the running instance's pid', 'after kill -9 a new start succeeds with no manual cleanup', 'a regular file at the socket path is never removed'",
+      "behavior_text": "asserts a second instance exits 2 naming the running pid, a stale socket is cleaned only by a new holder, and a non-socket file at the path is left alone",
+      "contract_text": "The core holds an exclusive lock for its lifetime, removes a stale socket only after acquiring the lock, and a second instance exits 2 naming the running one.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green against real daemon processes in the core suite at the merged commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 14
+    },
+    {
+      "id": "e10",
+      "obligation_ref": "o10",
+      "test_ref": "core/test/harness/registry.test.ts 'every undeclared capability of every harness is refused, typed, and never forwarded' + core/test/runs/control.test.ts 'steer on a harness that declares it unsupported is refused, recorded, and never reaches the driver'",
+      "behavior_text": "asserts each control action outside a harness's declared capabilities returns a typed unsupported error naming the capability and the driver is never called",
+      "contract_text": "An adapter declares its capabilities up front; the core refuses any control action outside them with a typed 'unsupported' error naming the capability and does not forward it to the harness.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green in the core suite at the merged commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 15
+    },
+    {
+      "id": "e11",
+      "obligation_ref": "o11",
+      "test_ref": "core/test/sandbox/live.test.ts 'live: run sandbox lifecycle, credential absence, push denial, bundle-in/fetch-out' + tests/acceptance/d1 live stage + core/test/harness/reclaim.test.ts",
+      "behavior_text": "asserts a sandbox is created per run and deleted at the end; after the live stage the gateway listed no sandboxes",
+      "contract_text": "Every harness process of a run starts inside an OpenShell sandbox created for that run and the sandbox is deleted when the run reaches a terminal state or is reported 'unknown'.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "live sandbox test and live stage ran green at the merged commit and 'openshell sandbox list' showed none afterwards. The claim's 'deleted at every terminal state' no longer holds in one case: see the delta on 7-day retention",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:33:30Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 16
+    },
+    {
+      "id": "e12",
+      "obligation_ref": "o12",
+      "test_ref": "core/test/sandbox/live.test.ts 'live: run sandbox lifecycle, credential absence, push denial, bundle-in/fetch-out' + core/test/sandbox/run-sandboxes.test.ts 'exec scrubs operator credentials from any env it is given'",
+      "behavior_text": "asserts GH_TOKEN, GITHUB_TOKEN and SSH_AUTH_SOCK are absent inside a real sandbox and that an https push and an ssh push to the remote both fail (exit 128, connection refused by policy)",
+      "contract_text": "The sandbox receives no GH_TOKEN, GITHUB_TOKEN or SSH_AUTH_SOCK from the operator's environment, and a push to the repository's remote from inside it is denied by policy.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green against the real OpenShell gateway at the merged commit; both push attempts were logged as denied",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:33:30Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 17
+    },
+    {
+      "id": "e13",
+      "obligation_ref": "o13",
+      "test_ref": "gh api repos/agentculture/{cultureagent,agent-lifecycle}/commits?since=2026-11-20 and gh pr list --state all for the same window",
+      "behavior_text": "observed 0 commits and 0 pull requests on either repository since 2026-11-20, and no branch from this work",
+      "contract_text": "Code enters culture-agents only by citation; no commit, branch or tag is pushed to cultureagent or agent-lifecycle, and their published HTTP API, console scripts and import paths are unchanged.",
+      "evidence_type": "observation",
+      "strength": "coverage",
+      "strength_basis": "one read of the GitHub API on 2026-11-25; no automated test. 'Their HTTP API, console scripts and import paths are unchanged' follows from no commits, not from a compatibility test",
+      "outcome": "pass",
+      "run": null,
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 18
+    },
+    {
+      "id": "e14",
+      "obligation_ref": "o14",
+      "test_ref": "git worktree list in culture and agentfront; culture PR #532 and agentfront PR #60",
+      "behavior_text": "observed this work's sibling changes on branches docs/workspace-map and feat/public-cli-hooks in worktrees under ../.worktrees.culture and ../.worktrees.agentfront, each landed by PR",
+      "contract_text": "Each sibling change is made in a worktree under ../.worktrees.<repo>/ on a work-scoped branch and lands by PR; no command writes inside a primary sibling checkout.",
+      "evidence_type": "observation",
+      "strength": "coverage",
+      "strength_basis": "one read of the worktree lists on 2026-11-25; no test can show that no command ever wrote in a primary checkout, so that part rests on the session record",
+      "outcome": "pass",
+      "run": null,
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 19
+    },
+    {
+      "id": "e15",
+      "obligation_ref": "o16",
+      "test_ref": "tests/test_ts_scaffold.py::test_core_package_json_has_no_range_specifiers, ::test_core_has_a_committed_lockfile + tests/test_publish_workflow.py::test_npm_dry_run_step_runs_on_pull_requests",
+      "behavior_text": "asserts package.json holds only exact pins, a lockfile is committed, and the workflow installs with npm ci",
+      "contract_text": "CI installs from the committed lockfile with a frozen install and fails if package.json holds a range for a runtime dependency.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green in the Python suite at the merged commit, and PR #4's CI installed with 'npm ci --ignore-scripts' in every job",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 20
+    },
+    {
+      "id": "e16",
+      "obligation_ref": "o17",
+      "test_ref": "tests/test_cli_surface.py::test_every_new_verb_is_registered + tests/test_contract_api.py::test_deferred_capabilities_are_declared_unsupported + core/test/daemon/api.test.ts 'pause, resume and answer are always unsupported' + tests/acceptance/d1 (both stages)",
+      "behavior_text": "asserts the registered verbs are exactly the built ones, each exercised end to end by the acceptance suite, and that pause, resume and answer are declared and answered as unsupported",
+      "contract_text": "A released version registers only verbs that work end to end, and its capability document lists every unbuilt capability as unsupported.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "ran green in both suites and both acceptance stages at the merged commit. No version has been released yet, so 'a released version' is checked on the tree, not on a published package",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 21
+    },
+    {
+      "id": "e17",
+      "obligation_ref": "o18",
+      "test_ref": "tests/test_publish_workflow.py::test_pypi_publish_needs_npm_publish, ::test_npm_publish_uses_provenance_and_oidc + tests/test_npm_release_scripts.py::test_the_workflow_never_publishes_a_version_already_on_npm",
+      "behavior_text": "asserts the workflow's PyPI job depends on the npm job and that the npm publish step uses provenance with OIDC",
+      "contract_text": "The npm package @culture.dev/agents publishes with provenance before the PyPI publish starts, and a failed npm publish leaves nothing published to PyPI.",
+      "evidence_type": "automated",
+      "strength": "fidelity",
+      "strength_basis": "the tests read the workflow file and ran green at the merged commit, but no npm publish has ever run: core/package.json is 0.0.0 and the npm step is skipped, so the ordering has not been exercised",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-25T16:32:04Z",
+        "commit": "92937aa"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 22
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "amended",
+      "behavior_text": "The second required D1 harness is OpenCode v2, not Codex; Codex is reported as not verified. Both Claude Code and OpenCode passed the live stage (submit, steer, cancel, kill -9 and restart).",
+      "caused_by": [
+        "d1"
+      ],
+      "evidence_refs": [
+        "e7"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "amended",
+      "behavior_text": "A run whose turn completed but whose commits could not be collected keeps its sandbox for 7 days (retainFailedSandboxDays, 0 to 90) and its failure message says how to fetch the work; the sandbox is not deleted at that terminal state. All other finished runs' sandboxes are still deleted.",
+      "caused_by": [
+        "c57"
+      ],
+      "evidence_refs": [
+        "e11"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b3",
+      "kind": "amended",
+      "behavior_text": "Without XDG_RUNTIME_DIR the control socket is ${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock, not a path under /tmp. contract/api.json's socket_fallback changed with it and the API version stayed 1.0.",
+      "caused_by": [
+        "c42"
+      ],
+      "evidence_refs": [
+        "e4"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b4",
+      "kind": "added",
+      "behavior_text": "The CLI validates every core response against the contract schemas and treats an invalid one as an internal error (exit 2); text mode shows control characters in run-originated text as visible escapes; runs attach survives a core restart.",
+      "caused_by": [
+        "c42"
+      ],
+      "evidence_refs": [
+        "e4"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    }
+  ],
   "supersessions": []
 }
