@@ -12,8 +12,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 
+import { buildRunId, newUlid } from "../../src/contract/index.js";
 import { hostEnv, runCommand } from "../../src/sandbox/host-command.js";
 import { connectOpenShell, isNotFound, type OpenShellClientLike } from "../../src/sandbox/openshell-client.js";
+import { runIdFromLabels, runKey } from "../../src/sandbox/naming.js";
 import { createRunSandboxes } from "../../src/sandbox/run-sandboxes.js";
 import { collect, prepare } from "../../src/sandbox/worktree.js";
 
@@ -147,5 +149,33 @@ test("live: run sandbox lifecycle, credential absence, push denial, bundle-in/fe
     if (saved.SSH_AUTH_SOCK === undefined) delete process.env["SSH_AUTH_SOCK"];
     await sandboxes.destroy(runId).catch(() => undefined);
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("live: a 127-character run id gets gateway-valid labels; resume and destroy need only the run id", { timeout: 300_000 }, async (t) => {
+  const gw = await reachableGateway();
+  if ("reason" in gw) return notVerified(t, gw.reason);
+  const { client } = gw;
+  // The longest contract-valid run id: a 96-character mesh id, ".run.", a 26-character ULID.
+  const runId = buildRunId(`spark-${"l".repeat(90)}`, newUlid());
+  assert.equal(runId.length, 127);
+  const config = { image: IMAGE, prefix: PREFIX, log: (m: string) => console.log(`[sandbox] ${m}`) };
+  const creator = createRunSandboxes(config, { client });
+  try {
+    const sb = await creator.create(runId);
+    const info = await client.get(sb.name);
+    assert.equal(info.labels["run-key"], runKey(runId));
+    assert.equal(runIdFromLabels(info.labels), runId);
+    console.log(`[live] ${sb.name} created for a ${runId.length}-character run id; labels ${Object.keys(info.labels).sort().join(",")}`);
+    // A process with no handle (a restarted core) resumes it by run id and can use it.
+    const resumed = await createRunSandboxes(config, { client }).resume(runId);
+    assert.equal(resumed.name, sb.name);
+    assert.equal((await resumed.exec("true")).exitCode, 0);
+    // And another one destroys it by run id alone.
+    await createRunSandboxes(config, { client }).destroy(runId);
+    await assert.rejects(client.get(sb.name), (error: unknown) => isNotFound(error));
+    console.log(`[live] ${sb.name} resumed and destroyed by run id alone`);
+  } finally {
+    await creator.destroy(runId).catch(() => undefined);
   }
 });

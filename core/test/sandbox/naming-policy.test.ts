@@ -5,6 +5,10 @@ import { test } from "node:test";
 
 import {
   InvalidRunIdError,
+  MAX_RUN_ID,
+  runIdFromLabels,
+  runKey,
+  runLabels,
   MAX_SANDBOX_NAME,
   runBranch,
   sandboxName,
@@ -24,12 +28,35 @@ test("sandbox names are deterministic, prefixed and within OpenShell's 19-char c
 });
 
 test("run ids and prefixes outside the safe charset are refused", () => {
-  for (const bad of ["", "-x", "a b", "a/b", "a..b", "x.lock", "x.", "a".repeat(64), "ä"]) {
+  for (const bad of ["", "-x", "a b", "a/b", "a..b", "x.lock", "x.", "a".repeat(128), "ä"]) {
     assert.throws(() => validateRunId(bad), InvalidRunIdError, bad);
   }
   assert.throws(() => sandboxName("ok", "Bad"), InvalidRunIdError);
   assert.throws(() => sandboxName("ok", "much-too-long-"), InvalidRunIdError);
   assert.equal(runBranch("r-1.2_3"), "runs/r-1.2_3");
+});
+
+test("every contract-valid run id, up to 127 characters, maps to gateway-valid labels and back", () => {
+  assert.equal(MAX_RUN_ID, 127);
+  const labelValue = /^[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$/;
+  const ids = [
+    "run-1",
+    `spark-${"a".repeat(90)}.run.01JD0000000000000000000000`,
+    `spark-a${"_".repeat(88)}a.run.01JD0000000000000000000000`,
+    `spark-a${"-b".repeat(44)}a.run.01JD0000000000000000000000`,
+    "a".repeat(63),
+    "a".repeat(64),
+    "run_",
+  ];
+  for (const id of ids) {
+    const labels = runLabels(validateRunId(id));
+    for (const [key, value] of Object.entries(labels)) assert.match(value, labelValue, `${id}: ${key}=${value}`);
+    assert.equal(runIdFromLabels(labels), id);
+    assert.equal(labels["run-key"], runKey(id));
+    assert.equal(sandboxName(id).length, MAX_SANDBOX_NAME);
+  }
+  assert.notEqual(runKey("a"), runKey("b"));
+  assert.equal(runIdFromLabels({ "managed-by": "culture-agents" }), null);
 });
 
 test("the run policy loads, is default-deny on the network and keeps the sandbox filesystem", () => {
