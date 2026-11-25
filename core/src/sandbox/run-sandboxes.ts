@@ -35,6 +35,13 @@ import {
 const DELETE_ATTEMPTS = 3;
 /** Longest one delete request to the gateway may take; the wait for the sandbox to be gone is bounded separately. */
 const DELETE_CALL_TIMEOUT_MS = 30_000;
+/**
+ * Longest one deletion may take in all: every attempt, pause and wait together. A run is held in
+ * `cancelling` (or short of its terminal event) while its sandbox is deleted, so this is one
+ * deadline, not one per attempt. A sandbox that outlives it stays queued and is deleted later by
+ * `sweep` (the daemon's periodic reclaim of finished runs).
+ */
+export const DELETE_DEADLINE_MS = 90_000;
 
 export interface RunSandboxesDeps {
   readonly client: OpenShellClientLike;
@@ -68,28 +75,32 @@ class OpenShellRunSandboxes implements RunSandboxes {
     this.config.log?.(message);
   }
 
-  /** Delete with retries, then wait until the gateway reports the sandbox gone. */
+  /** Delete with retries, then wait until the gateway reports the sandbox gone, all within one overall deadline. */
   readonly #deleteByName = async (name: string, runId: string): Promise<void> => {
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= DELETE_ATTEMPTS; attempt++) {
+    const budget = this.config.deleteDeadlineMs ?? DELETE_DEADLINE_MS;
+    const deadline = Date.now() + budget;
+    const left = () => deadline - Date.now();
+    let lastError: unknown = new Error("the deadline passed before the gateway was asked");
+    for (let attempt = 1; attempt <= DELETE_ATTEMPTS && left() > 0; attempt++) {
       try {
-        await withTimeout(`asking the gateway to delete sandbox ${name}`, DELETE_CALL_TIMEOUT_MS, () => this.client.delete(name, { allowMissing: true }));
-        await this.client
-          .waitDeleted(name, this.config.deleteTimeoutSecs ?? 120)
-          .catch((error: unknown) => {
-            if (!isNotFound(error)) throw error;
-          });
+        await withTimeout(`asking the gateway to delete sandbox ${name}`, Math.min(DELETE_CALL_TIMEOUT_MS, left()), () => this.client.delete(name, { allowMissing: true }));
+        // The wait gets the time left, both as its own timeout and as a bound on a wait that ignores it.
+        const waitMs = Math.max(1, left());
+        const waitSecs = Math.max(1, Math.min(this.config.deleteTimeoutSecs ?? 120, Math.ceil(waitMs / 1000)));
+        await withTimeout(`waiting for sandbox ${name} to be gone`, waitMs, () => this.client.waitDeleted(name, waitSecs)).catch((error: unknown) => {
+          if (!isNotFound(error)) throw error;
+        });
         this.#pendingCleanup.delete(runId);
         this.#log(`deleted sandbox ${name} (run ${runId})`);
         return;
       } catch (error) {
         lastError = error;
-        if (attempt < DELETE_ATTEMPTS) await this.#sleep(250 * attempt);
+        if (attempt < DELETE_ATTEMPTS && left() > 0) await this.#sleep(Math.min(250 * attempt, Math.max(0, left())));
       }
     }
     this.#pendingCleanup.add(runId);
     throw new SandboxCleanupError(
-      `could not confirm deletion of sandbox ${name} (run ${runId}): ${(lastError as Error)?.message}`,
+      `could not confirm deletion of sandbox ${name} (run ${runId}) within the overall deadline of ${Math.round(budget / 1000)} s: ${(lastError as Error)?.message}`,
       { cause: lastError },
     );
   };

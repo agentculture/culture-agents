@@ -30,6 +30,7 @@ export function createDriver(context: DriverContext): Driver {
       task: run.task,
       commitMessage: `run ${run.id}: changes by claude-code`,
       ...(options.stopSettleMs === undefined ? {} : { stopSettleMs: options.stopSettleMs }),
+      ...(options.sandbox.retainFailedSandboxDays === undefined ? {} : { retainFailedDays: options.sandbox.retainFailedSandboxDays }),
     },
   );
   const doc = capabilityDocument({ harness: "claude-code", available: true, version: null, transport: CLAUDE_CODE_TRANSPORT, core: claudeCodeCore() });

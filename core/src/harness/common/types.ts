@@ -35,6 +35,14 @@ export interface Workspace {
   commitAll(message: string): Promise<number>;
   /** Bring the run's commits to the host branch `runs/<id>`; null when there are none. */
   collect(): Promise<Collected | null>;
+  /**
+   * What an operator needs to find a workspace that is kept after the run: its name and how to
+   * get the run's work out of it. Absent or null where the workspace cannot outlive the run (the
+   * stub's temp clone), which is then destroyed on every path.
+   */
+  retention?(): { sandbox: string; recover: string } | null;
+  /** Let go of the workspace without deleting it (close local handles). Called instead of `destroy` when it is kept. */
+  keep?(): Promise<void>;
   /** Release the workspace (delete the sandbox). Idempotent. */
   destroy(): Promise<void>;
 }
@@ -86,6 +94,11 @@ export interface StopReport {
   killed: number[];
   /** New processes after the kill (must be empty). */
   remaining: Proc[];
+  /**
+   * Why a listing above could not be taken, by field. A field named here is empty because the
+   * check could not look, not because nothing was running.
+   */
+  listingFailed: { afterInterrupt?: string; afterClose?: string; remaining?: string };
   /** Whether the workspace was destroyed. */
   destroyed: boolean;
 }

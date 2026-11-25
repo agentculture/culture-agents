@@ -134,7 +134,8 @@ export function defineContractSuite(target: ContractTarget): void {
         await driver.dispose();
       }
       const report = stopReport(driver);
-      const ok = lastEvent(events)?.type === "stopped" && report !== null && report.remaining.length === 0 && report.destroyed;
+      const listed = report !== null && Object.keys(report.listingFailed).length === 0;
+      const ok = lastEvent(events)?.type === "stopped" && report !== null && listed && report.remaining.length === 0 && report.destroyed;
       target.record?.({
         capability: "cancel",
         trial,
@@ -142,12 +143,14 @@ export function defineContractSuite(target: ContractTarget): void {
         events,
         ok,
         note: report
-          ? `after interrupt ${report.afterInterrupt.length} new process(es), after close ${report.afterClose.length}, killed ${report.killed.length}, remaining ${report.remaining.length}, destroyed ${report.destroyed}`
+          ? `after interrupt ${report.afterInterrupt.length} new process(es), after close ${report.afterClose.length}, killed ${report.killed.length}, remaining ${report.remaining.length}, destroyed ${report.destroyed}` +
+            (listed ? "" : `; LISTING FAILED: ${JSON.stringify(report.listingFailed)}`)
           : "no stop report",
       });
       assert.ok(cancelled, "the cancel was sent");
       assert.equal(lastEvent(events)?.type, "stopped", `the run stops: ${JSON.stringify(lastEvent(events))}`);
       assert.ok(report, "the driver reports what the stop found");
+      assert.deepEqual(report.listingFailed, {}, "every process check could look; an empty list is not a failed listing");
       assert.deepEqual(report.remaining, [], "no harness or tool process is left");
       assert.equal(report.destroyed, true, "the workspace is destroyed");
       await target.afterCancel?.(run);

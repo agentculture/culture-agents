@@ -18,6 +18,30 @@ export interface StreamPart {
   stepNumber?: unknown;
 }
 
+/**
+ * Finish reasons that mean the turn ended normally. The harness layer's unified set is `stop`,
+ * `length`, `content-filter`, `tool-calls`, `error`, `interrupted`, `other`
+ * (`harnessV1FinishReasonSchema` in @ai-sdk/harness 1.0.192). The Claude Code adapter (1.0.196)
+ * ends every turn that did not raise a terminal error with `stop`, including a turn whose last
+ * steps ran tools; it uses `tool-calls` only on a `finish-step` that waits for host input, never
+ * on the turn's `finish`. So `stop` is the whole set, and every other reason is an unfinished turn.
+ */
+export const COMPLETED_FINISH_REASONS: ReadonlySet<string> = new Set(["stop"]);
+
+const UNFINISHED: Readonly<Record<string, string>> = {
+  length: "the model's output limit cut the turn off",
+  "content-filter": "a content filter stopped the turn",
+  "tool-calls": "the turn ended waiting on tool calls that did not run",
+  interrupted: "the model stream ended without a completion signal",
+};
+
+/** The finish reason as a string, from the flattened form or the harness layer's `{ unified }`. */
+function finishReasonOf(value: unknown): string {
+  if (typeof value === "string" && value !== "") return value.slice(0, 100);
+  const unified = value !== null && typeof value === "object" ? (value as { unified?: unknown }).unified : undefined;
+  return typeof unified === "string" && unified !== "" ? unified.slice(0, 100) : "unknown";
+}
+
 const toolName = (part: StreamPart) => (typeof part.toolName === "string" && part.toolName !== "" ? part.toolName.slice(0, 200) : undefined);
 
 export class ClaudePartMapper {
@@ -66,7 +90,7 @@ export class ClaudePartMapper {
         this.aborted = true;
         return [];
       case "finish":
-        this.finishReason = typeof part.finishReason === "string" ? part.finishReason : "unknown";
+        this.finishReason = finishReasonOf(part.finishReason);
         return [];
       default:
         return [];
@@ -75,10 +99,12 @@ export class ClaudePartMapper {
 
   outcome(): TurnOutcome {
     if (this.aborted) return { kind: "interrupted" };
-    if (this.finishReason !== null && this.finishReason !== "error") {
+    if (this.finishReason !== null && COMPLETED_FINISH_REASONS.has(this.finishReason)) {
       return this.lastText ? { kind: "completed", summary: this.lastText } : { kind: "completed" };
     }
-    const why = this.errors.length > 0 ? this.errors.join("; ") : "the stream ended without a finish part";
+    // A turn that did not finish normally is not committed or collected as a success.
+    const reason = this.finishReason === null ? "the stream ended without a finish part" : `finish reason ${this.finishReason}${UNFINISHED[this.finishReason] ? ` (${UNFINISHED[this.finishReason]})` : ""}`;
+    const why = this.errors.length > 0 ? `${reason}; ${this.errors.join("; ")}` : reason;
     return { kind: "failed", error: { code: "internal", message: `The Claude Code turn failed: ${why}`.slice(0, 2000), retryable: false } };
   }
 }

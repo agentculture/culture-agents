@@ -22,6 +22,25 @@ import type { RunSandbox } from "./types.js";
 export const SANDBOX_BUNDLE = ".culture-agents/run.bundle";
 export const DEFAULT_WORKDIR = "work";
 
+/**
+ * Options for the ssh that `collect`'s fetch runs, on top of OpenShell's generated config. The
+ * sandbox's sshd is not trusted: the operator's keys and agent are never offered or forwarded to
+ * it, nothing prompts, and host keys go to a throwaway file (`UserKnownHostsFile`, added per call
+ * inside the temp dir) instead of ~/.ssh/known_hosts. `IdentitiesOnly` alone still tries the
+ * default ~/.ssh/id_* files when the config names no key (`ssh -G` shows them), so
+ * `IdentityFile=none` drops those defaults; a key the generated config names is still used.
+ * `StrictHostKeyChecking` is deliberately absent: the generated config decides it.
+ */
+export const FETCH_SSH_OPTIONS = ["BatchMode=yes", "IdentitiesOnly=yes", "IdentityFile=none", "IdentityAgent=none", "ForwardAgent=no"] as const;
+/** Name of the throwaway known-hosts file inside the fetch's temp dir. */
+export const FETCH_KNOWN_HOSTS = "known_hosts";
+
+/** The `GIT_SSH_COMMAND` for a fetch: the generated config plus FETCH_SSH_OPTIONS. */
+export function fetchSshCommand(configPath: string, knownHostsPath: string): string {
+  const options = [...FETCH_SSH_OPTIONS, `UserKnownHostsFile=${knownHostsPath}`];
+  return ["ssh", "-F", shellQuote(configPath), ...options.flatMap((o) => ["-o", shellQuote(o)])].join(" ");
+}
+
 export class HandoffError extends Error {
   override readonly name = "HandoffError";
 }
@@ -168,7 +187,7 @@ export async function collect(sandbox: RunSandbox, options: CollectOptions): Pro
     const cfgPath = join(dir, "ssh_config");
     await writeFile(cfgPath, cfg.stdout, { mode: 0o600 });
     const remotePath = options.remotePath ?? posix.join(sandbox.home, DEFAULT_WORKDIR);
-    const env = hostEnv({ GIT_SSH_COMMAND: `ssh -F ${shellQuote(cfgPath)}`, GIT_SSH_VARIANT: "ssh" });
+    const env = hostEnv({ GIT_SSH_COMMAND: fetchSshCommand(cfgPath, join(dir, FETCH_KNOWN_HOSTS)), GIT_SSH_VARIANT: "ssh" });
     // Non-forced refspec: a runs/<id> that has diverged is refused, not overwritten.
     await git(
       runner,
@@ -178,6 +197,9 @@ export async function collect(sandbox: RunSandbox, options: CollectOptions): Pro
         "-c", "maintenance.auto=false",
         "-c", "protocol.allow=never",
         "-c", "protocol.ssh.allow=always",
+        // The sandbox builds the pack: malformed objects are refused, not stored.
+        "-c", "fetch.fsckObjects=true",
+        "-c", "transfer.fsckObjects=true",
         "fetch", "--no-tags", "--no-write-fetch-head", "--no-recurse-submodules",
         "--end-of-options",
         `ssh://${alias}${remotePath}`,

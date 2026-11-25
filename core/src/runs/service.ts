@@ -33,6 +33,7 @@ import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
 import { followEvents, readEvents } from "../store/run-store.js";
+import { readRetained } from "../worker/retained.js";
 import { WorkerSpawnError, spawnWorker, type WorkerControl } from "../worker/spawn.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
@@ -84,7 +85,11 @@ export class StoreRunService implements RunService {
   async reclaim(): Promise<string[]> {
     const reclaim = this.options.catalog.reclaim;
     if (!reclaim) return [];
-    const finished = scanRuns(this.scan).filter((run) => run.terminal).map((run) => run.id);
+    // A finished run that kept its sandbox (a completed turn whose work could not be brought to the
+    // host) is left alone until its retention is over; after that it is reclaimed like any other.
+    const now = this.now().getTime();
+    const retained = (id: RunId): boolean => (readRetained(runDir(this.options.stateDir, id))?.until ?? 0) > now;
+    const finished = scanRuns(this.scan).filter((run) => run.terminal && !retained(run.id)).map((run) => run.id);
     return finished.length === 0 ? [] : reclaim.call(this.options.catalog, finished);
   }
 

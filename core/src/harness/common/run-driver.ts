@@ -6,7 +6,7 @@
  * machine; this class only reports `DriverEvent`s, ending with exactly one outcome.
  */
 import type { ErrorBody } from "../../contract/index.js";
-import type { Driver, DriverEvent } from "../../worker/driver.js";
+import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent } from "../../worker/driver.js";
 import { describeProcs, newProcesses } from "./processes.js";
 import { EventQueue, errorMessage, sleep } from "./queue.js";
 import type {
@@ -29,6 +29,22 @@ export interface RunDriverOptions {
   stopSettleMs?: number;
   /** Pause before each process listing after a stop (lets exiting processes go). Default 1.5 s. */
   processSettleMs?: number;
+  /**
+   * Days the workspace is kept when the turn completed but its work could not be committed or
+   * brought to the host. Default RETAIN_FAILED_SANDBOX_DAYS (7); 0 keeps nothing.
+   */
+  retainFailedDays?: number;
+  /** The clock for the retention's end (tests). */
+  now?: () => number;
+}
+
+export { RETAIN_FAILED_SANDBOX_DAYS };
+const DAY_MS = 86_400_000;
+
+/** One process check: what was found, or why the check could not look. */
+interface Listing {
+  procs: Proc[];
+  failed: string | null;
 }
 
 const clip = (text: string) => (text.length > 2000 ? `${text.slice(0, 1997)}...` : text);
@@ -62,6 +78,8 @@ export class RunDriver<W extends Workspace> implements Driver {
   private forceStop!: () => void;
   private readonly forced = new Promise<void>((resolve) => (this.forceStop = resolve));
   private destroying: Promise<boolean> | null = null;
+  /** The workspace is kept for recovery (a retention): nothing in this driver deletes it any more. */
+  private kept = false;
   private stopTimer: NodeJS.Timeout | undefined;
   /** Set after a cancel: what the process checks saw. */
   stopReport: StopReport | null = null;
@@ -163,11 +181,16 @@ export class RunDriver<W extends Workspace> implements Driver {
       stage = "close the harness";
       await this.session.close();
       if (this.stopping) return await this.stopAll();
-      stage = "commit the run's changes";
-      const commits = await this.workspace.commitAll(this.options.commitMessage);
-      if (this.stopping) return await this.stopAll();
-      stage = "collect the run's commits";
-      this.collected = commits > 0 ? await this.workspace.collect() : null;
+      try {
+        stage = "commit the run's changes";
+        const commits = await this.workspace.commitAll(this.options.commitMessage);
+        if (this.stopping) return await this.stopAll();
+        stage = "collect the run's commits";
+        this.collected = commits > 0 ? await this.workspace.collect() : null;
+      } catch (err) {
+        if (this.stopping) return await this.stopAll();
+        return await this.failAfterTurn(stage, err);
+      }
       this.queue.push(
         diagnostic(this.collected ? `collected ${this.collected.commits} commit(s) on ${this.collected.branch}` : "the run made no commits"),
       );
@@ -189,6 +212,33 @@ export class RunDriver<W extends Workspace> implements Driver {
     }
   }
 
+  /**
+   * The turn completed but its work could not be committed or brought to the host. The workspace
+   * then holds the only copy of that work, so where it can be kept it is: the harness is closed
+   * and what it left running is killed as usual, the workspace is not destroyed, and the run
+   * fails saying where the work is, until when, and how to get it out. A cancelled run and a run
+   * whose turn failed never come here.
+   */
+  private async failAfterTurn(stage: string, err: unknown): Promise<void> {
+    const why = `Could not ${stage}: ${errorMessage(err)}`;
+    const days = this.options.retainFailedDays ?? RETAIN_FAILED_SANDBOX_DAYS;
+    const retention = days > 0 ? (this.workspace?.retention?.() ?? null) : null;
+    if (!this.workspace || retention === null) {
+      await this.release();
+      return this.finish({ type: "failed", error: this.error("internal", why, false) });
+    }
+    this.kept = true; // from here no path of this driver deletes the workspace, a late dispose included
+    // The harness was closed before the commit; what it left running is killed, since this sandbox is not deleted.
+    const left = await this.settled(this.options.processSettleMs ?? 1500);
+    if (left.failed === null && left.procs.length > 0) await this.workspace.kill(left.procs.map((p) => p.pid)).catch(() => undefined);
+    await this.workspace.keep?.().catch(() => undefined);
+    const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
+    const message =
+      `${why.length > 900 ? `${why.slice(0, 897)}...` : why}. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
+      `with the run's work in it. To get the work out: ${retention.recover}`;
+    this.finish({ type: "failed", error: this.error("internal", message, false), retained: { sandbox: retention.sandbox, until } });
+  }
+
   /** Close the harness and destroy the workspace, swallowing errors (failure paths). */
   private async release(): Promise<void> {
     await this.session?.close().catch(() => undefined);
@@ -196,7 +246,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   }
 
   private destroyWorkspace(): Promise<boolean> {
-    if (!this.workspace) return Promise.resolve(true);
+    if (!this.workspace || this.kept) return Promise.resolve(true);
     this.destroying ??= this.workspace.destroy().then(
       () => true,
       () => false,
@@ -204,25 +254,27 @@ export class RunDriver<W extends Workspace> implements Driver {
     return this.destroying;
   }
 
-  private async listNew(): Promise<Proc[]> {
-    if (!this.workspace) return [];
+  /** The new processes, or why they could not be listed (never an empty list standing in for a failure). */
+  private async listNew(): Promise<Listing> {
+    if (!this.workspace) return { procs: [], failed: null };
     try {
-      return newProcesses(this.baseline, await this.workspace.processes());
-    } catch {
-      return [];
+      return { procs: newProcesses(this.baseline, await this.workspace.processes()), failed: null };
+    } catch (err) {
+      return { procs: [], failed: errorMessage(err) };
     }
   }
 
   /**
-   * The new processes once none is left, or what is still there after `maxMs`. Polled, so a
-   * harness that stops promptly does not hold the run in `cancelling` for the whole wait.
+   * The new processes once none is left, or what is still there (or the listing failure) after
+   * `maxMs`. Polled, so a harness that stops promptly does not hold the run in `cancelling` for
+   * the whole wait.
    */
-  private async settled(maxMs: number): Promise<Proc[]> {
+  private async settled(maxMs: number): Promise<Listing> {
     const deadline = Date.now() + maxMs;
     for (;;) {
-      const procs = await this.listNew();
+      const listing = await this.listNew();
       const left = deadline - Date.now();
-      if (procs.length === 0 || left <= 0) return procs;
+      if ((listing.failed === null && listing.procs.length === 0) || left <= 0) return listing;
       await sleep(Math.min(250, left));
     }
   }
@@ -231,18 +283,26 @@ export class RunDriver<W extends Workspace> implements Driver {
   private async stopAll(): Promise<void> {
     if (this.queue.isEnded) return;
     const settle = this.options.processSettleMs ?? 1500;
-    const report: StopReport = { afterInterrupt: [], afterClose: [], killed: [], remaining: [], destroyed: false };
+    const report: StopReport = { afterInterrupt: [], afterClose: [], killed: [], remaining: [], listingFailed: {}, destroyed: false };
+    const record = (field: "afterInterrupt" | "afterClose" | "remaining", listing: Listing): void => {
+      report[field] = listing.procs;
+      if (listing.failed !== null) report.listingFailed[field] = listing.failed;
+    };
     const began = Date.now();
     if (this.workspace && !this.disposed) {
       // What the interrupt alone left running is only reported; the harness itself is still up here.
       await sleep(Math.min(settle, 500));
-      report.afterInterrupt = await this.listNew();
+      record("afterInterrupt", await this.listNew());
       await this.session?.close().catch(() => undefined);
-      report.afterClose = await this.settled(settle);
-      if (report.afterClose.length > 0) {
-        report.killed = report.afterClose.map((p) => p.pid);
+      const afterClose = await this.settled(settle);
+      record("afterClose", afterClose);
+      if (afterClose.failed !== null) {
+        // Nothing to aim a kill at; deleting the workspace below is what ends its processes.
+        record("remaining", afterClose);
+      } else if (afterClose.procs.length > 0) {
+        report.killed = afterClose.procs.map((p) => p.pid);
         await this.workspace.kill(report.killed).catch(() => undefined);
-        report.remaining = await this.settled(settle);
+        record("remaining", await this.settled(settle));
       }
     } else {
       await this.session?.close().catch(() => undefined);
@@ -250,11 +310,15 @@ export class RunDriver<W extends Workspace> implements Driver {
     const processesMs = Date.now() - began;
     report.destroyed = await this.destroyWorkspace();
     this.stopReport = report;
+    const seen = (field: "afterInterrupt" | "afterClose" | "remaining"): string => {
+      const failed = report.listingFailed[field];
+      return failed === undefined ? describeProcs(report[field]) : `could not be listed (${failed.slice(0, 200)})`;
+    };
     if (this.workspace) {
       this.queue.push(
         diagnostic(
-          `stop: after interrupt ${describeProcs(report.afterInterrupt)}; after harness close ${describeProcs(report.afterClose)}; ` +
-            `killed ${report.killed.length}; remaining ${describeProcs(report.remaining)}; workspace destroyed ${report.destroyed}; ` +
+          `stop: after interrupt ${seen("afterInterrupt")}; after harness close ${seen("afterClose")}; ` +
+            `killed ${report.killed.length}; remaining ${seen("remaining")}; workspace destroyed ${report.destroyed}; ` +
             `took ${Date.now() - began} ms (${processesMs} ms closing the harness and its processes)`,
         ),
       );

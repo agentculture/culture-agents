@@ -21,12 +21,18 @@ export class FakeWorkspace implements Workspace {
   /** Process lists returned in order by `processes()` (the last repeats). */
   procLists: Proc[][] = [[{ pid: 1, ppid: 0, args: "init" }]];
   killed: number[] = [];
+  /** When set, every listing after the baseline fails with this message. */
+  procFailure: string | null = null;
+  /** When true, the workspace can be kept after a failed commit or collect (a sandbox); false models the stub. */
+  retainable = false;
+  kept = 0;
 
   constructor(private readonly failAt: FailAt) {}
 
   async processes(): Promise<Proc[]> {
     this.calls.push("processes");
     if (this.failAt === "processes") throw new Error("ps failed");
+    if (this.procFailure !== null && this.calls.filter((c) => c === "processes").length > 1) throw new Error(this.procFailure);
     const list = this.procLists.length > 1 ? this.procLists.shift() : this.procLists[0];
     return (list ?? []).filter((p) => !this.killed.includes(p.pid));
   }
@@ -48,6 +54,15 @@ export class FakeWorkspace implements Workspace {
     return { branch: "runs/x", commit: "abc", commits: 1, shas: ["abc"] };
   }
 
+  retention(): { sandbox: string; recover: string } | null {
+    return this.retainable ? { sandbox: "t-abc123", recover: "openshell sandbox ssh-config t-abc123, then git fetch runs/x" } : null;
+  }
+
+  async keep(): Promise<void> {
+    this.calls.push("keep");
+    this.kept += 1;
+  }
+
   async destroy(): Promise<void> {
     this.calls.push("destroy");
     this.destroyed += 1;
@@ -57,11 +72,15 @@ export class FakeWorkspace implements Workspace {
 
 export class FakeFactory implements WorkspaceFactory<FakeWorkspace> {
   workspace: FakeWorkspace | null = null;
-  constructor(private readonly failAt: FailAt) {}
+  constructor(
+    private readonly failAt: FailAt,
+    private readonly retainable = false,
+  ) {}
   async open(signal: AbortSignal): Promise<FakeWorkspace> {
     if (this.failAt === "open") throw new Error("gateway unreachable");
     signal.throwIfAborted();
     this.workspace = new FakeWorkspace(this.failAt);
+    this.workspace.retainable = this.retainable;
     return this.workspace;
   }
 }

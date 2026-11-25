@@ -23,7 +23,8 @@ export interface HarnessCatalog {
   get(id: string): HarnessEntry | undefined;
   /**
    * Delete whatever the harnesses left running for these finished runs (a sandbox whose deletion
-   * failed, or whose worker was killed). Returns the run ids something was deleted for. Optional:
+   * failed, or whose worker was killed). The run service leaves out finished runs whose sandbox is
+   * retained (`retained.json`) and not yet expired. Returns the run ids something was deleted for. Optional:
    * a catalog without workspaces of its own has nothing to reclaim.
    */
   reclaim?(finishedRunIds: string[]): Promise<string[]>;

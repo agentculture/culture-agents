@@ -6,6 +6,20 @@
  */
 import type { ErrorBody, OutputData, Run } from "../contract/index.js";
 
+/**
+ * Days a sandbox is kept when a completed turn's commit or collect failed (owner decision). Kept
+ * in this import-free module so harness drivers can read it without loading the run store.
+ */
+export const RETAIN_FAILED_SANDBOX_DAYS = 7;
+
+/** What a driver reports with a `failed` outcome when it kept the run's sandbox. */
+export interface Retained {
+  /** The sandbox's name on the gateway. */
+  sandbox: string;
+  /** When the retention ends (a contract timestamp); the sandbox is reclaimed after it. */
+  until: string;
+}
+
 /** What a driver reports. The stream ends after its first outcome event. */
 export type DriverEvent =
   /** The harness session started (the run moves to `running`). */
@@ -16,8 +30,12 @@ export type DriverEvent =
   | { type: "error"; error: ErrorBody }
   /** Outcome: the harness reported its turn completed (`succeeded`). */
   | { type: "completed"; summary?: string; collected?: { branch: string; commits: string[] } }
-  /** Outcome: an established failure (`run.error` fatal, then `failed`). */
-  | { type: "failed"; error: ErrorBody }
+  /**
+   * Outcome: an established failure (`run.error` fatal, then `failed`). `retained` is set when the
+   * turn had completed and the driver kept the run's sandbox because its work could not be
+   * brought to the host; the worker records it so the sandbox is not reclaimed before `until`.
+   */
+  | { type: "failed"; error: ErrorBody; retained?: Retained }
   /** Outcome: the harness stopped after `cancel` (`cancelled` or `timed_out`, by what started the stop). */
   | { type: "stopped" };
 

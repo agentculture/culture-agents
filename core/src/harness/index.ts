@@ -49,6 +49,7 @@ function sandboxSettings(config: HarnessConfig, providers: string[]): SandboxSet
     sandboxPrefix: config.sandboxPrefix,
     ref: config.ref,
     identity: { ...config.identity },
+    retainFailedSandboxDays: config.retainFailedSandboxDays,
   };
 }
 

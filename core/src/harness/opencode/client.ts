@@ -28,6 +28,12 @@ export class OpenCodeApiError extends Error {
   }
 }
 
+/**
+ * Largest single unit read from the sandbox's OpenCode server before it is dropped: one event
+ * block of the stream here, one line of the server's output in `lines.ts`. About 1 MiB.
+ */
+export const MAX_STREAM_UNIT = 1 << 20;
+
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>;
 
 export interface CreateSessionInput {
@@ -68,19 +74,19 @@ export class OpenCodeClient {
   }
 
   /** `POST /api/session` at `directory` with the model, and allow-all permissions (as Claude Code runs). */
-  async createSession(input: CreateSessionInput): Promise<SessionInfo> {
+  async createSession(input: CreateSessionInput, signal?: AbortSignal): Promise<SessionInfo> {
     const body = {
       location: { directory: input.directory },
       model: { providerID: input.providerID, id: input.modelID },
       permissions: [{ action: "*", resource: "*", effect: "allow" }],
     };
-    return (await this.json<{ data: SessionInfo }>("POST", "/api/session", body)).data;
+    return (await this.json<{ data: SessionInfo }>("POST", "/api/session", body, signal)).data;
   }
 
   /** `POST /api/session/{id}/prompt`; `steer` delivers into the running execution. */
-  async prompt(sessionId: string, text: string, delivery?: "steer" | "queue"): Promise<void> {
+  async prompt(sessionId: string, text: string, delivery?: "steer" | "queue", signal?: AbortSignal): Promise<void> {
     const body = delivery ? { text, delivery } : { text };
-    await this.call("POST", `/api/session/${encodeURIComponent(sessionId)}/prompt`, body);
+    await this.call("POST", `/api/session/${encodeURIComponent(sessionId)}/prompt`, body, signal);
   }
 
   /** `POST /api/session/{id}/interrupt`; true when an active execution was interrupted. */
@@ -116,21 +122,42 @@ export class OpenCodeClient {
   }
 }
 
-/** Parse a `text/event-stream` body into JSON `data` payloads. */
-export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: AbortSignal, onDropped?: () => void): AsyncGenerator<V2Event> {
+/**
+ * Parse a `text/event-stream` body into JSON `data` payloads. The server is inside the sandbox,
+ * so the buffer is capped: an event block over `maxBlock` characters is dropped whole, reported
+ * through `onDropped` (once per block, like a payload that is not JSON), and parsing goes on with
+ * the next block.
+ */
+export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: AbortSignal, onDropped?: () => void, maxBlock: number = MAX_STREAM_UNIT): AsyncGenerator<V2Event> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
+  const separator = /\r?\n\r?\n/;
   let buf = "";
+  /** Inside a block that went over the cap: discard up to its blank line. */
+  let skipping = false;
   try {
     for (;;) {
       if (signal?.aborted) return;
       const { value, done } = await reader.read();
       if (done) return;
       buf += decoder.decode(value, { stream: true });
+      if (skipping) {
+        const end = buf.search(separator);
+        if (end < 0) {
+          buf = buf.slice(-3); // a separator may be split across reads
+          continue;
+        }
+        buf = buf.slice(end).replace(/^\r?\n\r?\n/, "");
+        skipping = false;
+      }
       let cut: number;
-      while ((cut = buf.search(/\r?\n\r?\n/)) >= 0) {
+      while ((cut = buf.search(separator)) >= 0) {
         const block = buf.slice(0, cut);
         buf = buf.slice(cut).replace(/^\r?\n\r?\n/, "");
+        if (block.length > maxBlock) {
+          onDropped?.();
+          continue;
+        }
         const data = block
           .split(/\r?\n/)
           .filter((l) => l.startsWith("data:"))
@@ -144,6 +171,11 @@ export async function* parseSse(body: ReadableStream<Uint8Array>, signal?: Abort
           // A payload that is not JSON is skipped (the stream is best-effort), but not silently.
           onDropped?.();
         }
+      }
+      if (buf.length > maxBlock) {
+        buf = buf.slice(-3);
+        skipping = true;
+        onDropped?.();
       }
     }
   } finally {
