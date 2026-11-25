@@ -131,6 +131,29 @@ test("cancel during the turn: interrupt, process checks, kill leftovers, destroy
   assert.ok(events.some((e) => e.type === "output" && e.data.channel === "diagnostic" && e.data.text.startsWith("stop:")));
 });
 
+test("cancel does not wait out the settle time once the harness's processes are gone", async () => {
+  const factory = new FakeFactory(null);
+  const backend = new FakeBackend(null);
+  const driver = new RunDriver(factory, backend, { task: "t", commitMessage: "m", processSettleMs: 5000, stopSettleMs: 200 });
+  const done = drive(driver.start());
+  await backend.turnStarted;
+  const ws = factory.workspace;
+  assert.ok(ws);
+  const init = { pid: 1, ppid: 0, args: "init" };
+  const server = { pid: 50, ppid: 1, args: "opencode serve" };
+  // After the interrupt the server is up; after close it is seen once more, then gone.
+  ws.procLists = [[init, server], [init, server], [init]];
+  const began = Date.now();
+  await driver.cancel();
+  assert.equal(lastEvent(await done)?.type, "stopped");
+  const report = driver.stopReport;
+  assert.ok(report);
+  assert.deepEqual(report.afterInterrupt.map((p) => p.pid), [50]);
+  assert.deepEqual(report.afterClose, [], "polled until the process was gone");
+  assert.deepEqual(report.killed, []);
+  assert.ok(Date.now() - began < 3000, "well under the 5 s settle time");
+});
+
 test("cancel when the harness ignores the interrupt: the driver stops waiting after the settle time", async () => {
   const { factory, backend, driver } = setup();
   backend.turn.interruptEnds = false;

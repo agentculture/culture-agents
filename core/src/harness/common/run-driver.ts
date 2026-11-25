@@ -208,33 +208,49 @@ export class RunDriver<W extends Workspace> implements Driver {
     }
   }
 
+  /**
+   * The new processes once none is left, or what is still there after `maxMs`. Polled, so a
+   * harness that stops promptly does not hold the run in `cancelling` for the whole wait.
+   */
+  private async settled(maxMs: number): Promise<Proc[]> {
+    const deadline = Date.now() + maxMs;
+    for (;;) {
+      const procs = await this.listNew();
+      const left = deadline - Date.now();
+      if (procs.length === 0 || left <= 0) return procs;
+      await sleep(Math.min(250, left));
+    }
+  }
+
   /** After a cancel: check processes, close the harness, kill leftovers, destroy, report `stopped`. */
   private async stopAll(): Promise<void> {
     if (this.queue.isEnded) return;
     const settle = this.options.processSettleMs ?? 1500;
     const report: StopReport = { afterInterrupt: [], afterClose: [], killed: [], remaining: [], destroyed: false };
+    const began = Date.now();
     if (this.workspace && !this.disposed) {
-      await sleep(settle);
+      // What the interrupt alone left running is only reported; the harness itself is still up here.
+      await sleep(Math.min(settle, 500));
       report.afterInterrupt = await this.listNew();
       await this.session?.close().catch(() => undefined);
-      await sleep(settle);
-      report.afterClose = await this.listNew();
+      report.afterClose = await this.settled(settle);
       if (report.afterClose.length > 0) {
         report.killed = report.afterClose.map((p) => p.pid);
         await this.workspace.kill(report.killed).catch(() => undefined);
-        await sleep(settle);
+        report.remaining = await this.settled(settle);
       }
-      report.remaining = await this.listNew();
     } else {
       await this.session?.close().catch(() => undefined);
     }
+    const processesMs = Date.now() - began;
     report.destroyed = await this.destroyWorkspace();
     this.stopReport = report;
     if (this.workspace) {
       this.queue.push(
         diagnostic(
           `stop: after interrupt ${describeProcs(report.afterInterrupt)}; after harness close ${describeProcs(report.afterClose)}; ` +
-            `killed ${report.killed.length}; remaining ${describeProcs(report.remaining)}; workspace destroyed ${report.destroyed}`,
+            `killed ${report.killed.length}; remaining ${describeProcs(report.remaining)}; workspace destroyed ${report.destroyed}; ` +
+            `took ${Date.now() - began} ms (${processesMs} ms closing the harness and its processes)`,
         ),
       );
     }
