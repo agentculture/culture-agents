@@ -39,6 +39,7 @@
   "dependencies": {
     "@ai-openshell/sdk": "0.1.10",
     "@ai-sdk/harness": "1.0.192",
+    "@ai-sdk/harness-claude-code": "1.0.196",
     "ajv": "8.20.0"
   },
   "repository": {

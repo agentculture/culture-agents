@@ -1,0 +1,58 @@
+{"t":68,"raw":{"type":"start"}}
+{"t":2161,"raw":{"type":"start-step","request":{},"warnings":[]}}
+{"t":2161,"raw":{"type":"tool-input-start","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","toolName":"bash","providerExecuted":true}}
+{"t":2197,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"{\"command\": \"sleep 120"}}
+{"t":2601,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":" && echo late > late."}}
+{"t":2601,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"txt"}}
+{"t":2602,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"\", \"description\": \"S"}}
+{"t":2602,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"leep 120 seconds"}}
+{"t":2602,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":" then write late.txt"}}
+{"t":2604,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"\", \"timeout\": 200"}}
+{"t":2605,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"000"}}
+{"t":2605,"raw":{"type":"tool-input-delta","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ","delta":"}"}}
+{"t":2606,"raw":{"type":"tool-call","toolCallId":"toolu_011dEPMqAfpRzfKpwu91N8rJ","toolName":"bash","input":{"command":"sleep 120 && echo late > late.txt","timeout":200000,"description":"Sleep 120 seconds then write late.txt"},"providerExecuted":true}}
+{"t":2610,"raw":{"type":"tool-input-end","id":"toolu_011dEPMqAfpRzfKpwu91N8rJ"}}
+{"t":2611,"raw":{"type":"tool-error","toolCallId":"toolu_011dEPMqAfpRzfKpwu91N8rJ","toolName":"bash","input":{"command":"sleep 120 && echo late > late.txt","timeout":200000,"description":"Sleep 120 seconds then write late.txt"},"error":"Error: Blocked: sleep 120 followed by: echo late. To wait for a condition, use Monitor with an until-loop (e.g. `until <check>; do sleep 2; done`). To wait for a command you started, use run_in_background: true. Do not chain shorter sleeps to work around this block.","providerExecuted":true}}
+{"t":2612,"raw":{"type":"finish-step","finishReason":"stop","rawFinishReason":"stop","usage":{"inputTokens":19455,"inputTokenDetails":{"noCacheTokens":2,"cacheReadTokens":15382,"cacheWriteTokens":4071},"outputTokens":121,"outputTokenDetails":{"textTokens":121},"totalTokens":19576},"response":{"id":"k2xnwwtWTLyx8jQT-0","timestamp":"2026-11-25T00:06:03.617Z","modelId":"claude-haiku-5-5","messages":[]},"performance":{"effectiveOutputTokensPerSecond":0,"effectiveTotalTokensPerSecond":0,"stepTimeMs":0,"responseTimeMs":0,"toolExecutionMs":{}}}}
+{"t":3323,"raw":{"type":"start-step","request":{},"warnings":[]}}
+{"t":3323,"raw":{"type":"reasoning-start","id":"a83d6f89-1851-4847-a1f9-413aba0619bf"}}
+{"t":4744,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":"The harness blocked that"}}
+{"t":4744,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" command, but"}}
+{"t":4746,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" its"}}
+{"t":4746,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" message"}}
+{"t":4746,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" points to running it with"}}
+{"t":4746,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" run"}}
+{"t":4746,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":"_in_background inst"}}
+{"t":4746,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":"ead. The user asked for this"}}
+{"t":4747,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" exact command, so I'll"}}
+{"t":4747,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" ret"}}
+{"t":4747,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":"ry it that"}}
+{"t":4747,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":" way."}}
+{"t":4747,"raw":{"type":"reasoning-delta","id":"a83d6f89-1851-4847-a1f9-413aba0619bf","text":"\n\n"}}
+{"t":4749,"raw":{"type":"reasoning-end","id":"a83d6f89-1851-4847-a1f9-413aba0619bf"}}
+{"t":4749,"raw":{"type":"text-start","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e"}}
+{"t":4749,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":"The"}}
+{"t":4749,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":" har"}}
+{"t":4749,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":"ness blocked the foreground"}}
+{"t":4749,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":" `sleep`"}}
+{"t":4750,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":","}}
+{"t":4750,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":" so I'll run the"}}
+{"t":4750,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":" same command in the background inst"}}
+{"t":4750,"raw":{"type":"text-delta","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e","text":"ead."}}
+{"t":4750,"raw":{"type":"text-end","id":"c37da51a-6d8f-4d0c-a188-eb18c5b1ee0e"}}
+{"t":4751,"raw":{"type":"tool-input-start","id":"toolu_01JipddHSDVhXozXpDCy7TCo","toolName":"bash","providerExecuted":true}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"{\"command\": \"sle"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"ep 120 && echo late"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":" > late.txt"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"\", \"description\": \"Sleep 120 "}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"seconds then write late.tx"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"t in"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":" background"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"\", \"run_in_background\": true"}}
+{"t":4751,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":", \"timeout\": 200000"}}
+{"t":4754,"raw":{"type":"tool-input-delta","id":"toolu_01JipddHSDVhXozXpDCy7TCo","delta":"}"}}
+{"t":4756,"raw":{"type":"tool-call","toolCallId":"toolu_01JipddHSDVhXozXpDCy7TCo","toolName":"bash","input":{"command":"sleep 120 && echo late > late.txt","timeout":200000,"description":"Sleep 120 seconds then write late.txt in background","run_in_background":true},"providerExecuted":true}}
+{"t":4758,"raw":{"type":"tool-input-end","id":"toolu_01JipddHSDVhXozXpDCy7TCo"}}
+{"t":4795,"raw":{"type":"tool-result","toolCallId":"toolu_01JipddHSDVhXozXpDCy7TCo","toolName":"bash","input":{"command":"sleep 120 && echo late > late.txt","timeout":200000,"description":"Sleep 120 seconds then write late.txt in background","run_in_background":true},"output":{"stdout":"","stderr":"","interrupted":false,"isImage":false,"noOutputExpected":false,"backgroundTaskId":"blzs6nnoi"},"providerExecuted":true}}
+{"t":4795,"raw":{"type":"finish-step","finishReason":"stop","rawFinishReason":"stop","usage":{"inputTokens":19720,"inputTokenDetails":{"noCacheTokens":2,"cacheReadTokens":19453,"cacheWriteTokens":265},"outputTokens":270,"outputTokenDetails":{"textTokens":270},"totalTokens":19990},"response":{"id":"k2xnwwtWTLyx8jQT-1","timestamp":"2026-11-25T00:06:05.800Z","modelId":"claude-haiku-5-5","messages":[]},"performance":{"effectiveOutputTokensPerSecond":0,"effectiveTotalTokensPerSecond":0,"stepTimeMs":0,"responseTimeMs":0,"toolExecutionMs":{}}}}
+{"t":5609,"raw":{"type":"abort","reason":"Error: cancelled by the operator"}}

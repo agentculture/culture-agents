@@ -1,0 +1,120 @@
+/**
+ * A deterministic in-process stand-in for a harness. It reads a tiny task language, so the same
+ * contract-level tests can drive it as a real harness:
+ *
+ *   files: a.txt, b.txt   write these files one at a time (content: the name), then finish
+ *   fail: <message>       end the turn as failed
+ *   hang                  run until interrupted
+ *
+ * A steer whose text contains `files: ...` replaces the files not yet written; any other steer
+ * is acknowledged as a diagnostic. Interrupt stops before the next step.
+ */
+import { writeFile } from "node:fs/promises";
+import { basename, join } from "node:path";
+
+import { EventQueue, sleep } from "../common/queue.js";
+import type { HarnessBackend, HarnessSession, TurnEvent, TurnHandle, TurnOutcome, Workspace } from "../common/types.js";
+
+export interface StubBehaviour {
+  /** Delay before each step. Default 150 ms. */
+  stepMs?: number;
+}
+
+export function parseFiles(text: string): string[] | null {
+  const m = /files:\s*([^\n]+)/i.exec(text);
+  if (!m) return null;
+  return (m[1] as string)
+    .split(",")
+    .map((f) => basename(f.trim()))
+    .filter((f) => f !== "" && f !== "." && f !== "..");
+}
+
+class StubTurn {
+  readonly queue = new EventQueue<TurnEvent>();
+  private readonly abort = new AbortController();
+  private pending: string[] = [];
+  private readonly written: string[] = [];
+  readonly outcome: Promise<TurnOutcome>;
+
+  constructor(
+    private readonly workdir: string,
+    task: string,
+    private readonly stepMs: number,
+  ) {
+    this.outcome = this.play(task);
+  }
+
+  private out(channel: "text" | "tool_call" | "tool_result" | "diagnostic", text: string, tool?: string): void {
+    this.queue.push({ type: "output", data: tool ? { channel, text, tool } : { channel, text } });
+  }
+
+  private async play(task: string): Promise<TurnOutcome> {
+    const outcome = await this.steps(task);
+    this.queue.end();
+    return outcome;
+  }
+
+  private async steps(task: string): Promise<TurnOutcome> {
+    const signal = this.abort.signal;
+    this.out("text", `stub: ${task.split("\n")[0]?.slice(0, 200) ?? ""}`);
+    const fail = /fail:\s*([^\n]+)/i.exec(task);
+    if (fail) return { kind: "failed", error: { code: "internal", message: `stub failure: ${fail[1] as string}`, retryable: false } };
+    if (/^\s*hang\s*$/im.test(task)) {
+      await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
+      return { kind: "interrupted" };
+    }
+    this.pending = parseFiles(task) ?? [];
+    while (this.pending.length > 0) {
+      await sleep(this.stepMs, signal);
+      if (signal.aborted) return { kind: "interrupted" };
+      const name = this.pending.shift() as string;
+      this.out("tool_call", JSON.stringify({ file_path: name }), "write");
+      await writeFile(join(this.workdir, name), `${name}\n`);
+      this.written.push(name);
+      this.out("tool_result", `wrote ${name}`, "write");
+    }
+    if (signal.aborted) return { kind: "interrupted" };
+    const summary = `stub wrote ${this.written.length} file(s): ${this.written.join(", ") || "none"}`;
+    this.out("text", summary);
+    return { kind: "completed", summary };
+  }
+
+  steer(text: string): void {
+    const files = parseFiles(text);
+    if (files) this.pending = files;
+    this.out("diagnostic", files ? `steer: now writing ${files.join(", ")}` : `steer acknowledged: ${text.slice(0, 200)}`);
+  }
+
+  interrupt(): void {
+    this.abort.abort();
+  }
+
+  get ended(): boolean {
+    return this.queue.isEnded;
+  }
+}
+
+export class StubBackend implements HarnessBackend<Workspace> {
+  constructor(private readonly behaviour: StubBehaviour = {}) {}
+
+  async open(workspace: Workspace, signal: AbortSignal): Promise<HarnessSession> {
+    signal.throwIfAborted();
+    let turn: StubTurn | null = null;
+    return {
+      startTurn: async (task): Promise<TurnHandle> => {
+        const t = new StubTurn(workspace.workdir, task, this.behaviour.stepMs ?? 150);
+        turn = t;
+        return {
+          events: t.queue,
+          outcome: t.outcome,
+          steer: async (text) => {
+            if (t.ended) throw new Error("The stub turn has ended.");
+            t.steer(text);
+          },
+          interrupt: async () => t.interrupt(),
+        };
+      },
+      close: async () => turn?.interrupt(),
+    };
+  }
+}
