@@ -62,42 +62,37 @@ SKILLS_WIRING: dict[str, Callable[[Path], list[str]]] = {
 }
 
 
+def _resolve_problems(repo: Path, name: str, rel: str, by_backend: dict[str, Any]) -> list[str]:
+    problems: list[str] = []
+    path = repo / rel
+    if not path.is_file():
+        problems.append(f"{rel} is missing")
+    elif not path.read_text(encoding="utf-8").strip():
+        problems.append(f"{rel} is empty")
+    backend = HARNESS_BACKEND[name]
+    if rel not in by_backend.get(backend, ()):
+        problems.append(f"{rel} is not registered under backend '{backend}' in {FINGERPRINTS_REL}")
+    return problems
+
+
+def _check_harness_config(
+    repo: Path, name: str, spec: dict[str, Any], by_backend: dict[str, Any]
+) -> Result:
+    resolves = [str(p) for p in (spec.get("resolves") or [])]
+    problems: list[str] = []
+    if not resolves:
+        problems.append("the YAML lists no `resolves` paths for this harness")
+    for rel in resolves:
+        problems.extend(_resolve_problems(repo, name, rel, by_backend))
+    problems.extend(SKILLS_WIRING[name](repo))
+    if problems:
+        return Result("config", name, FAIL, "; ".join(problems))
+    return Result("config", name, PASS, f"resolves {', '.join(resolves)}; skills discovery wired")
+
+
 def stage_config(repo: Path, harnesses: dict[str, Any]) -> list[Result]:
-    results: list[Result] = []
     by_backend = registry_prompts_by_backend(repo)
-
-    for name in HARNESSES:
-        spec = harnesses[name]
-        resolves = [str(p) for p in (spec.get("resolves") or [])]
-        problems: list[str] = []
-
-        if not resolves:
-            problems.append("the YAML lists no `resolves` paths for this harness")
-        for rel in resolves:
-            path = repo / rel
-            if not path.is_file():
-                problems.append(f"{rel} is missing")
-            elif not path.read_text(encoding="utf-8").strip():
-                problems.append(f"{rel} is empty")
-            backend = HARNESS_BACKEND[name]
-            if rel not in by_backend.get(backend, ()):
-                problems.append(
-                    f"{rel} is not registered under backend '{backend}' in {FINGERPRINTS_REL}"
-                )
-
-        problems.extend(SKILLS_WIRING[name](repo))
-
-        if problems:
-            results.append(Result("config", name, FAIL, "; ".join(problems)))
-        else:
-            results.append(
-                Result(
-                    "config",
-                    name,
-                    PASS,
-                    f"resolves {', '.join(resolves)}; skills discovery wired",
-                )
-            )
+    results = [_check_harness_config(repo, name, harnesses[name], by_backend) for name in HARNESSES]
 
     if by_backend:
         total = sum(len(v) for v in by_backend.values())

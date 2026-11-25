@@ -78,7 +78,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked --no-build
 
       # A release is gated on the core as well: build it, run its checks, and make the
       # D1 acceptance mock stage (real CLI against the real core) run rather than skip.
@@ -90,7 +90,7 @@ jobs:
         working-directory: core
         run: npm ci --ignore-scripts && npm run build && npm run typecheck && npm run lint && npm test
 
-      - run: uv run pytest -n auto -v
+      - run: uv run --locked --no-build pytest -n auto -v
         env:
           CULTURE_AGENTS_ACCEPTANCE_REQUIRE: "1"
 
@@ -138,11 +138,11 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked --no-build
 
       - name: Set dev version
         run: |
-          BASE=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          BASE=$(uv run --locked --no-build python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           DEV_VERSION="${BASE}.dev${{ github.run_number }}"
           sed -i "s/^version = .*/version = \"${DEV_VERSION}\"/" pyproject.toml
           echo "DEV_VERSION=${DEV_VERSION}" >> "$GITHUB_ENV"
@@ -244,7 +244,7 @@ jobs:
 
       - run: uv python install 3.12
 
-      - run: uv sync
+      - run: uv sync --locked --no-build
 
       - name: Build and publish to PyPI
         run: |

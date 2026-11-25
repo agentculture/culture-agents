@@ -1,5 +1,5 @@
 {
-  "api_version": "1.0",
+  "api_version": "2.0",
   "schema_base": "https://culture.dev/contract/agents/",
   "description": "Index of the culture-agents control-plane API. Semantics live in contract/README.md; payload shapes in the schema files named here, resolved against schema_base.",
   "transport": {

@@ -195,7 +195,7 @@ export type Reconnect =
 
 /**
  * Reach a surviving worker's control socket. `live: false` (with the reason) when the worker is
- * not alive or does not answer. Note: in API 1.0 a restarted core still reports such a run with
+ * not alive or does not answer. Note: in D1 a restarted core still reports such a run with
  * `live_control: false` (README: after a core restart); this only establishes reachability.
  */
 export async function reconnectWorker(stateDir: string, runId: RunId, timeoutMs = 1000): Promise<Reconnect> {

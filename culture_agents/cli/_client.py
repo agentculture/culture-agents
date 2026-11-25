@@ -30,7 +30,7 @@ from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CoreErro
 
 #: The contract's ``api.json`` -> ``api_version``. ``tests/test_cli_client.py``
 #: fails if this drifts from the contract.
-CLIENT_API_VERSION = "1.0"
+CLIENT_API_VERSION = "2.0"
 VERSION_HEADER = "Agents-Api-Version"
 SOCKET_ENV = "CULTURE_AGENTS_SOCKET"
 

@@ -61,15 +61,15 @@ test("version endpoint returns the contract's API version, even for an incompati
 });
 
 test("an incompatible client version is refused with the typed error before anything else", async () => {
-  const major = await call(env.socket, "GET", "/v1/agents", { version: "2.0" });
+  const major = await call(env.socket, "GET", "/v1/agents", { version: "3.0" });
   const body = expectError(major, "incompatible_version");
-  assert.equal(body.client_api_version, "2.0");
+  assert.equal(body.client_api_version, "3.0");
   assert.equal(body.server_api_version, apiVersion);
   // Wrong version wins over an unknown path, a bad body and a missing run.
-  expectError(await call(env.socket, "GET", "/v1/nope", { version: "2.0" }), "incompatible_version");
+  expectError(await call(env.socket, "GET", "/v1/nope", { version: "3.0" }), "incompatible_version");
   expectError(await call(env.socket, "POST", "/v1/runs", { version: "0.1", rawBody: "{" }), "incompatible_version");
   // A client newer than the core in MINOR is incompatible too.
-  expectError(await call(env.socket, "GET", "/v1/runs", { version: "1.99" }), "incompatible_version");
+  expectError(await call(env.socket, "GET", "/v1/runs", { version: "2.99" }), "incompatible_version");
   // An absent header is accepted.
   expectOk(await call(env.socket, "GET", "/v1/agents", { version: null }), 200, "agent#agent_list");
   assert.equal(service.calls.includes("submit"), false);
@@ -222,7 +222,7 @@ function attach(path: string, headers: Record<string, string> = {}): { frames: F
   const status = new Promise<number>((r) => (resolveStatus = r));
   let resolveClosed!: () => void;
   const closed = new Promise<void>((r) => (resolveClosed = r));
-  const req = request({ socketPath: env.socket, path, headers: { "Agents-Api-Version": "1.0", ...headers } }, (res) => {
+  const req = request({ socketPath: env.socket, path, headers: { "Agents-Api-Version": "2.0", ...headers } }, (res) => {
     resolveStatus(res.statusCode ?? 0);
     let buf = "";
     res.setEncoding("utf8");
@@ -306,7 +306,7 @@ test("shutdown ends open streams", async () => {
   const svc = new FakeRunService();
   svc.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 2));
   const d = await startDaemon({ service: svc, node: "spark", env: env2.vars });
-  const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": "1.0" } });
+  const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": "2.0" } });
   let closed = false;
   const ended = new Promise<number | undefined>((resolve) =>
     req.on("response", (res) => {
