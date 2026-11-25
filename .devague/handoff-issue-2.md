@@ -30,7 +30,7 @@ lists 0 open issues on the branch. PyPI has 0.14.0. Nothing is on npm.
 
 The devague flow is complete through `/summarize-delivery`. Deviations `d1`
 to `d5`, lapses `l1` to `l15`, evidence `e1` to `e17` and deltas `b1` to `b4`
-are approved by the owner. Delta `b5` (API 2.0, replacing `b3`) is proposed.
+are approved by the owner, as is delta `b5` (API 2.0), which supersedes `b3`.
 
 Last measured at `92937aa` plus the PR #7 changes: 452 TypeScript tests pass
 (8 opt-in live checks skipped), 1228 Python tests pass (9 skipped), and the
