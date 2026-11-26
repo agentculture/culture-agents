@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-26T17:07:54Z",
-  "updated": "2026-11-26T17:18:13Z",
+  "updated": "2026-11-26T17:37:47Z",
   "targets": [
     {
       "id": "c1",
@@ -1309,6 +1309,22 @@
     {
       "id": "r12",
       "text": "Not covered by this plan: a test that a retained sandbox is deleted after its 7 days, and the OpenCode retention path.",
+      "kind": "follow_up",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r13",
+      "text": "Found by dispatching through agents on 2026-11-26: when a harness reads a repository file containing the OpenShell credential placeholder text, the gateway's egress proxy refuses the next model request (provider.auth: a credential placeholder in the request body cannot be forwarded) and the run fails. Five tracked files here contain it. Any repository text with that marker can end a run; not handled by any D2 task.",
+      "kind": "follow_up",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r14",
+      "text": "Found the same way: a run whose turn fails collects nothing. Ten minutes of an agent's work, including any commits it made in the sandbox, was lost with the sandbox. D1 keeps the sandbox only when the turn completed and collection failed.",
       "kind": "follow_up",
       "task_id": null,
       "resolved": false,
