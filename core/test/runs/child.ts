@@ -10,6 +10,8 @@ import type { HarnessCatalog, HarnessEntry } from "../../src/runs/ports.js";
 import type { FakeHarness } from "./support.js";
 
 const FAKE_DRIVER = fileURLToPath(new URL("../../src/worker/fake-driver.js", import.meta.url));
+const STUB_DRIVER = fileURLToPath(new URL("../../src/harness/stub/index.js", import.meta.url));
+const STUB_OPTIONS = { ref: "HEAD", identity: { name: "culture-agents run", email: "runs@culture-agents.invalid" }, stepMs: 30 };
 
 const yes: Capability = { supported: true, reason: null, caveats: [] };
 const no = (reason: string) => ({ supported: false as const, reason, caveats: [] });
@@ -42,7 +44,7 @@ function fakeCatalog(harnesses: FakeHarness[]): HarnessCatalog {
   const entries: HarnessEntry[] = harnesses.map((h) => ({
     id: h.id,
     capabilities: () => Promise.resolve(capabilitiesOf(h)),
-    driver: { module: FAKE_DRIVER, options: { steps: h.steps } },
+    driver: h.stub === true ? { module: STUB_DRIVER, options: STUB_OPTIONS } : { module: FAKE_DRIVER, options: { steps: h.steps } },
   }));
   return { list: () => entries, get: (id) => entries.find((e) => e.id === id) };
 }

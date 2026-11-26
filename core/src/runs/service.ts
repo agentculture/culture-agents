@@ -24,6 +24,7 @@ import {
   type Capabilities,
   type ErrorBody,
   type EventPage,
+  type Limits,
   type Run,
   type RunEvent,
   type RunId,
@@ -49,7 +50,8 @@ import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
 import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
 import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
-import { activeRunFor, readRun, resultOf, scanRuns, unreadableRunHolding, UnreadableRunError, type ScanOptions } from "./scan.js";
+import { readRun, resultOf, scanRuns, UnreadableRunError, type ScanOptions } from "./scan.js";
+import { checkLimits, NO_LIMITS } from "./limits.js";
 
 export interface RunServiceOptions {
   /** The run store's state directory. */
@@ -75,6 +77,8 @@ export interface RunServiceOptions {
   keyRetentionMs?: number;
   /** Fault injection at each step of a submit (tests only). */
   submitFault?: SubmitFault;
+  /** The operator's limits from the core's config file (daemon/limits.ts). Default: none. */
+  limits?: Limits;
 }
 
 /** Default `keyRetentionMs`: 7 days. */
@@ -86,7 +90,7 @@ export class StoreRunService implements RunService {
   private readonly reattacher: Reattacher;
   private readonly now: () => Date;
   private readonly keys: KeyIndex;
-  /** Serializes submits so the busy check and the spawn are one step per repository. */
+  /** Serializes submits so the limit check and the spawn are one step. */
   private submitChain: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly options: RunServiceOptions) {
@@ -156,25 +160,15 @@ export class StoreRunService implements RunService {
     }
     if (request.session_id !== undefined) throw unsupported("continue_session", "Continuing a session is not supported in this API version.");
     if (request.parent_run_id !== undefined) throw unsupported("delegate", "Delegating from a parent run is not supported in this API version.");
-    // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the busy check.
+    // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the limit check.
     const key = request.idempotency_key;
     const digest = key === undefined ? null : requestDigest("submit", request);
     if (key !== undefined && digest !== null) {
       const replay = replaySubmit(this.keys, key, digest, (id) => this.read(id));
       if (replay !== null) return replay;
     }
-    // Step 7: one active run per canonical repository (the server passes `repo` canonicalized).
-    const unreadable = unreadableRunHolding(this.scan, request.repo);
-    if (unreadable !== null) {
-      throw new ControlError("internal", `Run ${unreadable} has a live worker but its stored state cannot be read, so ${request.repo} may be in use; resolve that run before submitting here.`);
-    }
-    const active = activeRunFor(this.scan, request.repo);
-    if (active !== null) {
-      throw new ControlError("busy", `Repository ${request.repo} already has the active run ${active.id}; wait for it to end or cancel it.`, {
-        active_run_id: active.id,
-        repo: request.repo,
-      });
-    }
+    // Step 7: a limit the operator configured has room (none applies by default). The chain makes check and spawn one step.
+    checkLimits(this.options.limits ?? NO_LIMITS, this.scan, request.repo);
     // Step 8: create the session and run, start the worker, acknowledge once durable.
     const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
     const created = this.now();

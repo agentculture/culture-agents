@@ -12,12 +12,14 @@ import { retentionFromEnv, pruneFinishedRuns } from "../store/retention.js";
 import type { SubmitFault } from "../runs/keys.js";
 import { cleanupStore } from "../store/startup.js";
 import { loadAllowlist } from "./allowlist.js";
+import { loadLimits } from "./limits.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
 import { unavailable } from "./errors.js";
 import { acquireStateLock, LockHeldError, type HeldLock } from "./lock.js";
 import { takeSecrets } from "./secrets.js";
 import { resolveAllowlistPath, resolveServerYamlPath } from "./paths.js";
 import type { RunService } from "./ports.js";
+import type { Limits } from "../contract/index.js";
 
 /** `server.name` from the local `server.yaml` (README: identifiers); no YAML dependency, one key. */
 export function readNodeName(env: Record<string, string | undefined> = process.env): string | null {
@@ -40,6 +42,8 @@ export interface MainOptions extends Partial<Omit<DaemonOptions, "service">> {
   stateDir?: string;
   /** Fault injection at each step of a submit of the built-in run service (tests only). */
   submitFault?: SubmitFault;
+  /** The operator's limits. Default: read from the core's config file at start (limits.ts); a bad one stops startup with exit 2. */
+  limits?: Limits;
   /** How often sandboxes of finished runs are reclaimed. Default: 5 minutes. */
   reclaimIntervalMs?: number;
   /**
@@ -144,6 +148,13 @@ async function serveUntilStopped(
   takeSecrets(env, options.secretNames);
   const allowlistPath = options.allowlistPath ?? resolveAllowlistPath(env);
   const stateDir = options.stateDir ?? defaultStateDir(env);
+  let limits: Limits | undefined;
+  try {
+    limits = service ? undefined : (options.limits ?? loadLimits(env));
+  } catch (e) {
+    err(`culture-agents core: cannot start: limits configuration: ${(e as Error).message}`);
+    return 2;
+  }
   let stateLock: HeldLock | null = null;
   if (!service) {
     try {
@@ -161,7 +172,7 @@ async function serveUntilStopped(
       err(`culture-agents core: startup cleanup failed, continuing: ${(e as Error).message}`);
     }
   }
-  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(options.submitFault && { submitFault: options.submitFault }) });
+  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(limits && { limits }), ...(options.submitFault && { submitFault: options.submitFault }) });
   let daemon;
   try {
     daemon = await startDaemon({ ...options, service: service ?? (runs as RunService), node });
