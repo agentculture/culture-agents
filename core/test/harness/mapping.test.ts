@@ -140,7 +140,7 @@ test("claude-code backend: steer goes to experimental_steerTurn, close destroys 
   let release!: () => void;
   const gate = new Promise<void>((r) => (release = r));
   const { agent, calls } = fakeAgent(load<StreamPart>("claude-code-steer.ndjson"), gate);
-  const backend = new ClaudeCodeBackend("spark-a.run.01ABC", "haiku", () => agent);
+  const backend = new ClaudeCodeBackend("thor-a.run.01ABC", "haiku", () => agent);
   const session = await backend.open(workspace, new AbortController().signal, () => undefined);
   const turn = await session.startTurn("task");
   await turn.steer("change of plan");
@@ -149,7 +149,7 @@ test("claude-code backend: steer goes to experimental_steerTurn, close destroys 
   assert.equal((await turn.outcome).kind, "completed");
   await session.close();
   await session.close();
-  assert.deepEqual(calls, ["session:spark-a-run-01ABC", "steer:change of plan", "destroy"]);
+  assert.deepEqual(calls, ["session:thor-a-run-01ABC", "steer:change of plan", "destroy"]);
 });
 
 test("claude-code backend: interrupt aborts the stream and the outcome is interrupted", async () => {

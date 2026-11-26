@@ -24,8 +24,8 @@ from urllib.parse import parse_qs, urlsplit
 from tests import contract_support as cs
 
 VALID = cs.FIXTURES / "valid"
-RUN_ID = "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
-AGENT_ID = "spark-culture-agents"
+RUN_ID = "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
+AGENT_ID = "thor-culture-agents"
 
 
 def fixture(schema: str, name: str) -> Any:

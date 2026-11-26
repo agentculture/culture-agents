@@ -41,9 +41,9 @@ test("every contract-valid run id, up to 127 characters, maps to gateway-valid l
   const labelValue = /^[A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?$/;
   const ids = [
     "run-1",
-    `spark-${"a".repeat(90)}.run.01JD0000000000000000000000`,
-    `spark-a${"_".repeat(88)}a.run.01JD0000000000000000000000`,
-    `spark-a${"-b".repeat(44)}a.run.01JD0000000000000000000000`,
+    `thor-${"a".repeat(91)}.run.01JD0000000000000000000000`,
+    `thor-a${"_".repeat(89)}a.run.01JD0000000000000000000000`,
+    `thor-aa${"-b".repeat(44)}a.run.01JD0000000000000000000000`,
     "a".repeat(63),
     "a".repeat(64),
     "run_",

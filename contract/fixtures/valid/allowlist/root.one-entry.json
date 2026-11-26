@@ -2,7 +2,7 @@
   "version": 1,
   "entries": [
     {
-      "agent_id": "spark-culture-agents",
+      "agent_id": "thor-culture-agents",
       "harness": "claude-code",
       "repo": "/srv/repos/demo"
     }

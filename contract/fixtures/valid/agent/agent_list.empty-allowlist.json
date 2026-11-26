@@ -1,5 +1,5 @@
 {
-  "node": "spark",
+  "node": "thor",
   "agents": [],
   "harnesses": [
     {

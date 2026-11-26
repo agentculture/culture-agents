@@ -11,7 +11,7 @@ import { pollUntil } from "../../src/util/sequence.js";
 import type { DriverSelection } from "../../src/worker/driver.js";
 import type { FakeDriverOptions } from "../../src/worker/fake-driver.js";
 
-export const AGENT = "spark-culture-agents";
+export const AGENT = "thor-culture-agents";
 
 export const FAKE_DRIVER_MODULE = fileURLToPath(new URL("../../src/worker/fake-driver.js", import.meta.url));
 export const DAEMON_HELPER = fileURLToPath(new URL("./daemon-helper.js", import.meta.url));
@@ -76,7 +76,7 @@ export function newRun(overrides: Partial<Run> = {}): Run {
     harness: "fake",
     repo: "/srv/repos/demo",
     task: "Do the thing.",
-    owner: { kind: "operator", id: "spark-operator" },
+    owner: { kind: "operator", id: "thor-operator" },
     idempotency_key: null,
     deadline: null,
     state: "queued",
@@ -99,7 +99,7 @@ export function action(run: Run, kind: ActionRecord["kind"], outcome: ActionReco
     id: `${run.agent_id}.act.${newUlid()}`,
     run_id: run.id,
     kind,
-    caller: { kind: "operator", id: "spark-operator" },
+    caller: { kind: "operator", id: "thor-operator" },
     requested_at: new Date().toISOString(),
     idempotency_key: null,
     outcome,

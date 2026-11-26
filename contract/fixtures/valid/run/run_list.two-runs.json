@@ -1,15 +1,15 @@
 {
   "runs": [
     {
-      "id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
-      "agent_id": "spark-culture-agents",
-      "session_id": "spark-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "agent_id": "thor-culture-agents",
+      "session_id": "thor-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
       "harness": "claude-code",
       "repo": "/srv/repos/demo",
       "task": "Add a unit test for the parser's empty-input case.",
       "owner": {
         "kind": "operator",
-        "id": "spark-operator"
+        "id": "thor-operator"
       },
       "idempotency_key": null,
       "deadline": null,
@@ -23,18 +23,18 @@
       "cursor": 12,
       "live_control": false,
       "worker_pid": 41231,
-      "branch": "runs/spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
+      "branch": "runs/thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
     },
     {
-      "id": "spark-reviewer.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6",
-      "agent_id": "spark-reviewer",
-      "session_id": "spark-reviewer.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D6",
+      "id": "thor-reviewer.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6",
+      "agent_id": "thor-reviewer",
+      "session_id": "thor-reviewer.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D6",
       "harness": "claude-code",
       "repo": "/srv/repos/docs-site",
       "task": "Add a unit test for the parser's empty-input case.",
       "owner": {
         "kind": "operator",
-        "id": "spark-operator"
+        "id": "thor-operator"
       },
       "idempotency_key": null,
       "deadline": null,

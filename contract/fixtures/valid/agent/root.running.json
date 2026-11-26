@@ -1,6 +1,6 @@
 {
-  "id": "spark-culture-agents",
-  "node": "spark",
+  "id": "thor-culture-agents",
+  "node": "thor",
   "suffix": "culture-agents",
   "harnesses": [
     "claude-code",
@@ -11,6 +11,6 @@
   ],
   "state": "running",
   "active_run_ids": [
-    "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
+    "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
   ]
 }

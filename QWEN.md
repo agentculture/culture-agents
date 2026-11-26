@@ -154,6 +154,7 @@ markdownlint-cli2 "**/*.md" "#**/node_modules" "#.local" "#.claude/skills" "#.te
 uv run teken cli doctor . --strict        # agent-first rubric gate
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost endpoints
 python3 scripts/check-file-length.py      # 400-line cap per tracked Python and TypeScript file
+python3 scripts/check-example-node.py     # ids and node fields name only the example node, thor
 uv run python scripts/harness-smoke.py --stage config --require config
 ```
 
@@ -174,7 +175,7 @@ culture_agents/           `agents` CLI, built on agentfront (one App registry)
   cli/                    _app.py registry, socket client, error/output contract, _commands/
   explain/                markdown catalog for `explain`
 tests/                    pytest suite
-scripts/                  harness-smoke, scan-secrets, check-file-length
+scripts/                  harness-smoke, scan-secrets, check-file-length, check-example-node
 docs/d0/                  inventory, compatibility matrix, decisions, probe results
 docs/specs/ docs/plans/   the confirmed spec and plan
 spikes/                   throwaway probe code (never built or checked)

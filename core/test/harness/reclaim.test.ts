@@ -40,8 +40,8 @@ test("the run service asks to reclaim exactly its finished runs", async (t) => {
   }
   const asked: string[][] = [];
   const catalog = { ...emptyCatalog(), reclaim: async (ids: string[]) => (asked.push(ids), ids) };
-  const service = createRunService({ stateDir: dir, node: "spark", catalog, allowlist: () => ({ path: "", status: "missing", entries: [], detail: null }) });
+  const service = createRunService({ stateDir: dir, node: "thor", catalog, allowlist: () => ({ path: "", status: "missing", entries: [], detail: null }) });
   assert.deepEqual(await service.reclaim(), [done.id]);
   assert.deepEqual(asked, [[done.id]]);
-  assert.deepEqual(await createRunService({ stateDir: dir, node: "spark", catalog: emptyCatalog(), allowlist: () => ({ path: "", status: "missing", entries: [], detail: null }) }).reclaim(), []);
+  assert.deepEqual(await createRunService({ stateDir: dir, node: "thor", catalog: emptyCatalog(), allowlist: () => ({ path: "", status: "missing", entries: [], detail: null }) }).reclaim(), []);
 });

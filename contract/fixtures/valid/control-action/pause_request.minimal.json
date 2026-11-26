@@ -1,6 +1,6 @@
 {
   "caller": {
     "kind": "operator",
-    "id": "spark-operator"
+    "id": "thor-operator"
   }
 }

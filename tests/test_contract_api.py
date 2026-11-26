@@ -162,12 +162,12 @@ def test_capability_names_used_by_errors_are_known():
 # --- identifiers ----------------------------------------------------------------
 
 
-@pytest.mark.parametrize("good", ["spark-culture-agents", "thor-claude", "n1-reachy_nova"])
+@pytest.mark.parametrize("good", ["thor-culture-agents", "thor-claude", "n1-reachy_nova"])
 def test_mesh_id_accepts_node_agent_form(good):
     assert re.fullmatch(COMMON["mesh_id"]["pattern"], good)
 
 
-@pytest.mark.parametrize("bad", ["spark", "Spark-x", "spark-", "-x", "spark--x", "sp.ark-x"])
+@pytest.mark.parametrize("bad", ["thor", "Thor-x", "thor-", "-x", "thor--x", "th.or-x"])
 def test_mesh_id_rejects_other_forms(bad):
     assert not re.fullmatch(COMMON["mesh_id"]["pattern"], bad)
 
@@ -176,9 +176,9 @@ def test_run_session_and_action_ids_embed_the_agent_id():
     ulid = "01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
     for kind, tag in (("run_id", "run"), ("session_id", "ses"), ("action_id", "act")):
         pattern = COMMON[kind]["pattern"]
-        assert re.fullmatch(pattern, f"spark-culture-agents.{tag}.{ulid}"), kind
+        assert re.fullmatch(pattern, f"thor-culture-agents.{tag}.{ulid}"), kind
         assert not re.fullmatch(pattern, f"culture.{tag}.{ulid}"), kind
-        assert not re.fullmatch(pattern, f"spark-culture-agents.{tag}.{ulid.lower()}"), kind
+        assert not re.fullmatch(pattern, f"thor-culture-agents.{tag}.{ulid.lower()}"), kind
 
 
 def test_inlined_patterns_do_not_drift_from_their_sources():

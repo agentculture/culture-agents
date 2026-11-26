@@ -18,7 +18,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DAEMON_JS = REPO_ROOT / "core" / "dist" / "src" / "daemon" / "main.js"
-NODE = "spark"
+NODE = "thor"
 AGENT = f"{NODE}-tester"
 STATES = {
     "queued",

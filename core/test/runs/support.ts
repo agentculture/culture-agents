@@ -19,8 +19,8 @@ import { listRunIds } from "../../src/store/run-store.js";
 import { pollUntil } from "../../src/util/sequence.js";
 import type { FakeStep } from "../../src/worker/fake-driver.js";
 
-export const AGENT = "spark-culture-agents";
-export const CALLER = { kind: "operator", id: "spark-operator" } as const;
+export const AGENT = "thor-culture-agents";
+export const CALLER = { kind: "operator", id: "thor-operator" } as const;
 
 /** One fake harness: steps the fake driver plays, and whether steer is declared supported. */
 export interface FakeHarness {

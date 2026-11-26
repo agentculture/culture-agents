@@ -38,8 +38,8 @@ can see before dispatching whether a harness can steer or cancel.
 
 ## Usage
 
-    agents agents status spark-culture-agents
-    agents agents status spark-culture-agents --json
+    agents agents status thor-culture-agents
+    agents agents status thor-culture-agents --json
 
 {_CORE}"""
 
@@ -80,7 +80,7 @@ deduplicated: do not blindly retry), `--caller` and `--caller-kind` (default
 
 ## Usage
 
-    agents runs submit --agent spark-culture-agents --harness claude-code \\
+    agents runs submit --agent thor-culture-agents --harness claude-code \\
         --repo /srv/repos/demo --task "Add a unit test"
     agents runs submit ... --json
 
@@ -107,7 +107,7 @@ control is available (false after a core restart), and the task.
 
 ## Usage
 
-    agents runs show spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5 --json
+    agents runs show thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5 --json
 
 {_CORE}"""
 
@@ -146,7 +146,7 @@ terminal; `--json` carries the exact data.
 
 ## Usage
 
-    agents runs attach spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5
+    agents runs attach thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5
     agents runs attach <run_id> --after 12 --json
 
 {_CORE}"""
