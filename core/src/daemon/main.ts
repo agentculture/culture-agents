@@ -4,6 +4,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { startPublishing } from "../publish/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
 import { loadAllowlist } from "./allowlist.js";
@@ -121,6 +122,8 @@ async function serve(service: RunService | undefined, options: MainOptions, err:
   } catch (e) {
     err(`culture-agents core: startup reconciliation failed (runs settle when read): ${(e as Error).message}`);
   }
+  // Run events also go to the events broker when one is configured. Never awaited by a request, never needed by a run.
+  const publishing = runs ? await startPublishing({ stateDir, node, env, log: err }) : null;
   // Sandboxes of finished runs that their workers could not delete: at startup, then periodically.
   const reclaim = (): void => {
     runs?.reclaim().then(
@@ -141,6 +144,7 @@ async function serve(service: RunService | undefined, options: MainOptions, err:
   });
   clearInterval(reclaimTimer);
   const stop = (async () => {
+    await publishing?.stop();
     await daemon.stop();
     await stateLock?.release();
   })();
