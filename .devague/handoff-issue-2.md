@@ -18,13 +18,15 @@ This is working state, not a design document. The authoritative records are:
    by the owner on 2026-11-25: a pull request stages a development version,
    `main` publishes the real one. The change is on branch
    `runs/npm-stage-on-pr` (0.15.1). See [The npm release](#the-npm-release).
-2. **D2 scoping** (fleet and recovery). The scope pass is recorded on the
-   frame `d2-fleet-and-recovery` (`devague scope --list`): 27 explored
-   surfaces and 21 proposed claims, none confirmed by the owner. The
-   announcement (`c1`) shows as confirmed only because `devague new` marks it
-   so; the agent wrote it and the owner has not reviewed it. Five hard
-   questions wait for the owner; `q2` (which machines are the fleet) is blocking. Next
-   leg: `/think`. See [Inputs for D2](#inputs-for-d2).
+2. **D2 framing** (fleet and recovery). Frame `d2-fleet-and-recovery`: 27
+   explored surfaces, 27 claims (26 proposed, none confirmed by the owner)
+   and 19 proposed honesty conditions. The announcement (`c1`) shows as
+   confirmed only because `devague new` marks it so; the agent wrote it and
+   the owner has not reviewed it. `/think` has added the before and after
+   state, two success signals and the honesty conditions. Five hard questions
+   wait for the owner; `q2` (which machines are the fleet) is blocking. Next:
+   the owner's answers and confirmations (`devague review` lists them), then
+   `converge` and `export`. See [Inputs for D2](#inputs-for-d2).
 
 ## What shipped
 
