@@ -5,6 +5,7 @@
  * types only; nothing here names an AI SDK, OpenShell or vendor type.
  */
 import type { ErrorBody, OutputData } from "../../contract/index.js";
+import type { AnswerReply, AskedQuestion } from "../../worker/driver.js";
 
 /** One process seen in a workspace (`ps`), used for the after-cancel checks. */
 export interface Proc {
@@ -52,7 +53,11 @@ export interface WorkspaceFactory<W extends Workspace = Workspace> {
 }
 
 /** What a turn reports while it runs. */
-export type TurnEvent = { type: "output"; data: OutputData } | { type: "error"; error: ErrorBody };
+export type TurnEvent =
+  | { type: "output"; data: OutputData }
+  | { type: "error"; error: ErrorBody }
+  /** The harness asks its operator and holds the turn until `TurnHandle.answer`. */
+  | { type: "question"; question: AskedQuestion };
 
 /** How a turn ended, as the harness's own authority reports it. */
 export type TurnOutcome =
@@ -67,6 +72,8 @@ export interface TurnHandle {
   readonly outcome: Promise<TurnOutcome>;
   /** Deliver a user message into the running turn. Throws when the turn cannot take it. */
   steer(text: string): Promise<void>;
+  /** Deliver an operator's answer to the request raised as `ref`. Absent where the backend never asks. */
+  answer?(ref: string, reply: AnswerReply): Promise<void>;
   /** Ask the harness to stop the turn. */
   interrupt(): Promise<void>;
 }

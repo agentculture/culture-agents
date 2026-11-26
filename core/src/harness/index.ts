@@ -17,7 +17,7 @@ import type { SandboxSettings } from "./common/sandbox-workspace.js";
 import { claudeCodeCore, CLAUDE_CODE_TRANSPORT } from "./claude-code/capabilities.js";
 import type { HarnessConfig } from "./config.js";
 import { openCodeCore, OPENCODE_TRANSPORT } from "./opencode/capabilities.js";
-import { STUB_ISOLATION, stubCore, STUB_TRANSPORT } from "./stub/index.js";
+import { stubCapabilities } from "./stub/index.js";
 
 export { HarnessConfigError, loadHarnessConfig } from "./config.js";
 export type { HarnessConfig } from "./config.js";
@@ -109,8 +109,7 @@ export function listHarnesses(config: HarnessConfig): HarnessEntry[] {
   if (config.stub) {
     entries.push({
       id: "stub",
-      capabilities: async () =>
-        capabilityDocument({ harness: "stub", available: true, version: "stub-1", transport: STUB_TRANSPORT, core: stubCore(), isolation: STUB_ISOLATION }),
+      capabilities: async () => stubCapabilities(),
       driver: { module: modulePath("./stub/index.js"), options: { ref: config.ref, identity: { ...config.identity } } },
     });
   }
