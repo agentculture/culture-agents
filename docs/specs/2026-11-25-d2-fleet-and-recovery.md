@@ -77,6 +77,12 @@
   - honesty: The worker holds the append while it lives and the core appends only the orphan 'unknown' (core/src/worker/run-loop.ts:138-151, core/src/store/run-store.ts:62-72), so 'publish after append' needs a follower with a durable position. A test kills the core between an append and its publish and sees the event published once after restart.
 - Finished runs' directories have a retention rule and the cost of submit, list and attach does not grow with the number of past runs: the core does not re-read and re-validate every event of every run on each call.
   - honesty: Today nothing deletes run directories or rotates events.jsonl and worker.log, every submit, list and agents call parses and validates every event of every run (twice per submit; core/src/runs/scan.ts:96-107, core/src/runs/service.ts:119-123), and each attach polls every 20 milliseconds (service.ts:213). A test seeds 1,000 finished runs and a submit still returns in under 2 seconds.
+- The core exports one trace per run to a configured OpenTelemetry endpoint (the local Langfuse): spans for submit, sandbox setup, the harness turn, each tool call, each operator question, result collection and the terminal state, each carrying the run id, harness, model and duration. Export is off unless an endpoint is configured, comes after the on-disk append, and never blocks, slows or fails a run when the endpoint is down.
+  - honesty: With the trace endpoint stopped, a run reaches the same terminal state and the same event log in the same time within measurement noise, and no call to the core blocks on the exporter.
+- An operator can see load from the traces without reading run logs: how many runs and harness sessions are active per harness and per model at a moment, and how long each model call waited and ran. The capability report's active run count and the trace view agree.
+  - honesty: With 3 runs active on 2 harnesses, the trace view shows 3 active runs split correctly by harness and model, and the capability report shows the same count at the same moment.
+- The exporter adds no npm dependency: it sends OTLP over HTTP as JSON with Node's own fetch. The Langfuse keys reach the core as injected secrets and are removed from the environment before any worker starts, like every other secret.
+  - honesty: core/package.json gains no dependency for tracing, and a worker's environment holds no Langfuse key.
 
 ## Honesty conditions
 
@@ -95,6 +101,7 @@
 - The D2 part-two acceptance run passes with no chat server running on either host, and no code in core/ opens a connection to an IRC port or reads the mesh's link secrets.
 - A test publishes a run whose output contains a marker string and shows the marker in no broker message. The broker accepts anonymous local subscribers (events-cli mosquitto.conf:49-61), while run logs on disk are mode 0600 because 'harness output may contain secrets' (core/src/store/files.ts:1-4).
 - All submits are serialised today and each can wait up to 10 seconds for its worker (core/src/runs/service.ts:63-64, core/src/worker/spawn.ts:181), and OpenCode's cancel already takes 8.6 to 8.9 seconds of the 10 allowed with one run (docs/d0/d1-acceptance.md:167). The live stage measures both under concurrency; a miss is reported, not waived.
+- With the default setting, a trace of a run whose events contain prompt text, output and tool results contains none of that text; no trace is sent to any address but the configured one.
 
 ## Success signals
 
@@ -111,6 +118,7 @@
 - No real host list, address or network detail of the fleet appears in a tracked file, a test fixture or a published record. Fixtures, documents and tests use one example node, a Jetson Thor, in place of 'spark'; acceptance records name real hosts by role (host A, host B).
 - Fleet membership does not travel over the chat mesh. The mesh's link password is neither reused nor read by culture-agents, and a stopped chat server changes nothing about which hosts are members or whether a run can be controlled.
 - Events published to the broker carry lifecycle facts only: run id, event type, state, cursor and time. They never carry prompt text, harness output, tool results or an operator's answer. A subscriber that wants content reads it from the core by cursor, under the core's own access rules.
+- Traces stay on the operator's own Langfuse and are not published to the broker or to another host. Whether a trace carries prompt text, harness output and tool results, or only names, sizes and timings, is a setting; the default carries no content, the same rule as broker events.
 
 ## Non-goals
 
@@ -125,6 +133,7 @@
 - D2 does not depend on a message broker for control or for reading a run: waiting on a run stays a read of its per-run event log by cursor, and cross-host control is a request to that host's core. Run events are also published to the existing broker (events-cli) as a second transport, and a broker that is down never stops or fails a run.
 - Every fleet host is set up by its operator before it can join: an OpenShell gateway, the model gateway on the port the sandbox policy expects, and a run image built on that host. The run image is single-architecture, and every probe so far ran on `x86_64`; an ARM host is not verified and reports its harnesses as unavailable until it is.
 - Every process running as the core's user on a host is trusted: a worker's control socket has no credential, session or epoch, so any process of that user can steer or cancel a run, as it can today.
+- Per-request model load (queue depth, tokens, concurrent requests per model and per machine) is the model gateway's to report, not culture-agents'. It is asked of lobes-cli as an issue and implemented from this project by pull request there, like the admit field.
 
 ## Scope exploration
 
@@ -244,6 +253,7 @@
 - A pending operator question has a time limit of 12 hours, configurable for less; the run's deadline pauses while the question is pending.
 - The example node in fixtures, documents and tests is a Jetson Thor, to show how an edge machine or a robot behaves as a fleet member; 'spark' is replaced.
 - Run logs and attach streams that cross hosts are only restricted to callers allowed to read the run, not redacted; a sensitivity mark is added if it is cheap.
+- Observability is part of the D2 design. Run and model activity is traced to a Langfuse instance the operator runs locally. (Owner, 2026-11-26: 'We should have observability and it should be part of the design. We can run langfuse locally.')
 
 ## Hard questions
 
