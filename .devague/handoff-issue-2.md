@@ -39,13 +39,13 @@ Read this section first. It supersedes "Start here", "Open items" and
 | t1 approvals probe, t2 rename to `thor`, t3 contract 3.0, t4 store version, t5 store retention, t6 idempotency, t9 reattach, t10 three D1 gaps, t12 secret removal, t14 broker publishing, t29 tracing | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
 | t15 branch cleanup (OpenCode) | running |
-| t7 base commit, t11 submitter (Claude Code, sonnet) | running, dispatched 20:20 UTC |
+| t7 base commit, t11 submitter (Claude Code, sonnet) | running, dispatched 19:59 UTC |
 | t8, t13, t16, t17, t18, t19 | blocked on the above; part two (t20 to t26, t28) after t18 |
 
 Run ids (prefix `spark-culture-agents.run.`): t15 `01M8CMGNK4T2NR1DTBFN42CDAD`,
 t7 `01M8CQ2NPKQNCR46NCZ894Y3WM`, t11 `01M8CQ2PC3HRDZD4C4XAC273FE`.
 
-Last merge gate (after t29, 20:15 UTC), on the merged tree: core 598 passed
+Last merge gate (after t29, 19:57 UTC), on the merged tree: core 598 passed
 and 8 skipped, Python 1607 passed and 9 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
