@@ -29,6 +29,8 @@ export interface FakeHarness {
   id: string;
   steps: FakeStep[];
   steer?: boolean;
+  /** Report `answer` supported (the stub driver and the fake driver's `ask` step can ask). */
+  ask?: boolean;
   /** Run the real stub harness driver (a host temp clone, commits collected into `runs/<id>`) instead of the fake driver; `steps` is then unused. */
   stub?: boolean;
 }
