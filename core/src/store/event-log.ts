@@ -17,10 +17,12 @@ import {
   isTerminal,
   validate,
   type ActionRecord,
+  type AnswerData,
   type ControlData,
   type ErrorData,
   type EventKind,
   type OutputData,
+  type QuestionData,
   type RefusedData,
   type RunEvent,
   type RunId,
@@ -46,7 +48,7 @@ export class EventLogCorruptError extends Error {
  */
 export interface EventInput {
   kind: EventKind;
-  data: StateData | OutputData | ControlData | RefusedData | ErrorData | { action: ActionRecord };
+  data: StateData | OutputData | ControlData | RefusedData | ErrorData | QuestionData | AnswerData | { action: ActionRecord };
 }
 
 /** Running summary of a log, enough to validate the next event. */

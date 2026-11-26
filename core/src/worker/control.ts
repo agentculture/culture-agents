@@ -10,13 +10,15 @@ import { chmodSync, closeSync, openSync, rmSync } from "node:fs";
 import { createConnection, createServer, type Server, type Socket } from "node:net";
 import { join } from "node:path";
 
-import { validate, type ActionRecord, type ErrorBody, type RunState } from "../contract/index.js";
+import { validate, type ActionRecord, type AnswerRequest, type ErrorBody, type RunState } from "../contract/index.js";
 import { FILE_MODE, RUN_FILES } from "../store/files.js";
 
 export type ControlRequest =
   | { op: "ping" }
   | { op: "steer"; action: ActionRecord; message: string }
   | { op: "cancel"; action: ActionRecord; reason?: string }
+  /** Deliver an operator's answer to one pending question; the worker appends `run.answer` once delivered. */
+  | { op: "answer"; action: ActionRecord; request: AnswerRequest }
   /** Record a refusal decided by the core as `run.refused` (the worker is the log's only writer). */
   | { op: "refuse"; action: ActionRecord };
 
@@ -54,13 +56,18 @@ export function parseRequest(line: string): ControlRequest | ControlReply {
   const req = value as Record<string, unknown>;
   if (req === null || typeof req !== "object") return invalid("The control request is not an object.");
   if (req["op"] === "ping") return { op: "ping" };
-  if (req["op"] !== "steer" && req["op"] !== "cancel" && req["op"] !== "refuse") return invalid("Unknown control op.");
+  if (req["op"] !== "steer" && req["op"] !== "cancel" && req["op"] !== "refuse" && req["op"] !== "answer") return invalid("Unknown control op.");
   const action = validate("control-action#action_record", req["action"]);
   if (!action.ok) return invalid(`The action record is invalid at ${action.issues[0]?.path ?? ""}.`);
   if (req["op"] === "steer") {
     const message = validate("common#text", req["message"]);
     if (!message.ok) return invalid("The steer message is invalid.");
     return { op: "steer", action: action.value, message: message.value };
+  }
+  if (req["op"] === "answer") {
+    const request = validate("control-action#answer_request", req["request"]);
+    if (!request.ok) return invalid(`The answer request is invalid at ${request.issues[0]?.path ?? ""}.`);
+    return { op: "answer", action: action.value, request: request.value };
   }
   if (req["op"] === "cancel") {
     const reason = req["reason"];

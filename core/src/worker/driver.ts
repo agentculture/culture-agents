@@ -4,7 +4,7 @@
  * deadline and owns the state machine. Harness-neutral: contract types only, no harness-runtime
  * or vendor-SDK type crosses this interface.
  */
-import type { ErrorBody, OutputData, Run } from "../contract/index.js";
+import type { Choice, Decision, ErrorBody, OutputData, Run } from "../contract/index.js";
 
 /**
  * Days a sandbox is kept when a completed turn's commit or collect failed (owner decision). Kept
@@ -20,12 +20,37 @@ export interface Retained {
   until: string;
 }
 
+/**
+ * A request the harness raised for its operator, before the worker gives it an id and a time limit.
+ * `ref` is the harness's own handle for it (a tool call id, a form id); it never leaves the worker.
+ * Everything else came from the harness and is untrusted data.
+ */
+export interface AskedQuestion {
+  ref: string;
+  kind: "question" | "approval";
+  text: string;
+  choices: Choice[];
+  free_text: boolean;
+  multiple: boolean;
+  /** approval only: the tool that waits for the decision. */
+  tool?: string;
+}
+
+/** An operator's answer as the worker hands it to the driver: the contract's answer fields. */
+export interface AnswerReply {
+  answer?: string;
+  choice_ids?: string[];
+  decision?: Decision;
+}
+
 /** What a driver reports. The stream ends after its first outcome event. */
 export type DriverEvent =
   /** The harness session started (the run moves to `running`). */
   | { type: "started" }
   /** Normalized harness output (a `run.output` event). */
   | { type: "output"; data: OutputData }
+  /** The harness asks its operator and waits (a `run.question` event; the run's deadline pauses). */
+  | { type: "question"; question: AskedQuestion }
   /** A non-fatal error (a `run.error` event with `fatal: false`). */
   | { type: "error"; error: ErrorBody }
   /** Outcome: the harness reported its turn completed (`succeeded`). */
@@ -54,6 +79,11 @@ export interface Driver {
   start(): AsyncIterable<DriverEvent>;
   /** Deliver a steer message to the running harness as user input. */
   steer(message: string): Promise<void>;
+  /**
+   * Deliver an operator's answer to the request the harness raised as `ref`, into the same turn.
+   * Absent on a driver that never asks. Called at most once per request: the worker enforces that.
+   */
+  answer?(ref: string, reply: AnswerReply): Promise<void>;
   /** Ask the harness to stop; the driver reports `stopped` once it has. */
   cancel(reason: string): Promise<void>;
   /**
