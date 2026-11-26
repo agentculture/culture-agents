@@ -37,7 +37,7 @@ export const STUB_ISOLATION = supported(
 export const STUB_ANSWER = supported(
   "The stub asks only when its task has a line `ask: <text>` (a free-text question with the choices of a `choices: a, b` line) or `approval: <text>` (an approval of its writes; deny skips them). It waits for the answer in the same turn.",
   "The question waits in the worker process: if the worker ends, the question ends with the run.",
-  "A question has its own time limit of 12 hours, or less when the operator configured less; the run's deadline pauses while it is pending.",
+  "A question has its own time limit of 12 hours, or less when the operator configured less; the run's deadline pauses while it is pending. The limit is the worker's rule: no real harness was measured holding a question for 12 hours (the probe held 5 minutes).",
 );
 
 /** The stub's capability document (the registry and the driver report the same one). */

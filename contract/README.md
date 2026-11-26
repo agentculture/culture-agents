@@ -128,21 +128,21 @@ behaviour inside 3.0, without another bump.
 | `api_version` is `3.0` | `api.json`, `GET /v1/version` | yes | this change |
 | `submitter`: who submitted the run, as the core established it | Run | optional; absent on a run recorded before the core set it | t11, *shape only* |
 | `base_commit`: the commit the run starts from | Run | optional; absent on a run recorded before the core set it | t7 (built) |
-| `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13, *shape only* |
-| `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13, *shape only* |
+| `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13 (built): always reported, read from the log |
+| `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13 (built) |
 | `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8 (built) |
 | `busy` is removed, with its `active_run_id` and `repo` fields and the one-active-run-per-repository rule | error, `runs.submit` | gone: a 3.0 core never answers it | t8 (built) |
 | `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel`, `runs.answer` | optional; `retryable` is then false; forbidden with any other code | t6 (built) |
-| `question_id` on an error that concerns a question | error | optional | t13, *shape only* |
+| `question_id` on an error that concerns a question | error | optional | t13 (built) |
 | `unavailable` may carry `retry_after_ms`: retry shortly, for a control request that arrives while the core reattaches to the run's worker | error | optional; forbidden with any other code | t9, *shape only* |
-| `run.question` and `run.answer`: two new event kinds | event | each kind pins its `data` | t13, *shape only* |
+| `run.question` and `run.answer`: two new event kinds | event | each kind pins its `data` | t13 (built) |
 | `run.control` records a steer or a cancel only | event | tightened: an accepted answer is a `run.answer` | this change |
-| `answer_request`: `question_id` must be a question id; `answer` is optional; `choice_ids` and `decision` are new | `runs.answer` request | `caller` and `question_id` are required | t13 (core), t16 (CLI), *shape only* |
-| `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13; until then it is refused as `unsupported` |
+| `answer_request`: `question_id` must be a question id; `answer` is optional; `choice_ids` and `decision` are new | `runs.answer` request | `caller` and `question_id` are required | t13 (core, built), t16 (CLI) |
+| `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13 (built); still `unsupported` for a harness that cannot ask |
 | `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`, built), t17 (`warnings`, built) |
 | `replayed` on the accepted action response | `accepted_response` | optional | t6 (built) |
 | `runs.submit` may answer `conflict` and `limit_reached` | route | | t6 (`conflict`, built), t8 (`limit_reached`, built) |
-| `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | `reconnect` and `worktree_isolation` are reported supported; `answer` is still reported unsupported | t13, t9 (built), t8 (built) |
+| `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | `reconnect` and `worktree_isolation` are reported supported; `answer` is reported supported by the stub harness only, whose driver asks | t13 (built), t9 (built), t8 (built) |
 | `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17, built |
 
 `busy` is removed in 3.0 (t8, built): the error code, its `active_run_id` and `repo` fields and the one-active-run-per-repository rule are gone from the schemas, this file and the CLI. Two or more runs may be active in one repository; no limit applies unless the operator configures one, and a submit past a configured limit gets `limit_reached`.
@@ -152,7 +152,7 @@ Rules that change with these shapes, each when its task lands:
 - An idempotency key is compared, not only recorded (t6, built). See
   [Idempotency keys](#idempotency-keys).
 - A run's deadline stops advancing while one of its questions is pending
-  (t13). See [Deadlines](#deadlines).
+  (t13, built). See [Deadlines](#deadlines).
 - A run that survived a core restart gets live control back (t9). See
   [After a core restart](#after-a-core-restart).
 
@@ -209,8 +209,9 @@ Notes:
 - `agents.list` includes every harness capability document, so one call can
   serve `agents agents list --json`.
 - `runs.answer` is refused as `unsupported`, capability `answer`, for a run
-  whose harness cannot ask. Today that is every harness. **(planned, t13)** it
-  is accepted for a harness that can.
+  whose harness cannot ask: today Claude Code and OpenCode, whose drivers do
+  not raise questions yet. It is accepted for a harness that can (built, t13):
+  today the stub harness.
 
 ### Order of checks
 
@@ -257,10 +258,10 @@ Run-scoped control routes (`steer`, `cancel`, `pause`, `resume`, `answer`):
 1. The version header → `incompatible_version`.
 2. The path `run_id` format → `invalid`. The run exists → `not_found`.
 3. The body against the route's request schema → `invalid`.
-4. A deferred action (`pause`, `resume`, `answer`) → `unsupported`, naming that
+4. A deferred action (`pause`, `resume`) → `unsupported`, naming that
    capability.
-5. The run's harness capability document does not support the action (`steer`
-   or `cancel`) → `unsupported`, naming it.
+5. The run's harness capability document does not support the action (`steer`,
+   `cancel` or `answer`) → `unsupported`, naming it.
 6. The state allows the action → `conflict`. `steer` needs `running`.
    `cancel` needs `queued`, `running` or `cancelling`.
 7. `live_control` is false (the core restarted) → `unsupported`, capability
@@ -277,7 +278,7 @@ already `cancelling` is accepted and recorded, but has no further effect.
 
 **(planned)** What changes in this order:
 
-- `answer` leaves step 4 (t13). It is checked like `steer`: capability at
+- Built (t13): `answer` left step 4. It is checked like `steer`: capability at
   step 5, state at step 6. It needs a `running` run and a pending question
   with that `question_id`. A question id the run never asked → `not_found`
   with `question_id`. A question that already has its answer, or whose time
@@ -329,7 +330,7 @@ Refusals at any other step are returned to the caller only.
 - `unanswered`: it ended because a question it asked its operator passed
   that question's own time limit. Like `timed_out`, it is reached only through
   `cancelling`, here with reason `question_limit`. It is not a success and
-  not a plain `timed_out`. No worker writes it before t13 **(planned)**.
+  not a plain `timed_out`. The run's worker writes it (built, t13).
 - A run moves to `cancelled`, `timed_out` or `unanswered` according to what
   first moved it into `cancelling`. A later deadline does not turn a cancel
   into `timed_out`.
@@ -396,10 +397,10 @@ attempt for its run has finished waits or gets `unavailable` with
   - `run.refused`: a refused control action, with `unsupported` (a capability
     refusal) or `conflict`.
   - `run.question`: the run asked its operator a question and now waits. It
-    is appended before the run starts waiting. **(planned, t13)**
+    is appended before the run starts waiting. (built, t13)
   - `run.answer`: an answer was accepted and delivered into the run. It names
     a question that was pending, and a question gets at most one.
-    **(planned, t13)**
+    (built, t13)
   - `run.error`: an error. When `fatal` is true, a `run.state` to `failed` or
     `unknown` follows.
 - **Attach** (`GET .../attach?after=N`, where `N` is an integer of 0 or more,
@@ -478,15 +479,21 @@ Deduplication is built (t6) for `runs.submit`, `runs.steer` and
   machine) still apply. The run's worker enforces the deadline, so it holds
   across a core restart.
 - With no deadline, a run has no time bound.
-- **(planned, t13)** While one of the run's questions is pending, the
-  deadline does not advance: the time spent waiting is not counted against the
-  run. The question has its own limit (`answer_by`). `deadline` on the run then
-  reports the moved time. Today nothing asks, so the deadline never moves.
+- (built, t13) While one of the run's questions is pending, the deadline does
+  not advance: the time spent waiting is not counted against the run. The
+  question has its own limit (`answer_by`). Once the last pending question has
+  its answer, `deadline` on the run reports the time moved by the wait. The
+  run's worker applies this rule on its own clock, like the deadline itself.
 
 ## Operator questions
 
-**(planned, t13.)** The shapes are in 3.0. No harness driver asks yet, every
-harness reports `answer` as unsupported, and `runs.answer` is refused.
+Built (t13). The stub harness asks (a task line `ask:` or `approval:`), so
+the path can be exercised without a real harness. Claude Code and OpenCode
+report `answer` unsupported: the probe of plan task t1
+(`docs/d2/probe-approvals.md`) shows both harnesses can ask and take one
+answer in the same turn, held for up to 5 minutes, but their drivers here do
+not raise questions yet. A 12 hour hold inside a real harness was not
+measured.
 
 - A run asks by appending `run.question` to its log. The `question` has an
   id, a `kind`, `text`, the `choices` the harness offers, whether free text
@@ -507,11 +514,18 @@ harness reports `answer` as unsupported, and `runs.answer` is refused.
   run exactly once. A second answer to the same question is refused with
   `conflict`.
 - `answer_by` is the question's own time limit: 12 hours after it was asked,
-  or less when the operator configured less. When it passes with no answer,
+  or less when the operator configured less (`questions.limitSeconds` in the
+  core's config file, 1 to 43200; a higher value stops the core at start). When it passes with no answer,
   the run moves to `cancelling` with reason `question_limit` and ends
   `unanswered`.
 - A harness that cannot ask reports `answer` as unsupported, and an answer
   sent to its run gets `unsupported` naming `answer`.
+- An answer's `idempotency_key` is recorded on its action but not
+  deduplicated: a repeat of an accepted answer is refused with `conflict`
+  because the question already has its answer, so it still takes effect once.
+- A question waits in the run's worker process. Its record survives a core
+  restart; a worker that ends while a question is pending ends the run as any
+  lost worker does (`unknown`).
 
 ## Capabilities and honest refusal
 
@@ -540,15 +554,15 @@ supportable is a MAJOR bump.
 | `delegate` (agent-to-agent) | submit with `parent_run_id` → `unsupported` |
 | `placement` (multi-host) | submit for an agent on another node → `unsupported` |
 
-### Capabilities that 3.0 allows and no harness supports yet
+### Capabilities that 3.0 allows
 
 In 2.0 these three were deferred. In 3.0 the schema lets a harness report
 them as supported. A harness reports each one unsupported, with the reason,
-until the task that builds it lands.
+until its driver does it.
 
 | Capability | How a client meets the refusal today | Built by |
 | --- | --- | --- |
-| `answer` (operator questions) | `POST .../answer` → `unsupported` | t13 |
+| `answer` (operator questions) | supported by the stub; Claude Code and OpenCode: `POST .../answer` → `unsupported` | t13 (built) |
 | `reconnect` (live control after a core restart) | steer or cancel a run with `live_control: false` → `unsupported` | t9 (built) |
 | `worktree_isolation` (concurrent runs in one repository) | reported supported by every harness; there is no refusal | t8 (built) |
 

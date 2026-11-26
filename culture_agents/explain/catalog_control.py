@@ -59,9 +59,11 @@ run state; the CLI only asks.
 - `runs logs <run_id>` — a page of stored events.
 - `runs result <run_id>` — the outcome of a finished run.
 
-`pause`, `resume`, `answer`, session continuation, delegation and multi-host
-placement are not verbs: the contract defers them and the core refuses them as
-`unsupported`.
+`pause`, `resume`, session continuation, delegation and multi-host placement
+are not verbs: the contract defers them and the core refuses them as
+`unsupported`. `answer` is not a verb yet either: the core takes an answer to a
+run's pending question only when the run's harness can ask, and otherwise
+refuses it as `unsupported`.
 
 {CORE_NOTE}"""
 
