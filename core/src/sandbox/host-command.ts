@@ -2,6 +2,8 @@
 // working-tree tests can record every command without touching a repository.
 import { execFile } from "node:child_process";
 
+import { INJECTED_SECRETS } from "../daemon/secrets.js";
+
 export interface CommandResult {
   readonly code: number;
   readonly stdout: string;
@@ -31,7 +33,7 @@ export function hostEnv(extra: Readonly<Record<string, string>> = {}): Record<st
   for (const [key, value] of Object.entries(process.env)) {
     if (value === undefined) continue;
     if (key.startsWith("GIT_")) continue;
-    if (key === "GH_TOKEN" || key === "GITHUB_TOKEN" || key === "SSH_AUTH_SOCK") continue;
+    if (INJECTED_SECRETS.includes(key)) continue;
     env[key] = value;
   }
   env["GIT_TERMINAL_PROMPT"] = "0";

@@ -3,6 +3,7 @@
 // exec / execInteractive / forward / delete; no `openshell` CLI calls.
 import { posix } from "node:path";
 
+import { INJECTED_SECRETS } from "../daemon/secrets.js";
 import { inOrder } from "../util/sequence.js";
 import type { ForwardRef, InteractiveControl, OpenShellClientLike } from "./openshell-client.js";
 import type {
@@ -16,7 +17,7 @@ import type {
 } from "./types.js";
 
 /** Operator credentials that must never be passed into a sandbox, whatever the caller asks. */
-export const SCRUBBED_ENV = ["GH_TOKEN", "GITHUB_TOKEN", "SSH_AUTH_SOCK"] as const;
+export const SCRUBBED_ENV = INJECTED_SECRETS;
 
 /** Exit code a sentinel script returns when a path does not exist. */
 export const NOT_FOUND_EXIT = 44;

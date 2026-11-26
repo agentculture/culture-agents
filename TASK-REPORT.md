@@ -1,0 +1,25 @@
+# Task t12 report: injected secrets leave the environment at start
+
+## Built
+- `core/src/daemon/secrets.ts`: `INJECTED_SECRETS` (the one declared list: GH_TOKEN, GITHUB_TOKEN, SSH_AUTH_SOCK, CLAUDE_CODE_OAUTH_TOKEN, ANTHROPIC_API_KEY, LOBES_GATEWAY_KEY), `takeSecrets` (read once, keep in memory, delete from env), `heldSecret`, `scrubSecrets`.
+- `core/src/daemon/main.ts`: calls `takeSecrets` before the lock, store, workers or sandboxes exist (`secretNames` option for tests/overrides).
+- `core/src/worker/spawn.ts`: worker env is `scrubSecrets(options.env ?? process.env)`.
+- `core/src/sandbox/host-command.ts` and `run-sandbox.ts`: use the shared list instead of their own hard-coded names.
+- Documented in `core/README.md` ("Injected secrets").
+- Tests: `core/test/daemon/secrets.test.ts` + `secrets-child.ts`.
+
+## Tests run
+- `cd core && npm run build && npm run lint && npm run typecheck && npm run check:contract-types && npm test`: 584 tests, 572 pass, 0 fail, 12 skipped.
+- `/usr/local/share/dogfood/venv/bin/python -m pytest -n auto` (repo root): 1606 pass, 1 fail, 9 skipped. The failure is `tests/test_contract_packaging.py::test_a_built_wheel_holds_the_schemas_byte_for_byte`: building the wheel needs hatchling from pypi.org and the sandbox has no network. Not caused by this change (not re-run on a clean tree).
+
+## Acceptance
+1. Proven: `a marked secret is absent from the worker, a host command and the sandbox after the core starts`. A child runs the real `main` with every listed variable set to a marker, then starts a real worker (its `/proc/<pid>/environ` is read), a real host command (`env`) and a recording sandbox exec. The variable is absent in all three and in the core's own env. Sandbox is a recording fake client, not a live OpenShell sandbox (the live stage was not run).
+2. Proven: list in `INJECTED_SECRETS` only; documented in `core/README.md`. A unit test checks `scrubSecrets` covers every declared name.
+
+## Assumptions
+- The plan names no variables; I chose the list above (credentials the repo already references). Edit `INJECTED_SECRETS` to change it.
+- The held values are kept in memory (`heldSecret`) but nothing consumes them yet.
+- `bin()` loads the harness catalog before `main`; that reads only variable names, not secret values.
+
+## Left unchanged on purpose
+Harness, contract, Python CLI, and the openshell-RESOLVE-PLACEHOLDER lines.
