@@ -260,7 +260,7 @@ test("a not-found during readiness still leaves nothing behind", async () => {
 });
 
 // The longest contract-valid run id: a 96-character mesh id, ".run.", a 26-character ULID.
-const LONG_RUN_ID = `spark-${"a".repeat(90)}.run.01JD0000000000000000000000`;
+const LONG_RUN_ID = `thor-${"a".repeat(91)}.run.01JD0000000000000000000000`;
 
 test("a 127-character run id gets labels the gateway accepts; resume, destroy and sweep work by run id alone", async () => {
   assert.equal(LONG_RUN_ID.length, 127);

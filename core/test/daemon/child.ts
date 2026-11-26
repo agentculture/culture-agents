@@ -10,7 +10,7 @@ process.on("SIGUSR2", () => {
 process.on("SIGUSR1", () => void Promise.reject(new Error("rejected and never handled")));
 
 const code = await main(new FakeRunService(), {
-  node: "spark",
+  node: "thor",
   stderr: (line) => process.stderr.write(`${line}\n`),
   fatalHandlers: true,
 });

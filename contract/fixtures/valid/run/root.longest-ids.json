@@ -7,7 +7,7 @@
   "task": "Add a unit test for the parser's empty-input case.",
   "owner": {
     "kind": "operator",
-    "id": "spark-operator"
+    "id": "thor-operator"
   },
   "idempotency_key": null,
   "deadline": null,

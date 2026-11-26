@@ -53,7 +53,7 @@ process.on("SIGUSR2", () => {
 
 const spec = process.env["FAKE_CATALOG"];
 const code = await main(undefined, {
-  node: "spark",
+  node: "thor",
   stderr: (line) => process.stderr.write(`${line}\n`),
   fatalHandlers: true,
   ...(spec !== undefined && { harnessCatalog: () => fakeCatalog(JSON.parse(spec) as FakeHarness[]) }),

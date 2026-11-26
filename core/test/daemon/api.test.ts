@@ -9,8 +9,8 @@ import { startDaemon, type Daemon } from "../../src/daemon/daemon.js";
 import { FakeRunService, fixture, stream } from "./fake-service.js";
 import { call, makeEnv, writeAllowlist, type Env, type Reply } from "./harness.js";
 
-const RUN = "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5";
-const OTHER_RUN = "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6";
+const RUN = "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5";
+const OTHER_RUN = "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6";
 let env: Env;
 let daemon: Daemon;
 let service: FakeRunService;
@@ -21,7 +21,7 @@ function submitBody(over: Partial<SubmitRequest> = {}): SubmitRequest {
 }
 
 function allowEntry(): { agent_id: string; harness: string; repo: string } {
-  return { agent_id: "spark-culture-agents", harness: "claude-code", repo };
+  return { agent_id: "thor-culture-agents", harness: "claude-code", repo };
 }
 
 before(async () => {
@@ -31,7 +31,7 @@ before(async () => {
   repo = realpathSync(repo);
   service = new FakeRunService();
   service.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 3));
-  daemon = await startDaemon({ service, node: "spark", env: env.vars, keepaliveMs: 100 });
+  daemon = await startDaemon({ service, node: "thor", env: env.vars, keepaliveMs: 100 });
 });
 after(async () => {
   await daemon.stop();
@@ -57,7 +57,7 @@ test("version endpoint returns the contract's API version, even for an incompati
   const reply = await call(env.socket, "GET", "/v1/version", { version: "9.9" });
   expectOk(reply, 200, "version");
   assert.equal((reply.json as { api_version: string }).api_version, apiVersion);
-  assert.equal((reply.json as { node: string }).node, "spark");
+  assert.equal((reply.json as { node: string }).node, "thor");
 });
 
 test("an incompatible client version is refused with the typed error before anything else", async () => {
@@ -77,7 +77,7 @@ test("an incompatible client version is refused with the typed error before anyt
 
 test("read routes return bodies that validate against the contract", async () => {
   expectOk(await call(env.socket, "GET", "/v1/agents"), 200, "agent#agent_list");
-  expectOk(await call(env.socket, "GET", "/v1/agents/spark-culture-agents"), 200, "agent");
+  expectOk(await call(env.socket, "GET", "/v1/agents/thor-culture-agents"), 200, "agent");
   expectOk(await call(env.socket, "GET", "/v1/harnesses"), 200, "capabilities#capabilities_list");
   expectOk(await call(env.socket, "GET", "/v1/harnesses/claude-code"), 200, "capabilities");
   expectOk(await call(env.socket, "GET", "/v1/runs?limit=5&state=queued"), 200, "run#run_list");
@@ -90,7 +90,7 @@ test("read routes return bodies that validate against the contract", async () =>
 
 test("unknown ids, bad parameters, unknown paths and wrong methods get typed errors", async () => {
   expectError(await call(env.socket, "GET", `/v1/runs/${OTHER_RUN}`), "not_found");
-  expectError(await call(env.socket, "GET", "/v1/agents/spark-nobody"), "not_found");
+  expectError(await call(env.socket, "GET", "/v1/agents/thor-nobody"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/harnesses/nope"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/elsewhere"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/runs/%zz"), "invalid");
@@ -126,7 +126,7 @@ test("a malformed or invalid allow-list file counts as empty and is reported", a
   writeAllowlist(env, "{ not json");
   expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "denied");
   assert.equal(daemon.allowlistState().status, "invalid");
-  writeAllowlist(env, { version: 1, entries: [{ agent_id: "spark-culture-agents", harness: "*", repo: "*" }] } as never);
+  writeAllowlist(env, { version: 1, entries: [{ agent_id: "thor-culture-agents", harness: "*", repo: "*" }] } as never);
   expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "denied");
   assert.equal(daemon.allowlistState().status, "invalid");
   assert.equal(service.submitted.length, 0);
@@ -134,7 +134,7 @@ test("a malformed or invalid allow-list file counts as empty and is reported", a
 
 test("body validation comes before the allow-list, and a past deadline is invalid", async () => {
   writeAllowlist(env, { version: 1, entries: [] });
-  const bad = await call(env.socket, "POST", "/v1/runs", { body: { agent_id: "spark-culture-agents" } });
+  const bad = await call(env.socket, "POST", "/v1/runs", { body: { agent_id: "thor-culture-agents" } });
   expectError(bad, "invalid");
   expectError(await call(env.socket, "POST", "/v1/runs", { rawBody: "{ nope" }), "invalid");
   expectError(await call(env.socket, "POST", "/v1/runs", { rawBody: "" }), "invalid");
@@ -148,7 +148,7 @@ test("allow-list matches agent, harness and repo exactly; a symlinked repo path 
   writeAllowlist(env, { version: 1, entries: [allowEntry()] });
   assert.equal(daemon.allowlistState().entries.length, 1);
   // each field differing is denied
-  expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody({ agent_id: "spark-other" }) }), "denied");
+  expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody({ agent_id: "thor-other" }) }), "denied");
   expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody({ harness: "opencode" }) }), "denied");
   const sibling = join(env.root, "other-repo");
   mkdirSync(sibling);
@@ -180,7 +180,7 @@ test("service refusals surface as typed errors", async () => {
 });
 
 test("pause, resume and answer are always unsupported, after id, existence and body checks", async () => {
-  const caller = { kind: "operator", id: "spark-operator" };
+  const caller = { kind: "operator", id: "thor-operator" };
   const bodies = { pause: { caller }, resume: { caller }, answer: { caller, question_id: "q1", answer: "yes" } };
   for (const [verb, body] of Object.entries(bodies)) {
     const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body });
@@ -201,7 +201,7 @@ test("pause, resume and answer are always unsupported, after id, existence and b
 });
 
 test("steer and cancel validate then reach the service", async () => {
-  const caller = { kind: "operator", id: "spark-operator" };
+  const caller = { kind: "operator", id: "thor-operator" };
   expectOk(await call(env.socket, "POST", `/v1/runs/${RUN}/steer`, { body: { caller, message: "use tabs" } }), 202, "control-action#accepted_response");
   expectOk(await call(env.socket, "POST", `/v1/runs/${RUN}/cancel`, { body: { caller } }), 202, "control-action#accepted_response");
   expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/steer`, { body: { caller } }), "invalid");
@@ -305,7 +305,7 @@ test("shutdown ends open streams", async () => {
   const env2 = makeEnv();
   const svc = new FakeRunService();
   svc.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 2));
-  const d = await startDaemon({ service: svc, node: "spark", env: env2.vars });
+  const d = await startDaemon({ service: svc, node: "thor", env: env2.vars });
   const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": "2.0" } });
   let closed = false;
   const ended = new Promise<number | undefined>((resolve) =>

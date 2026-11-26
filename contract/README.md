@@ -56,7 +56,7 @@ sets `additionalProperties: false`, except the one opaque `extension` object
 
 ## Identifiers
 
-- **Mesh id**, written `<node>-<agent>`, for example `spark-culture-agents`.
+- **Mesh id**, written `<node>-<agent>`, for example `thor-culture-agents`.
   `<node>` is `[a-z0-9]{1,32}` and has no hyphen, so the first hyphen always
   ends the node. `<agent>` is the culture.yaml `suffix`. Agents and principals
   both use this form. A mesh id is at most 96 characters. The core reads

@@ -10,7 +10,7 @@ from tests.cli_support import assert_valid, run
 from tests.fake_core import RUN_ID, fixture, stream_events
 
 SUBMIT = [
-    "runs", "submit", "--agent", "spark-culture-agents", "--harness", "claude-code",
+    "runs", "submit", "--agent", "thor-culture-agents", "--harness", "claude-code",
     "--repo", "/srv/repos/demo", "--task", "Add a unit test for the parser's empty-input case.",
 ]  # fmt: skip
 
@@ -33,13 +33,13 @@ def test_submit_text_and_request_matches_the_contract(
 def test_submit_json_with_every_optional_field(core, capsys: pytest.CaptureFixture[str]) -> None:
     r = run(
         capsys, *SUBMIT, "--deadline", "2026-11-25T11:00:00Z", "--idempotency-key", "ticket-1234",
-        "--caller", "spark-planner", "--caller-kind", "agent", "--json",
+        "--caller", "thor-planner", "--caller-kind", "agent", "--json",
     )  # fmt: skip
     assert r.rc == 0
     assert r.json() == fixture("control-action", "submit_response.queued")
     body = core.seen("POST", "/v1/runs")[0]["body"]
     assert_valid("control-action.json#/$defs/submit_request", body)
-    assert body["caller"] == {"kind": "agent", "id": "spark-planner"}
+    assert body["caller"] == {"kind": "agent", "id": "thor-planner"}
     assert body["deadline"] == "2026-11-25T11:00:00Z"
     assert body["idempotency_key"] == "ticket-1234"
 
@@ -53,7 +53,7 @@ def test_submit_normalises_a_relative_repo(core, capsys, tmp_path, monkeypatch) 
 
 def test_submit_session_and_delegate_are_sent_and_the_refusal_surfaces(core, capsys) -> None:
     core.respond("POST /v1/runs", 422, fixture("error", "root.unsupported"))
-    r = run(capsys, *SUBMIT, "--session-id", "spark-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5")
+    r = run(capsys, *SUBMIT, "--session-id", "thor-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5")
     assert r.rc == 1
     body = core.seen("POST", "/v1/runs")[0]["body"]
     assert_valid("control-action.json#/$defs/submit_request", body)
@@ -62,7 +62,7 @@ def test_submit_session_and_delegate_are_sent_and_the_refusal_surfaces(core, cap
 
 
 def test_submit_requires_its_flags(core, capsys: pytest.CaptureFixture[str]) -> None:
-    r = run(capsys, "runs", "submit", "--agent", "spark-culture-agents")
+    r = run(capsys, "runs", "submit", "--agent", "thor-culture-agents")
     assert r.rc == 1
     assert "hint:" in r.err
     assert core.requests == []
@@ -75,11 +75,11 @@ def test_list_text_json_and_query(core, capsys: pytest.CaptureFixture[str]) -> N
     text = run(capsys, "runs", "list")
     assert text.rc == 0
     assert f"{RUN_ID}  succeeded  claude-code  /srv/repos/demo" in text.out
-    j = run(capsys, "runs", "list", "--state", "running", "--agent", "spark-reviewer",
+    j = run(capsys, "runs", "list", "--state", "running", "--agent", "thor-reviewer",
             "--limit", "5", "--json")  # fmt: skip
     assert j.json() == fixture("run", "run_list.two-runs")
     query = core.seen("GET", "/v1/runs")[-1]["query"]
-    assert query == {"state": "running", "agent_id": "spark-reviewer", "limit": "5"}
+    assert query == {"state": "running", "agent_id": "thor-reviewer", "limit": "5"}
 
 
 def test_list_empty(core, capsys: pytest.CaptureFixture[str]) -> None:
@@ -98,7 +98,7 @@ def test_show(core, capsys: pytest.CaptureFixture[str]) -> None:
     assert text.rc == 0
     assert "state: running" in text.out
     assert "live control: true" in text.out
-    assert "owner: operator spark-operator" in text.out
+    assert "owner: operator thor-operator" in text.out
     j = run(capsys, "runs", "show", RUN_ID, "--json")
     assert j.json() == fixture("run", "root.running")
 
@@ -333,7 +333,7 @@ def test_a_core_failure_is_exit_2(core, capsys: pytest.CaptureFixture[str]) -> N
 
 
 def test_an_invalid_payload_is_internal_exit_2(core, capsys: pytest.CaptureFixture[str]) -> None:
-    core.respond("GET /v1/runs", 200, {"runs": [{"id": "spark-culture-agents.run.X"}]})
+    core.respond("GET /v1/runs", 200, {"runs": [{"id": "thor-culture-agents.run.X"}]})
     r = run(capsys, "runs", "list", "--json")
     assert r.rc == 2
     assert r.err_json()["error_code"] == "internal"

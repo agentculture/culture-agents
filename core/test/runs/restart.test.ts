@@ -114,11 +114,11 @@ test("with the default empty catalog every submit is refused not_found and agent
   assert.deepEqual((await ok<{ harnesses: Capabilities[] }>(env, "GET", "/v1/harnesses", 200, "capabilities#capabilities_list")).harnesses, []);
   await refused(env, "GET", "/v1/harnesses/fake", "not_found");
   const agents = await ok<{ node: string; agents: { id: string; state: string; repos: string[] }[] }>(env, "GET", "/v1/agents", 200, "agent#agent_list");
-  assert.equal(agents.node, "spark");
+  assert.equal(agents.node, "thor");
   assert.equal(agents.agents[0]?.state, "unavailable");
   assert.deepEqual(agents.agents[0]?.repos, [env.repoA, env.repoB]);
   await ok(env, "GET", `/v1/agents/${agents.agents[0]?.id ?? ""}`, 200, "agent");
-  await refused(env, "GET", "/v1/agents/spark-nobody", "not_found");
+  await refused(env, "GET", "/v1/agents/thor-nobody", "not_found");
 });
 
 test("submit refuses continue_session and delegate before the busy check", async (t) => {

@@ -1,7 +1,7 @@
 {
-  "id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
-  "agent_id": "spark-culture-agents",
-  "session_id": "spark-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "agent_id": "thor-culture-agents",
+  "session_id": "thor-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
   "harness": "claude-code",
   "repo": "/srv/repos/demo",
   "task": "Add a unit test for the parser's empty-input case.",

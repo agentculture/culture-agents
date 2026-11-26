@@ -92,7 +92,7 @@ def test_every_request_carries_the_version_header(core) -> None:
 
 
 def test_node_comes_from_the_version_route(core) -> None:
-    assert CoreClient().node == "spark"
+    assert CoreClient().node == "thor"
 
 
 def test_unreachable_socket_raises_unavailable(no_core) -> None:

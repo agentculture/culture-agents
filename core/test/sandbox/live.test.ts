@@ -157,7 +157,7 @@ test("live: a 127-character run id gets gateway-valid labels; resume and destroy
   if ("reason" in gw) return notVerified(t, gw.reason);
   const { client } = gw;
   // The longest contract-valid run id: a 96-character mesh id, ".run.", a 26-character ULID.
-  const runId = buildRunId(`spark-${"l".repeat(90)}`, newUlid());
+  const runId = buildRunId(`thor-${"l".repeat(91)}`, newUlid());
   assert.equal(runId.length, 127);
   const config = { image: IMAGE, prefix: PREFIX, log: (m: string) => console.log(`[sandbox] ${m}`) };
   const creator = createRunSandboxes(config, { client });

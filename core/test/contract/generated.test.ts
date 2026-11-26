@@ -30,11 +30,11 @@ test("every schema target has a generated type", () => {
 
 test("types constrain payloads at compile time", () => {
   const request: SubmitRequest = {
-    agent_id: "spark-culture-agents",
+    agent_id: "thor-culture-agents",
     harness: "claude-code",
     repo: "/srv/repo",
     task: "do it",
-    caller: { kind: "operator", id: "spark-ori" },
+    caller: { kind: "operator", id: "thor-ori" },
   };
   // @ts-expect-error a run state outside the enum is rejected
   const bad: Run["state"] = "paused";

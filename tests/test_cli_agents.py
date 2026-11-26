@@ -11,9 +11,9 @@ from tests.fake_core import AGENT_ID, fixture
 def test_list_text(core, capsys: pytest.CaptureFixture[str]) -> None:
     r = run(capsys, "agents", "list")
     assert r.rc == 0
-    assert "node: spark" in r.out
+    assert "node: thor" in r.out
     assert AGENT_ID in r.out
-    assert "spark-reviewer" in r.out
+    assert "thor-reviewer" in r.out
     # honest capability reporting: the unsupported ones are named with a reason
     assert "steer: UNSUPPORTED - the session protocol has no in-turn user message" in r.out
     assert r.err == ""
@@ -48,7 +48,7 @@ def test_status_json(core, capsys: pytest.CaptureFixture[str]) -> None:
 
 def test_status_unknown_agent_is_a_user_error(core, capsys: pytest.CaptureFixture[str]) -> None:
     core.respond("GET /v1/agents/{id}", 404, fixture("error", "root.not-found"))
-    r = run(capsys, "agents", "status", "spark-nobody")
+    r = run(capsys, "agents", "status", "thor-nobody")
     assert r.rc == 1
     assert r.err.startswith("error: not_found:")
     assert "hint:" in r.err

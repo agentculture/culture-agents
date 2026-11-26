@@ -1,9 +1,9 @@
 {
-  "node": "spark",
+  "node": "thor",
   "agents": [
     {
-      "id": "spark-culture-agents",
-      "node": "spark",
+      "id": "thor-culture-agents",
+      "node": "thor",
       "suffix": "culture-agents",
       "harnesses": [
         "claude-code",
@@ -16,8 +16,8 @@
       "active_run_ids": []
     },
     {
-      "id": "spark-reviewer",
-      "node": "spark",
+      "id": "thor-reviewer",
+      "node": "thor",
       "suffix": "reviewer",
       "harnesses": [
         "claude-code"
