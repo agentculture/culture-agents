@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess  # nosec B404 - the suite's job is to run the real binaries
 import sys
 import tempfile
@@ -28,9 +29,10 @@ STATES = {
     "failed",
     "cancelled",
     "timed_out",
+    "unanswered",
     "unknown",
 }
-TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "unknown"}
+TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "unanswered", "unknown"}
 REQUIRE_ENV = "CULTURE_AGENTS_ACCEPTANCE_REQUIRE"
 REPORT_ENV = "CULTURE_AGENTS_ACCEPTANCE_REPORT"
 
@@ -237,6 +239,24 @@ class Core:
             timeout=timeout,
         )
         return Ran(res.returncode, res.stdout, res.stderr, time.monotonic() - start)
+
+    def show_version_refusal(self, version: str) -> tuple[str, str, str, int]:
+        """What the core answers a request that carries API *version* in its header."""
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(10)
+        with sock:
+            sock.connect(str(self.socket))
+            sock.sendall(
+                f"GET /v1/runs HTTP/1.1\r\nHost: core\r\nAgents-Api-Version: {version}\r\n"
+                "Connection: close\r\n\r\n".encode()
+            )
+            raw = b""
+            while chunk := sock.recv(65536):
+                raw += chunk
+        head, _, body = raw.partition(b"\r\n\r\n")
+        error = json.loads(body)["error"]
+        status = int(head.split(b" ", 2)[1])
+        return error["code"], error["client_api_version"], error["server_api_version"], status
 
     def ok(self, *argv: str) -> Any:
         ran = self.cli(*argv, "--json")
