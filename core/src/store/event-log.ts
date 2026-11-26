@@ -108,10 +108,10 @@ export function parseLog(runId: RunId, content: Buffer | string): ParsedLog {
 }
 
 /** Read and parse a run's whole log (missing file = empty log). */
-export function readLog(dir: string, runId: RunId): ParsedLog {
+export function readLog(dir: string, runId: RunId, readFile: (path: string) => Buffer = readFileSync): ParsedLog {
   let content: Buffer;
   try {
-    content = readFileSync(runFile(dir, "events"));
+    content = readFile(runFile(dir, "events"));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return parseLog(runId, "");
     throw err;

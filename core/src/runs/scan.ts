@@ -30,6 +30,8 @@ export interface ScanOptions {
   unresponsive?: (runId: RunId) => string | null;
   /** Where to report a run that cannot be read (corrupt log or record). */
   warn: (line: string) => void;
+  /** How store files are read; tests inject a counting reader. Default `fs.readFileSync`. */
+  readFile?: (path: string) => Buffer;
 }
 
 /** A run directory exists but its record or log cannot be read. The run is not "absent": it is unreadable. */
@@ -53,7 +55,7 @@ export function readRun(options: ScanOptions, runId: string, strict = false): Ru
   const dir = runDir(options.stateDir, runId);
   if (!existsSync(dir)) return null;
   try {
-    const run = showRunAt(dir, { controllable: options.controllable(runId), settle: true })?.run ?? null;
+    const run = showRunAt(dir, { controllable: options.controllable(runId), settle: true, ...(options.readFile && { readFile: options.readFile }) })?.run ?? null;
     const silent = run !== null && !run.terminal ? (options.unresponsive?.(runId) ?? null) : null;
     // Reported only: the worker is alive and is still the log's writer, so nothing is appended.
     return silent === null || run === null ? run : { ...run, state: "unknown", state_reason: silent, terminal: true, live_control: false, ended_at: run.updated_at };
@@ -74,7 +76,7 @@ export function unreadableRunHolding(options: ScanOptions, repo: string): string
   for (const id of listRunIds(options.stateDir)) {
     const dir = runDir(options.stateDir, id);
     try {
-      showRunAt(dir, { controllable: false, settle: false });
+      showRunAt(dir, { controllable: false, settle: false, ...(options.readFile && { readFile: options.readFile }) });
       continue;
     } catch {
       // unreadable: decided below

@@ -50,3 +50,6 @@ export { activeRuns, listRunEntries } from "./entries.js";
 export type { EntryOptions, RunEntry } from "./entries.js";
 export { cleanupStore, isTempName } from "./startup.js";
 export type { CleanupReport } from "./startup.js";
+export { readSummary, writeSummary } from "./summary.js";
+export { DAY_MS, pruneFinishedRuns, retentionFromEnv } from "./retention.js";
+export type { RetentionOptions } from "./retention.js";

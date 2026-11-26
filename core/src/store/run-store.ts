@@ -12,6 +12,7 @@ import { deriveRun, ORPHANED_REASON, type DerivedRun } from "./derive.js";
 import { EventLogWriter, checkNext, readLog, type LogTail } from "./event-log.js";
 import { FILE_MODE, atomicWriteJson, ensureDir, fsyncDir, nowIso, runDir, runFile, runsDir } from "./files.js";
 import { writeStoreVersion, assertReadableVersion } from "./version.js";
+import { readSummary, writeSummary } from "./summary.js";
 import { LivenessUnknownError, checkLiveness, type Liveness, type LivenessOptions } from "./liveness.js";
 
 /** Create a run's directory (0700) and its record (0600). Ids are never reused: an existing run is an error. */
@@ -46,6 +47,8 @@ export function listRunIds(stateDir: string): RunId[] {
 }
 
 export interface ShowOptions extends LivenessOptions {
+  /** How files are read (the event log and the summary). Default `fs.readFileSync`; tests inject a counting reader. */
+  readFile?: (path: string) => Buffer;
   /** Whether the caller holds live control of this run's worker (false after a core restart). */
   controllable?: boolean;
   /** Append `run.state` -> `unknown` when the run is orphaned (the core's duty as the only writer left). */
@@ -79,10 +82,12 @@ export function settleOrphan(dir: string, runId: RunId, options: LivenessOptions
  * unreadable for that request, and nothing is settled.
  */
 export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | null {
+  const cached = readSummary(dir, options.readFile);
+  if (cached !== null) return { run: cached, orphaned: false, liveness: { alive: false, pid: null, reason: "finished run, from its summary", heartbeat_at: null } };
   assertReadableVersion(dir);
   const record = readRecord(dir);
   let liveness = checkLiveness(dir, options);
-  let log = readLog(dir, record.id);
+  let log = readLog(dir, record.id, options.readFile);
   const derive = () =>
     deriveRun({
       record,
@@ -96,10 +101,12 @@ export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | nu
   if (derived?.orphaned && options.settle) {
     settleOrphan(dir, record.id, options);
     liveness = checkLiveness(dir, options);
-    log = readLog(dir, record.id);
+    log = readLog(dir, record.id, options.readFile);
     derived = derive();
   }
-  return derived === null ? null : { ...derived, liveness };
+  if (derived === null) return null;
+  if (derived.run.terminal && !derived.orphaned) writeSummary(dir, derived.run);
+  return { ...derived, liveness };
 }
 
 export function showRun(stateDir: string, runId: RunId, options: ShowOptions = {}): ShownRun | null {
