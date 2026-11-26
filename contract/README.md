@@ -127,7 +127,7 @@ behaviour inside 3.0, without another bump.
 | --- | --- | --- | --- |
 | `api_version` is `3.0` | `api.json`, `GET /v1/version` | yes | this change |
 | `submitter`: who submitted the run, as the core established it | Run | optional; absent on a run recorded before the core set it | t11, *shape only* |
-| `base_commit`: the commit the run starts from | Run | optional; absent on a run recorded before the core set it | t7, *shape only* |
+| `base_commit`: the commit the run starts from | Run | optional; absent on a run recorded before the core set it | t7 (built) |
 | `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13, *shape only* |
 | `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13, *shape only* |
 | `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8, *shape only* |
@@ -246,8 +246,8 @@ task that builds each one fixes its exact place and writes it here.
 
 - A configured limit that has no room (t8) → `limit_reached` with `limit`.
   This replaces step 7. Nothing is queued.
-- The repository's commit to start from cannot be resolved (t7) → a typed
-  refusal at submit, not a failed run later. On success the commit is the
+- The repository's commit to start from cannot be resolved (built, t7) → an `invalid`
+  refusal with `field: repo` at submit, not a failed run later. On success the commit is the
   run's `base_commit`.
 
 Run-scoped control routes (`steer`, `cancel`, `pause`, `resume`, `answer`):
@@ -624,7 +624,7 @@ read the event logs of finished runs.
   A 3.0 core sets it on every run it creates **(planned, t11)**; it is absent
   on a run recorded before that. Part one does not enforce on it.
 - `base_commit` is the commit of the repository the run starts from, resolved
-  by the core when it accepts the submit **(planned, t7)**. It is absent on a
+  by the core when it accepts the submit **(built, t7)**; the worker builds the sandbox from it, not from the host's HEAD at that later time. It is absent on a
   run recorded before that.
 - **Busy rule (until t8):** at most one active run per canonical repository
   path. A second submit gets `busy`, which carries `active_run_id` and `repo`.

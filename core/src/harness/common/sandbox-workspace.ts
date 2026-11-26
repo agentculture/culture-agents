@@ -169,6 +169,8 @@ export class SandboxWorkspaceFactory implements WorkspaceFactory<SandboxWorkspac
     private readonly hostRepo: string,
     private readonly settings: SandboxSettings,
     private readonly deps: SandboxDeps = realSandboxDeps,
+    /** The commit recorded when the submit was accepted; the sandbox is built from it, not from `settings.ref`. */
+    private readonly baseCommit?: string,
   ) {}
 
   async open(signal: AbortSignal): Promise<SandboxWorkspace> {
@@ -179,7 +181,7 @@ export class SandboxWorkspaceFactory implements WorkspaceFactory<SandboxWorkspac
     try {
       const prepared = await this.deps.prepare(sandbox, {
         hostRepo: this.hostRepo,
-        ref: s.ref,
+        ref: this.baseCommit ?? s.ref,
         runId: this.runId,
         identity: s.identity,
         signal,
