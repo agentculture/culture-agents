@@ -90,7 +90,8 @@ uv run python scripts/harness-smoke.py --stage config --require config
 The core and the CLI share the socket path: `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`).
-The control API is version 2.0 (`contract/api.json`).
+The control API is version 3.0 (`contract/api.json`): it holds the D2 part one shapes, and
+`contract/README.md` marks the behaviour that is not built yet as (planned).
 
 ## Five harnesses and their files
 

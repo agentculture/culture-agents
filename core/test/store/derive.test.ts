@@ -19,6 +19,7 @@ const PATHS: Record<RunState, RunState[]> = {
   failed: ["queued", "running", "failed"],
   cancelled: ["queued", "running", "cancelling", "cancelled"],
   timed_out: ["queued", "running", "cancelling", "timed_out"],
+  unanswered: ["queued", "running", "cancelling", "unanswered"],
   unknown: ["queued", "running", "unknown"],
 };
 

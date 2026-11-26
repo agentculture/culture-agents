@@ -41,6 +41,7 @@ test("RunResult accepts every terminal state", () => {
   const failed: RunResult = { ...common, state: "failed", error: { code: "internal", message: "x", retryable: false } };
   const cancelled: RunResult = { ...common, state: "cancelled", error: null };
   const timedOut: RunResult = { ...common, state: "timed_out", error: null };
+  const unanswered: RunResult = { ...common, state: "unanswered", error: null };
   const unknown: RunResult = { ...common, state: "unknown", error: null };
-  assert.equal([ok, failed, cancelled, timedOut, unknown].length, 5);
+  assert.equal([ok, failed, cancelled, timedOut, unanswered, unknown].length, 6);
 });

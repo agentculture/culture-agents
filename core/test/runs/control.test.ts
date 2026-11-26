@@ -131,7 +131,7 @@ test("pause, resume and answer are refused whatever the harness says, and record
   const bodies = {
     pause: { caller: CALLER, idempotency_key: "pause-1" },
     resume: { caller: CALLER },
-    answer: { caller: CALLER, question_id: "q1", answer: "yes" },
+    answer: { caller: CALLER, question_id: "thor-culture-agents.qst.01JDQ5X0000000000000000001", answer: "yes" },
   } as const;
   const before = await events(env, run.id);
   for (const [verb, body] of Object.entries(bodies)) {

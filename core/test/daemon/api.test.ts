@@ -4,7 +4,7 @@ import { request } from "node:http";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 
-import { apiVersion, httpStatusFor, validate, type ErrorResponse, type SchemaName, type SubmitRequest } from "../../src/contract/index.js";
+import { apiVersion, exitCodeFor, httpStatusFor, validate, type ErrorResponse, type SchemaName, type SubmitRequest } from "../../src/contract/index.js";
 import { startDaemon, type Daemon } from "../../src/daemon/daemon.js";
 import { FakeRunService, fixture, stream } from "./fake-service.js";
 import { call, makeEnv, writeAllowlist, type Env, type Reply } from "./harness.js";
@@ -61,17 +61,36 @@ test("version endpoint returns the contract's API version, even for an incompati
 });
 
 test("an incompatible client version is refused with the typed error before anything else", async () => {
-  const major = await call(env.socket, "GET", "/v1/agents", { version: "3.0" });
+  const major = await call(env.socket, "GET", "/v1/agents", { version: "4.0" });
   const body = expectError(major, "incompatible_version");
-  assert.equal(body.client_api_version, "3.0");
+  assert.equal(body.client_api_version, "4.0");
   assert.equal(body.server_api_version, apiVersion);
   // Wrong version wins over an unknown path, a bad body and a missing run.
-  expectError(await call(env.socket, "GET", "/v1/nope", { version: "3.0" }), "incompatible_version");
+  expectError(await call(env.socket, "GET", "/v1/nope", { version: "4.0" }), "incompatible_version");
   expectError(await call(env.socket, "POST", "/v1/runs", { version: "0.1", rawBody: "{" }), "incompatible_version");
   // A client newer than the core in MINOR is incompatible too.
-  expectError(await call(env.socket, "GET", "/v1/runs", { version: "2.99" }), "incompatible_version");
+  expectError(await call(env.socket, "GET", "/v1/runs", { version: "3.99" }), "incompatible_version");
   // An absent header is accepted.
   expectOk(await call(env.socket, "GET", "/v1/agents", { version: null }), 200, "agent#agent_list");
+  assert.equal(service.calls.includes("submit"), false);
+});
+
+test("a 2.0 client is refused by this 3.0 core: exit code 2 and a message naming both versions", async () => {
+  assert.equal(apiVersion, "3.0");
+  for (const [method, path] of [["GET", "/v1/runs"], ["POST", "/v1/runs"], ["POST", `/v1/runs/${RUN}/answer`]] as const) {
+    const reply = await call(env.socket, method, path, { version: "2.0", body: method === "POST" ? {} : undefined });
+    const body = expectError(reply, "incompatible_version");
+    assert.equal(reply.status, 412);
+    assert.deepEqual([body.client_api_version, body.server_api_version], ["2.0", "3.0"]);
+    assert.match(body.message, /2\.0/);
+    assert.match(body.message, /3\.0/);
+    assert.equal(exitCodeFor(body.code), 2, "the contract maps the refusal to CLI exit code 2");
+    assert.equal(body.retryable, false);
+  }
+  // The version route still answers, so the 2.0 client can read which version the core speaks.
+  const version = await call(env.socket, "GET", "/v1/version", { version: "2.0" });
+  expectOk(version, 200, "version");
+  assert.equal((version.json as { api_version: string }).api_version, "3.0");
   assert.equal(service.calls.includes("submit"), false);
 });
 
@@ -181,7 +200,7 @@ test("service refusals surface as typed errors", async () => {
 
 test("pause, resume and answer are always unsupported, after id, existence and body checks", async () => {
   const caller = { kind: "operator", id: "thor-operator" };
-  const bodies = { pause: { caller }, resume: { caller }, answer: { caller, question_id: "q1", answer: "yes" } };
+  const bodies = { pause: { caller }, resume: { caller }, answer: { caller, question_id: "thor-culture-agents.qst.01JDQ5X0000000000000000001", answer: "yes" } };
   for (const [verb, body] of Object.entries(bodies)) {
     const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body });
     const refusal = expectError(reply, "unsupported");
@@ -222,7 +241,7 @@ function attach(path: string, headers: Record<string, string> = {}): { frames: F
   const status = new Promise<number>((r) => (resolveStatus = r));
   let resolveClosed!: () => void;
   const closed = new Promise<void>((r) => (resolveClosed = r));
-  const req = request({ socketPath: env.socket, path, headers: { "Agents-Api-Version": "2.0", ...headers } }, (res) => {
+  const req = request({ socketPath: env.socket, path, headers: { "Agents-Api-Version": apiVersion, ...headers } }, (res) => {
     resolveStatus(res.statusCode ?? 0);
     let buf = "";
     res.setEncoding("utf8");
@@ -306,7 +325,7 @@ test("shutdown ends open streams", async () => {
   const svc = new FakeRunService();
   svc.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 2));
   const d = await startDaemon({ service: svc, node: "thor", env: env2.vars });
-  const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": "2.0" } });
+  const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": apiVersion } });
   let closed = false;
   const ended = new Promise<number | undefined>((resolve) =>
     req.on("response", (res) => {

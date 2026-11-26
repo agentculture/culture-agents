@@ -12,7 +12,7 @@ API = cs.api_index()
 SCHEMAS = cs.load_schemas()
 REG = cs.registry()
 COMMON = SCHEMAS["common.json"]["$defs"]
-TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "unknown"}
+TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "unanswered", "unknown"}
 D1_ROUTES = {
     "version",
     "agents.list",
@@ -29,16 +29,16 @@ D1_ROUTES = {
     "runs.result",
 }
 DEFERRED_ROUTES = {"runs.pause", "runs.resume", "runs.answer"}
+#: Pinned to unsupported by the schema in 3.0.
 DEFERRED_CAPABILITIES = {
     "pause",
     "resume",
-    "answer",
     "delegate",
     "placement",
     "continue_session",
-    "reconnect",
-    "worktree_isolation",
 }
+#: Deferred in 2.0; in 3.0 a harness may report them supported (README: changes from 2.0).
+SUPPORTABLE_SINCE_3_0 = {"answer", "reconnect", "worktree_isolation"}
 ENVIRONMENT_ERRORS = {"incompatible_version", "unavailable", "internal"}
 
 
@@ -147,9 +147,12 @@ def test_state_machine_matches_run_schema():
 def test_deferred_capabilities_are_declared_unsupported():
     caps = SCHEMAS["capabilities.json"]["$defs"]["capability_set"]
     assert set(caps["required"]) == set(caps["properties"])
-    assert DEFERRED_CAPABILITIES | {"submit", "stream", "steer", "cancel"} == set(caps["required"])
+    core = {"submit", "stream", "steer", "cancel"}
+    assert DEFERRED_CAPABILITIES | SUPPORTABLE_SINCE_3_0 | core == set(caps["required"])
     for name in DEFERRED_CAPABILITIES:
         assert caps["properties"][name]["$ref"].endswith("#/$defs/deferred"), name
+    for name in SUPPORTABLE_SINCE_3_0 | core:
+        assert caps["properties"][name]["$ref"].endswith("#/$defs/capability"), name
     deferred = SCHEMAS["capabilities.json"]["$defs"]["deferred"]
     assert deferred["properties"]["supported"] == {"const": False}
 

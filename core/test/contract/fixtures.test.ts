@@ -4,7 +4,7 @@ import { basename, dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { canTransition, isTerminal, validate, type RunState, type SchemaName } from "../../src/contract/index.js";
+import { canTransition, isTerminal, validate, type AnswerData, type QuestionData, type RunState, type SchemaName } from "../../src/contract/index.js";
 
 // dist/test/contract -> repo root is four levels up.
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..", "contract", "fixtures");
@@ -58,6 +58,7 @@ function streamProblems(lines: unknown[]): string[] {
   const runIds = new Set(lines.map((l) => (l as { run_id?: unknown }).run_id));
   if (runIds.size !== 1) problems.push("stream mixes run ids");
   let state: RunState | null = null;
+  const pending = new Set<string>();
   lines.forEach((event, i) => {
     const index = i + 1;
     const checked = validate("event", event);
@@ -75,6 +76,11 @@ function streamProblems(lines: unknown[]): string[] {
       state = data.to;
     } else if (index === 1) {
       problems.push("first event must be run.state");
+    } else if (e.kind === "run.question") {
+      pending.add((e.data as QuestionData).question.id);
+    } else if (e.kind === "run.answer") {
+      // An answer names a question that is pending, and a question takes one answer.
+      if (!pending.delete((e.data as AnswerData).question_id)) problems.push(`event ${index} answers no pending question`);
     }
   });
   return problems;

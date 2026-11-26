@@ -1,0 +1,16 @@
+{
+  "action": {
+    "id": "thor-culture-agents.act.01JDQ5W0000000000000000001",
+    "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+    "kind": "steer",
+    "caller": {
+      "kind": "operator",
+      "id": "thor-operator"
+    },
+    "requested_at": "2026-11-25T10:00:10Z",
+    "idempotency_key": "steer-7",
+    "outcome": "accepted",
+    "error": null
+  },
+  "replayed": true
+}

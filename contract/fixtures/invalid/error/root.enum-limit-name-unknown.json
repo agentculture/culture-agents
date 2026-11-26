@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "limit_reached",
+    "message": "x",
+    "retryable": true,
+    "limit": {
+      "name": "runs_per_agent",
+      "value": 2,
+      "active": 2
+    }
+  }
+}

@@ -79,8 +79,9 @@ node dist/src/daemon/main.js   # start the core daemon (after build); socket pat
 The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`);
-the `agents` CLI uses the same resolution. The control API is version 2.0
-(`contract/api.json`). With no core running, every `agents agents` and `agents runs` verb
+the `agents` CLI uses the same resolution. The control API is version 3.0
+(`contract/api.json`): it holds the D2 part one shapes, and `contract/README.md` marks
+the behaviour that is not built yet as (planned). With no core running, every `agents agents` and `agents runs` verb
 exits 2 with a hint.
 
 Lint: the CI `lint` job runs all of these; run them before pushing:

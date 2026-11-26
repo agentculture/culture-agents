@@ -1,0 +1,26 @@
+{
+  "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "cursor": 4,
+  "time": "2026-11-25T10:00:04Z",
+  "kind": "run.question",
+  "data": {
+    "question": {
+      "id": "thor-culture-agents.qst.01JDQ5X0000000000000000001",
+      "kind": "question",
+      "text": "Which colour should the banner use?",
+      "choices": [
+        {
+          "id": "red",
+          "label": "Red"
+        },
+        {
+          "id": "green",
+          "label": "Green",
+          "description": "Matches the logo."
+        }
+      ],
+      "free_text": true,
+      "multiple": false
+    }
+  }
+}

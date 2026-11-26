@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://culture.dev/contract/agents/version.json",
   "title": "Version",
-  "description": "Response of GET /v1/version, the first call a client makes on connect (README: versioning).",
+  "description": "Response of GET /v1/version, the first call a client makes on connect (README: versioning). A core built from this contract reports `api_version` 3.0.",
   "type": "object",
   "additionalProperties": false,
   "required": ["api_version", "core_version", "node"],
@@ -15,7 +15,7 @@
       "maxLength": 64
     },
     "node": {
-      "description": "The node this core runs on; the `<node>` of every agent it can execute in D1.",
+      "description": "The node this core runs on; the `<node>` of every agent it can execute.",
       "$ref": "common.json#/$defs/node"
     }
   }

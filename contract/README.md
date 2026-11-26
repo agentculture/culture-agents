@@ -1,6 +1,6 @@
 # culture-agents control-plane contract
 
-API version **2.0** (single source: `api.json` → `api_version`).
+API version **3.0** (single source: `api.json` → `api_version`).
 
 This directory is the contract between the TypeScript core daemon and every
 client of it, starting with the Python `agents` CLI. The JSON Schemas
@@ -9,7 +9,15 @@ schemas cannot express. Both sides validate against these same files and
 reuse the same fixtures. Generate types and validators from the schemas; never
 copy them by hand.
 
-Scope: D1 (single host, no chat). Everything deferred beyond D1 is listed in
+Scope: one host, no chat. Version 3.0 carries the shapes of D2 part one:
+recovery after a core restart, concurrent runs in one repository, idempotent
+requests, operator questions, limits and admission. The shapes are fixed here.
+Some of the behaviour behind them is not built yet. Every such rule below is
+marked **(planned)** with the task of the D2 plan
+(`docs/plans/2026-11-26-d2-fleet-and-recovery.md`) that builds it, and
+[Changes from 2.0](#changes-from-20) lists them all. Until a task lands, the
+core keeps its 2.0 behaviour for that rule and reports the capability as
+unsupported. Everything deferred is listed in
 [Deferred capabilities](#deferred-capabilities), and the contract reports it
 as `unsupported`. Nothing deferred is silently missing.
 
@@ -22,11 +30,11 @@ Key words: **must**, **must not** and **may** are normative.
 | `common.json` | none | identifiers, `timestamp`, `principal`, `extension` |
 | `agent.json` | Agent | `agent_list` |
 | `session.json` | Session | none |
-| `run.json` | Run | `state`, `terminal_state`, `run_list`, `run_result` |
-| `control-action.json` | action record | `submit_request`, `submit_response`, `steer_request`, `cancel_request`, `pause_request`, `resume_request`, `answer_request`, `accepted_response` |
-| `event.json` | Event (log entry and stream item) | `event_page` |
-| `capabilities.json` | harness capability document | `capability_set`, `capabilities_list` |
-| `error.json` | error response `{"error": {...}}` | `error`, `code` |
+| `run.json` | Run | `state`, `terminal_state`, `submitter`, `run_list`, `run_result` |
+| `control-action.json` | action record | `submit_request`, `submit_response`, `warning`, `steer_request`, `cancel_request`, `pause_request`, `resume_request`, `answer_request`, `decision`, `choice_ids`, `accepted_response` |
+| `event.json` | Event (log entry and stream item) | `question`, `question_data`, `answer_data`, `event_page` |
+| `capabilities.json` | harness capability document | `capability_set`, `limits`, `admission`, `signal`, `capabilities_list` |
+| `error.json` | error response `{"error": {...}}` | `error`, `code`, `limit` |
 | `version.json` | `GET /v1/version` response | none |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
@@ -68,6 +76,10 @@ sets `additionalProperties: false`, except the one opaque `extension` object
   **action id** is `<node>-<agent>.act.<ULID>`, using the run's agent. Ids are
   assigned by the core, never by the client, and are never reused. Each is at
   most 127 characters: a mesh id, then the 31 characters of `.run.<ULID>`.
+- **Question id**, written `<node>-<agent>.qst.<ULID>`, using the run's
+  agent. The run's worker assigns it when it records the question. The
+  harness's own id for its request is not part of the contract: callers answer
+  by the question id only.
 - A run's host branch is `runs/<run_id>`, at most 132 characters.
 - `agent.id` must equal `<node>-<suffix>`. A run's `id` and `session_id` must
   start with its `agent_id` followed by `.`. The tests check these rules, and
@@ -99,6 +111,67 @@ sets `additionalProperties: false`, except the one opaque `extension` object
 - `core_version` in `/v1/version` is the core's release version. It is
   informational only and never used for compatibility.
 
+## Changes from 2.0
+
+Version 3.0 is one MAJOR bump that carries every contract change of D2 part
+one. A 2.0 client and a 3.0 core refuse each other in both directions, with
+exit 2 and a message that names both versions.
+
+Each row is a breaking change under the rules above. "Built by" names the plan
+task that makes the core produce or accept the shape. A row marked *shape
+only* is in the schemas and fixtures now, and the core does not produce it
+until that task lands. 3.0 is not released before those tasks: they change
+behaviour inside 3.0, without another bump.
+
+| Change | Where | Required in 3.0 | Built by |
+| --- | --- | --- | --- |
+| `api_version` is `3.0` | `api.json`, `GET /v1/version` | yes | this change |
+| `submitter`: who submitted the run, as the core established it | Run | optional; absent on a run recorded before the core set it | t11, *shape only* |
+| `base_commit`: the commit the run starts from | Run | optional; absent on a run recorded before the core set it | t7, *shape only* |
+| `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13, *shape only* |
+| `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13, *shape only* |
+| `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8, *shape only* |
+| `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel`, `runs.answer` | optional; `retryable` is then false; forbidden with any other code | t6, *shape only* |
+| `question_id` on an error that concerns a question | error | optional | t13, *shape only* |
+| `unavailable` may carry `retry_after_ms`: retry shortly, for a control request that arrives while the core reattaches to the run's worker | error | optional; forbidden with any other code | t9, *shape only* |
+| `run.question` and `run.answer`: two new event kinds | event | each kind pins its `data` | t13, *shape only* |
+| `run.control` records a steer or a cancel only | event | tightened: an accepted answer is a `run.answer` | this change |
+| `answer_request`: `question_id` must be a question id; `answer` is optional; `choice_ids` and `decision` are new | `runs.answer` request | `caller` and `question_id` are required | t13 (core), t16 (CLI), *shape only* |
+| `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13; until then it is refused as `unsupported` |
+| `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`), t17 (`warnings`), *shape only* |
+| `replayed` on the accepted action response | `accepted_response` | optional | t6, *shape only* |
+| `runs.submit` may answer `conflict` and `limit_reached` | route | | t6, t8 |
+| `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | every harness still reports them unsupported | t13, t9, t8 |
+| `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17 (`limits` are read from the configuration t8 adds), *shape only* |
+
+`busy` is unchanged in the 3.0 schemas and the core still answers it: one active run per repository holds until task t8 builds concurrent runs. t8 then removes `busy`, its `active_run_id` and `repo` fields and the busy rule from the schemas, this file and the CLI, as part of 3.0.
+
+Rules that change with these shapes, each when its task lands:
+
+- An idempotency key is compared, not only recorded (t6). See
+  [Idempotency keys](#idempotency-keys).
+- A run's deadline stops advancing while one of its questions is pending
+  (t13). See [Deadlines](#deadlines).
+- A run that survived a core restart gets live control back (t9). See
+  [After a core restart](#after-a-core-restart).
+
+No D1 guarantee is weakened. No schema, fixture or generated type names a
+harness-runtime, sandbox-runtime or vendor-SDK type. A refused capability is
+still an `unsupported` error that names it. The cursor is still per run,
+gapless and never reset. A terminal state is still final. `unknown` is still
+never reported as a success, and neither is `unanswered`.
+
+**Part two is not in 3.0.** Its own shapes come with their tasks as 3.x MINOR
+additions: the list of fleet members, the unreachable view of a run on a host
+that does not answer, and fetching a run's commits as a git bundle. A MINOR
+addition is a new route with its own response shape, or a new optional request
+field. It must not add a field, an enum value or an event kind to a shape that
+exists in 3.0. The one part-two value that 3.0 already has is the `submitter`
+kind `member`, because a new value there would be MAJOR. Two things part two
+needs are not MINOR under the rules above and are not decided here:
+`placement` becoming supportable, and a typed refusal of a submit that an
+admission signal holds.
+
 ## Routes
 
 The authoritative list is `api.json` → `routes`, which gives each route's
@@ -120,7 +193,8 @@ possible errors and CLI verb.
 | `runs.result` | `GET /v1/runs/{run_id}/result` | 200 `run_result` | `agents runs result` |
 | `runs.steer` | `POST /v1/runs/{run_id}/steer` | 202 `accepted_response` | `agents runs steer` |
 | `runs.cancel` | `POST /v1/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` |
-| `runs.pause`, `runs.resume`, `runs.answer` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none in D1 |
+| `runs.answer` | `POST /v1/runs/{run_id}/answer` | 202 `accepted_response` | `agents runs answer` (planned, t16) |
+| `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:
 
@@ -133,6 +207,9 @@ Notes:
   `conflict` with `retryable: true`.
 - `agents.list` includes every harness capability document, so one call can
   serve `agents agents list --json`.
+- `runs.answer` is refused as `unsupported`, capability `answer`, for a run
+  whose harness cannot ask. Today that is every harness. **(planned, t13)** it
+  is accepted for a harness that can.
 
 ### Order of checks
 
@@ -152,11 +229,24 @@ Clients and tests may rely on the order.
    node → `unsupported`, `placement`. A `session_id` is present →
    `unsupported`, `continue_session`. A `parent_run_id` is present →
    `unsupported`, `delegate`.
-6. The repository already has an active run → `busy`.
+6. The repository already has an active run → `busy` (until t8).
 7. The core creates the session and run, then starts the worker. The worker
    writes its PID, its event log with event 1 (`run.state`, `null` →
    `queued`) and its cursor to disk. Only after that does the core answer 201
    with the run in state `queued`.
+
+**(planned)** Three checks join `runs.submit` between steps 5 and 7. The
+task that builds each one fixes its exact place and writes it here.
+
+- An `idempotency_key` that the core has on record (t6). The same request
+  → the success status with `replayed: true` and the first run as it is now;
+  nothing is created. A different request → `conflict` with
+  `idempotency_key` and the `run_id` the key belongs to.
+- A configured limit that has no room (t8) → `limit_reached` with `limit`.
+  This replaces step 6. Nothing is queued.
+- The repository's commit to start from cannot be resolved (t7) → a typed
+  refusal at submit, not a failed run later. On success the commit is the
+  run's `base_commit`.
 
 Run-scoped control routes (`steer`, `cancel`, `pause`, `resume`, `answer`):
 
@@ -181,6 +271,24 @@ already `cancelling` is accepted and recorded, but has no further effect.
 `conflict` uses `retryable: true` when a later state could accept the action:
 `steer` on `queued`, or `result` on an active run. Otherwise it uses `false`.
 
+**(planned)** What changes in this order:
+
+- `answer` leaves step 4 (t13). It is checked like `steer`: capability at
+  step 5, state at step 6. It needs a `running` run and a pending question
+  with that `question_id`. A question id the run never asked → `not_found`
+  with `question_id`. A question that already has its answer, or whose time
+  limit has passed → `conflict` with `question_id`, not retryable. An answer
+  that does not fit the question → `invalid`.
+- Step 7 (t9). The core reattaches to surviving workers, so `live_control`
+  is true again and the refusal naming `reconnect` ends. A control request
+  that arrives before the run's reattach attempt has finished waits for it or
+  gets `unavailable` with `retry_after_ms` and the `run_id`. It never gets
+  "live control unavailable".
+- A repeated `idempotency_key` on a control route (t6) → the same success
+  status with `replayed: true` and the first action record; nothing is
+  delivered again. The same key with a different request → `conflict` with
+  `idempotency_key`.
+
 Refusals at steps 4 to 6 against a non-terminal run whose worker the core
 controls are also appended to the run's event log as `run.refused` events.
 Refusals at any other step are returned to the caller only.
@@ -194,11 +302,12 @@ Refusals at any other step are returned to the caller only.
 | (none) | `queued` |
 | `queued` | `running`, `cancelling`, `failed`, `unknown` |
 | `running` | `cancelling`, `succeeded`, `failed`, `unknown` |
-| `cancelling` | `cancelled`, `timed_out`, `succeeded`, `failed`, `unknown` |
-| `succeeded`, `failed`, `cancelled`, `timed_out`, `unknown` | none (terminal) |
+| `cancelling` | `cancelled`, `timed_out`, `unanswered`, `succeeded`, `failed`, `unknown` |
+| `succeeded`, `failed`, `cancelled`, `timed_out`, `unanswered`, `unknown` | none (terminal) |
 
 - **Active** states are `queued`, `running` and `cancelling`. **Terminal**
-  states are `succeeded`, `failed`, `cancelled`, `timed_out` and `unknown`.
+  states are `succeeded`, `failed`, `cancelled`, `timed_out`, `unanswered` and
+  `unknown`.
   A terminal state is final. No event follows it, and nothing changes it
   later.
 - `queued`: accepted and the worker exists, but the harness session has not
@@ -213,9 +322,15 @@ Refusals at any other step are returned to the caller only.
   its deadline. Both are reached only through `cancelling`. If the harness
   completes its turn before the stop takes effect, the run ends `succeeded`
   or `failed` as reported.
-- A run moves to `cancelled` or `timed_out` according to what first moved it
-  into `cancelling`. A later deadline does not turn a cancel into
-  `timed_out`.
+- `unanswered`: it ended because a question it asked its operator passed
+  that question's own time limit. Like `timed_out`, it is reached only through
+  `cancelling`, here with reason `question_limit`. It is not a success and
+  not a plain `timed_out`. No worker writes it before t13 **(planned)**.
+- A run moves to `cancelled`, `timed_out` or `unanswered` according to what
+  first moved it into `cancelling`. A later deadline does not turn a cancel
+  into `timed_out`.
+- A run that waits for an answer stays `running`. There is no waiting state:
+  `pending_questions` on the run says what it waits for.
 - `run.terminal` is true exactly in terminal states, and then `ended_at` is
   set and `live_control` is false.
 - The state of a run is derived **only** from its on-disk event log or its
@@ -247,6 +362,14 @@ After a restart, the core rebuilds every run from disk:
 - The core checks that a worker is alive by its recorded PID together with an
   identity check, so that a reused PID is not mistaken for the worker.
 
+**(planned, t9)** The core reattaches to each surviving worker over the
+worker's own control socket and reports `live_control: true` again. `steer`,
+`cancel` and `attach` then work as before the restart. A worker whose control
+socket does not answer is never reattached by guess and never signalled: its
+run becomes `unknown`. A control request that arrives before the reattach
+attempt for its run has finished waits or gets `unavailable` with
+`retry_after_ms`. Controls of terminal runs are not rebuilt.
+
 ## Events, cursor and replay
 
 - Each run has one append-only event log. Every entry validates against
@@ -268,6 +391,11 @@ After a restart, the core rebuilds every run from disk:
   - `run.control`: an accepted `steer` or `cancel`.
   - `run.refused`: a refused control action, with `unsupported` (a capability
     refusal) or `conflict`.
+  - `run.question`: the run asked its operator a question and now waits. It
+    is appended before the run starts waiting. **(planned, t13)**
+  - `run.answer`: an answer was accepted and delivered into the run. It names
+    a question that was pending, and a question gets at most one.
+    **(planned, t13)**
   - `run.error`: an error. When `fatal` is true, a `run.state` to `failed` or
     `unknown` follows.
 - **Attach** (`GET .../attach?after=N`, where `N` is an integer of 0 or more,
@@ -298,19 +426,32 @@ After a restart, the core rebuilds every run from disk:
   events past the last one returned exist. The same `after` bound as attach
   applies.
 
-## Idempotency keys (D1)
+## Idempotency keys
 
 `submit_request` and every control request accept an optional
-`idempotency_key`. In D1 the key is **recorded and returned, and that is
-all**. It appears on the run (`idempotency_key`) or on the action record,
-exactly as sent.
+`idempotency_key`. It appears on the run (`idempotency_key`) or on the action
+record, exactly as sent.
 
-**D1 does not promise deduplication.** Two submits with the same key create
-two runs, and two steers with the same key deliver twice. The core neither
-compares keys nor rejects reuse. Clients must not treat a retry as safe. A
-client whose submit timed out should run `runs list` and look for the key
-before it resubmits. Deduplication is planned for D2 and will be a versioned
-behaviour change.
+**Today the key is recorded and returned, and that is all.** Two submits with
+the same key create two runs, and two steers with the same key deliver twice.
+The core neither compares keys nor rejects reuse. Until task t6 lands, clients
+must not treat a retry as safe: a client whose submit timed out should run
+`runs list` and look for the key before it resubmits.
+
+**(planned, t6)** The shapes for deduplication are in 3.0:
+
+- A repeat of a key with the same request takes effect once. The response has
+  the same status as the first one and `replayed: true`. For a submit, `run`
+  is the first run as it is now, which need not be `queued`. For a control
+  request, `action` is the first action record.
+- The same key with a different request is refused with `conflict`,
+  `retryable: false`, carrying `idempotency_key` and the `run_id` the key
+  belongs to.
+- The key is written to disk before the request is acknowledged, so it holds
+  across a core restart.
+
+Two rules are not stated yet and t6 writes them here: the comparison that
+decides "the same request", and how long a key is remembered.
 
 ## Deadlines
 
@@ -322,7 +463,41 @@ behaviour change.
   the harness has stopped. The other outcomes from `cancelling` (see the state
   machine) still apply. The run's worker enforces the deadline, so it holds
   across a core restart.
-- With no deadline, a run has no time bound in D1.
+- With no deadline, a run has no time bound.
+- **(planned, t13)** While one of the run's questions is pending, the
+  deadline does not advance: the time spent waiting is not counted against the
+  run. The question has its own limit (`answer_by`). `deadline` on the run then
+  reports the moved time. Today nothing asks, so the deadline never moves.
+
+## Operator questions
+
+**(planned, t13.)** The shapes are in 3.0. No harness driver asks yet, every
+harness reports `answer` as unsupported, and `runs.answer` is refused.
+
+- A run asks by appending `run.question` to its log. The `question` has an
+  id, a `kind`, `text`, the `choices` the harness offers, whether free text
+  and more than one choice are accepted, and `answer_by`. Everything in it
+  that came from the harness is untrusted data.
+- `kind` is `question` (the harness wants information) or `approval` (the
+  harness wants a decision on one action, and `tool` may name it).
+- A pending question is one with no `run.answer` yet. The run lists them in
+  `pending_questions`, read from its log, so they are still pending after a
+  core restart.
+- `POST .../answer` answers one question. For a `question`, the request gives
+  `answer` (free text, when `free_text` is true), `choice_ids` (ids from
+  `choices`, more than one only when `multiple` is true), or both. For an
+  `approval`, it gives `decision` (`approve` or `deny`); `answer` is then an
+  optional reason that the harness shows the model. The core answers
+  `invalid` when the request does not fit the question.
+- An accepted answer is appended as `run.answer` and delivered into the same
+  run exactly once. A second answer to the same question is refused with
+  `conflict`.
+- `answer_by` is the question's own time limit: 12 hours after it was asked,
+  or less when the operator configured less. When it passes with no answer,
+  the run moves to `cancelling` with reason `question_limit` and ends
+  `unanswered`.
+- A harness that cannot ask reports `answer` as unsupported, and an answer
+  sent to its run gets `unsupported` naming `answer`.
 
 ## Capabilities and honest refusal
 
@@ -347,12 +522,44 @@ supportable is a MAJOR bump.
 | Capability | How a client meets the refusal |
 | --- | --- |
 | `pause`, `resume` | `POST .../pause` or `.../resume` → `unsupported` |
-| `answer` (operator questions) | `POST .../answer` → `unsupported` |
 | `continue_session` | submit with `session_id` → `unsupported` |
 | `delegate` (agent-to-agent) | submit with `parent_run_id` → `unsupported` |
 | `placement` (multi-host) | submit for an agent on another node → `unsupported` |
-| `reconnect` (live control after a core restart) | steer or cancel a run with `live_control: false` → `unsupported` |
-| `worktree_isolation` (concurrent runs in one repo) | a second submit for a busy repo → `busy` |
+
+### Capabilities that 3.0 allows and no harness supports yet
+
+In 2.0 these three were deferred. In 3.0 the schema lets a harness report
+them as supported. Every harness still reports them unsupported, with the
+reason, until the task that builds each one lands.
+
+| Capability | How a client meets the refusal today | Built by |
+| --- | --- | --- |
+| `answer` (operator questions) | `POST .../answer` → `unsupported` | t13 |
+| `reconnect` (live control after a core restart) | steer or cancel a run with `live_control: false` → `unsupported` | t9 |
+| `worktree_isolation` (concurrent runs in one repository) | a second submit for a repository with an active run → `busy` | t8 |
+
+`worktree_isolation`, once supported, means one sandbox clone per run with its
+own `runs/<run_id>` branch. It never means a git worktree on the host.
+
+### Limits, load and admission
+
+**(planned, t17; the limits themselves by t8.)** A capability document may
+carry three optional fields about the core's own host. They never describe
+another host.
+
+- `limits`: every limit by name, `runs_per_repository` and `runs_per_host`.
+  `null` means the operator configured none, and then no submit is refused
+  for it. There is no implicit limit. Limits come from the core's
+  configuration, never from a request.
+- `active_runs`: how many runs are active on the host now.
+- `admission`: one entry per signal, `heat` and `gateway`. Each has a `state`
+  (`admit`, `hold` or `unknown`), `consulted` (whether admission reads this
+  signal for this harness), a `reason`, and `observed_at`. A missing or stale
+  signal is `unknown`. It is never read as `admit`, and it is never a failure
+  of the control plane.
+
+A local submit under an `unknown` signal is admitted, and the submit response
+then carries a `warnings` entry with code `signal_unknown` naming the signal.
 
 ## Authorization and the allow-list
 
@@ -373,9 +580,20 @@ supportable is a MAJOR bump.
   Authority comes from the owner-only socket and the allow-list. Any
   connected client may control any run. Per-run ownership is issue #2's
   Decision 3, which is still open.
-- **Busy rule:** at most one active run per canonical repository path. A
-  second submit gets `busy`, which carries `active_run_id` and `repo`. A run
-  with `live_control: false` that is still active also holds its repository.
+- `submitter` is what the core itself established about who submitted a
+  run. For a request on the control socket it is `local_user` with the `uid`
+  of the user that owns the socket. For a request from another core it is
+  `member` with that member's `node`. No request field sets or changes it,
+  and every request schema is closed, so a request that tries is `invalid`.
+  A 3.0 core sets it on every run it creates **(planned, t11)**; it is absent
+  on a run recorded before that. Part one does not enforce on it.
+- `base_commit` is the commit of the repository the run starts from, resolved
+  by the core when it accepts the submit **(planned, t7)**. It is absent on a
+  run recorded before that.
+- **Busy rule (until t8):** at most one active run per canonical repository
+  path. A second submit gets `busy`, which carries `active_run_id` and `repo`.
+  A run with `live_control: false` that is still active also holds its
+  repository.
 
 ## Errors and CLI exit codes
 
@@ -387,11 +605,12 @@ sentence. For environment errors, the message includes a remediation hint.
 | `invalid` | 400 | 1 | false | `field` (optional) | The request breaks the schema or a rule in this README |
 | `denied` | 403 | 1 | false | none | No allow-list entry matches |
 | `not_found` | 404 | 1 | false | `run_id` (optional) | Unknown agent, harness, run or path |
-| `busy` | 409 | 1 | true | `active_run_id`, `repo` | The repository already has an active run |
-| `conflict` | 409 | 1 | varies (see above) | `run_id` | The run's state does not allow the action |
+| `busy` | 409 | 1 | true | `active_run_id`, `repo` | The repository already has an active run (until t8) |
+| `conflict` | 409 | 1 | varies (see above) | `run_id`; `idempotency_key` or `question_id` (optional) | The run's state does not allow the action, or an idempotency key was used with a different request |
+| `limit_reached` | 429 | 1 | true | `limit` (`name`, `value`, `active`, and `repo` for a repository limit) | A limit the operator configured has no room; nothing is queued |
 | `unsupported` | 422 | 1 | false | `capability` | The capability is not supported (see above) |
 | `incompatible_version` | 412 | 2 | false | `client_api_version`, `server_api_version` | The API versions are incompatible |
-| `unavailable` | 503 | 2 | true | none | A dependency is not reachable (sandbox gateway, harness, worker) |
+| `unavailable` | 503 | 2 | true | `retry_after_ms`, `run_id` (both optional) | A dependency is not reachable (sandbox gateway, harness, worker). With `retry_after_ms`: retry shortly |
 | `internal` | 500 | 2 | false | none | Unexpected core failure |
 
 CLI exit codes: 0 on success, 1 for a user error, 2 for an environment error.
@@ -437,8 +656,9 @@ The CLI also maps these cases, which produce no error body:
   `data` is an `anyOf`.
 - `fixtures/streams/valid/*.jsonl` are whole-run event logs, one event per
   line. Each obeys the cursor rule (1, 2, 3, ...), a single `run_id`, a first
-  event `null` → `queued`, legal transitions with a matching `from`, and
-  nothing after the terminal state. `fixtures/streams/invalid/*.jsonl` each
+  event `null` → `queued`, legal transitions with a matching `from`,
+  nothing after the terminal state, and every `run.answer` naming a question
+  that is pending at that point. `fixtures/streams/invalid/*.jsonl` each
   break one of these rules, and the file name says which.
 - Fixtures are payloads exactly as sent on the wire, so a fake core may serve
   them as they are.

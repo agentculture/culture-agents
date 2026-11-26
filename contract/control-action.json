@@ -6,7 +6,7 @@
   "$ref": "#/$defs/action_record",
   "$defs": {
     "action_kind": {
-      "description": "Control actions against an existing run. pause, resume and answer are deferred: always refused with `unsupported` in this API version.",
+      "description": "Control actions against an existing run. pause and resume are deferred: always refused with `unsupported` in this API version.",
       "enum": [
         "steer",
         "cancel",
@@ -99,7 +99,7 @@
       }
     },
     "submit_request": {
-      "description": "Body of POST /v1/runs. Optional fields are omitted, never null. Setting `session_id` asks for `continue_session` and setting `parent_run_id` asks for `delegate`; both are refused with `unsupported` in this API version, as is an `agent_id` whose node is not the core's node (`placement`).",
+      "description": "Body of POST /v1/runs. Optional fields are omitted, never null. Setting `session_id` asks for `continue_session` and setting `parent_run_id` asks for `delegate`; both are refused with `unsupported` in this API version, as is an `agent_id` whose node is not the core's node (`placement`). No field of this request sets the run's `submitter` or `base_commit`.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -141,7 +141,7 @@
       }
     },
     "submit_response": {
-      "description": "201 response of POST /v1/runs. The run is in state `queued` and its worker's PID, event log and cursor are on disk.",
+      "description": "Response of POST /v1/runs. For a new run it is in state `queued` and its worker's PID, event log and cursor are on disk. When `replayed` is true the idempotency key matched an earlier submit: nothing was created and `run` is that first run as it is now.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -149,12 +149,66 @@
       ],
       "properties": {
         "run": {
-          "$ref": "run.json",
-          "properties": {
-            "state": {
-              "const": "queued"
+          "$ref": "run.json"
+        },
+        "replayed": {
+          "description": "True when the request repeated an earlier submit with the same idempotency key. Omitted otherwise.",
+          "type": "boolean"
+        },
+        "warnings": {
+          "description": "Things the caller should know about a run that was admitted all the same. Omitted when there are none.",
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/warning"
+          }
+        }
+      },
+      "if": {
+        "required": [
+          "replayed"
+        ],
+        "properties": {
+          "replayed": {
+            "const": true
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "run": {
+            "properties": {
+              "state": {
+                "const": "queued"
+              }
             }
           }
+        }
+      }
+    },
+    "warning": {
+      "description": "One warning on an admitted submit.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "signal",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "description": "signal_unknown: an admission signal could not be read or was stale, and a local submit was admitted without it.",
+          "enum": [
+            "signal_unknown"
+          ]
+        },
+        "signal": {
+          "$ref": "capabilities.json#/$defs/signal_name"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
         }
       }
     },
@@ -232,33 +286,52 @@
       }
     },
     "answer_request": {
-      "description": "Body of POST /v1/runs/{run_id}/answer (deferred; always refused with `unsupported`, capability `answer`).",
+      "description": "Body of POST /v1/runs/{run_id}/answer: the answer to one pending question of the run. For a `question`, give `answer`, `choice_ids` or both. For an `approval`, give `decision`; `answer` is then an optional reason the harness shows the model. The core checks the answer against the question (README: operator questions).",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "caller",
-        "question_id",
-        "answer"
+        "question_id"
       ],
       "properties": {
         "caller": {
           "$ref": "common.json#/$defs/principal"
         },
         "question_id": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
+          "$ref": "common.json#/$defs/question_id"
         },
         "answer": {
           "$ref": "common.json#/$defs/text"
+        },
+        "choice_ids": {
+          "$ref": "#/$defs/choice_ids"
+        },
+        "decision": {
+          "$ref": "#/$defs/decision"
         },
         "idempotency_key": {
           "$ref": "common.json#/$defs/idempotency_key"
         }
       }
     },
+    "decision": {
+      "description": "The answer to an approval: whether the waiting action may run.",
+      "enum": [
+        "approve",
+        "deny"
+      ]
+    },
+    "choice_ids": {
+      "description": "Choices picked from the question's `choices`, by id.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 50,
+      "items": {
+        "$ref": "event.json#/$defs/choice_id"
+      }
+    },
     "accepted_response": {
-      "description": "202 response of steer and cancel: the recorded, accepted action.",
+      "description": "202 response of steer, cancel and answer: the recorded, accepted action. When `replayed` is true the idempotency key matched an earlier request against this run: nothing was delivered again and `action` is the first one.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -272,6 +345,10 @@
               "const": "accepted"
             }
           }
+        },
+        "replayed": {
+          "description": "True when the request repeated an earlier one with the same idempotency key. Omitted otherwise.",
+          "type": "boolean"
         }
       }
     }

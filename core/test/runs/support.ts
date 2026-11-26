@@ -12,7 +12,7 @@ import { dirname, join } from "node:path";
 import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { validate, type ErrorBody, type Run, type RunEvent, type SchemaName } from "../../src/contract/index.js";
+import { apiVersion, validate, type ErrorBody, type Run, type RunEvent, type SchemaName } from "../../src/contract/index.js";
 import { runDir } from "../../src/store/files.js";
 import { checkLiveness } from "../../src/store/liveness.js";
 import { listRunIds } from "../../src/store/run-store.js";
@@ -121,7 +121,7 @@ export interface Reply {
 
 function send(socket: string, method: string, path: string, body?: unknown): Promise<Reply> {
   return new Promise((resolve, reject) => {
-    const headers: Record<string, string> = { "Agents-Api-Version": "2.0" };
+    const headers: Record<string, string> = { "Agents-Api-Version": apiVersion };
     const payload = body === undefined ? undefined : JSON.stringify(body);
     if (payload !== undefined) headers["Content-Type"] = "application/json";
     const req = request({ socketPath: socket, method, path, headers }, (res) => {
@@ -211,7 +211,7 @@ export interface Attach {
 export function attach(env: Env, id: string, after: number): Promise<Attach> {
   return new Promise((resolve, reject) => {
     const out: RunEvent[] = [];
-    const req = request({ socketPath: env.socket, method: "GET", path: `/v1/runs/${id}/attach?after=${after}`, headers: { "Agents-Api-Version": "2.0" } }, (res) => {
+    const req = request({ socketPath: env.socket, method: "GET", path: `/v1/runs/${id}/attach?after=${after}`, headers: { "Agents-Api-Version": apiVersion } }, (res) => {
       if (res.statusCode !== 200) return reject(new Error(`attach answered ${String(res.statusCode)}`));
       let buf = "";
       const closed = new Promise<void>((done) => res.on("end", done));

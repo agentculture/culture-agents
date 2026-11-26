@@ -1,0 +1,91 @@
+{
+  "harness": "claude-code",
+  "available": true,
+  "version": "2.1.323",
+  "transport": "interactive session over a local bridge inside the run sandbox",
+  "capabilities": {
+    "submit": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "stream": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "steer": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "cancel": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "pause": {
+      "supported": false,
+      "reason": "pause is deferred beyond D1",
+      "caveats": []
+    },
+    "resume": {
+      "supported": false,
+      "reason": "resume is deferred beyond D1",
+      "caveats": []
+    },
+    "answer": {
+      "supported": true,
+      "reason": null,
+      "caveats": [
+        "An approval is raised only when the run does not allow every action."
+      ]
+    },
+    "continue_session": {
+      "supported": false,
+      "reason": "each submit opens a new session in D1",
+      "caveats": []
+    },
+    "delegate": {
+      "supported": false,
+      "reason": "agent-to-agent delegation is deferred beyond D1",
+      "caveats": []
+    },
+    "placement": {
+      "supported": false,
+      "reason": "D1 runs only on the core's own node",
+      "caveats": []
+    },
+    "reconnect": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "worktree_isolation": {
+      "supported": true,
+      "reason": null,
+      "caveats": [
+        "Each run works in its own sandbox clone; no worktree is made on the host."
+      ]
+    }
+  },
+  "limits": {
+    "runs_per_repository": 2,
+    "runs_per_host": null
+  },
+  "active_runs": 1,
+  "admission": {
+    "heat": {
+      "state": "hold",
+      "consulted": true,
+      "reason": "the host reports level hot",
+      "observed_at": "2026-11-25T10:00:00Z"
+    },
+    "gateway": {
+      "state": "unknown",
+      "consulted": false,
+      "reason": "this harness does not use the model gateway",
+      "observed_at": null
+    }
+  }
+}
