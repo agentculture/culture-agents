@@ -9,6 +9,7 @@
  * `reconnectWorker` finds a surviving worker after a daemon restart and reports whether its
  * control socket answers. It never signals or terminates the worker.
  */
+import { scrubSecrets } from "../daemon/secrets.js";
 import { spawn } from "node:child_process";
 import { closeSync, openSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -165,7 +166,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
         cwd: dir,
         detached: true,
         stdio: ["ignore", logFd, logFd],
-        env: options.env ?? process.env,
+        env: scrubSecrets(options.env ?? process.env),
       });
     } finally {
       closeSync(logFd);

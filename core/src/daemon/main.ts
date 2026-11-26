@@ -12,6 +12,7 @@ import { loadAllowlist } from "./allowlist.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
 import { unavailable } from "./errors.js";
 import { acquireStateLock, LockHeldError, type HeldLock } from "./lock.js";
+import { takeSecrets } from "./secrets.js";
 import { resolveAllowlistPath, resolveServerYamlPath } from "./paths.js";
 import type { RunService } from "./ports.js";
 
@@ -42,6 +43,8 @@ export interface MainOptions extends Partial<Omit<DaemonOptions, "service">> {
    * resolves to 2. Off by default, so a host process keeps its own handlers.
    */
   fatalHandlers?: boolean;
+  /** Variables to take out of the environment at start. Default: `INJECTED_SECRETS` (secrets.ts). */
+  secretNames?: readonly string[];
   /** How long a stop after a fatal error may take before `main` gives up waiting. Default: 5 s. */
   fatalStopTimeoutMs?: number;
 }
@@ -132,6 +135,8 @@ async function serveUntilStopped(
     return 2;
   }
   const env = options.env ?? process.env;
+  // Before any worker, host command or sandbox exists: secrets leave the environment for memory.
+  takeSecrets(env, options.secretNames);
   const allowlistPath = options.allowlistPath ?? resolveAllowlistPath(env);
   const stateDir = options.stateDir ?? defaultStateDir(env);
   let stateLock: HeldLock | null = null;

@@ -64,6 +64,16 @@ The contract (JSON Schemas, routes, error table, state machine) is in the
 repository's [`contract/`](https://github.com/agentculture/culture-agents/tree/main/contract)
 directory and ships in this package under `dist/contract-schemas/`.
 
+## Injected secrets
+
+The core is started with credentials in its environment. It reads each one once at start, keeps it in
+memory and deletes it from `process.env` before any worker, host command (`git`, `openshell`) or
+sandbox exists, so none of them inherits it. The list is declared in one place,
+`INJECTED_SECRETS` in `src/daemon/secrets.ts`: `GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and `LOBES_GATEWAY_KEY`. The worker spawner, the host
+command runner and the sandbox environment filter also drop these names from any environment they
+are given.
+
 ## License
 
 Apache-2.0
