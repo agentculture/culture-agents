@@ -133,7 +133,9 @@ from guildmaster instead.
   the cap.
 - **Deploy**: pushing to `main` publishes npm and then PyPI via Trusted Publishing
   (`.github/workflows/publish.yml`); `core/package.json` carries the same
-  version as `pyproject.toml`. PRs do an npm dry-run and a TestPyPI dry-run.
+  version as `pyproject.toml`. PRs do an npm dry-run; same-repo PRs also stage
+  a development version on npm (`<version>-dev.<run>.<attempt>`, tag `dev`) and
+  publish a dev build to TestPyPI.
 
 ## Commands
 
@@ -179,7 +181,7 @@ spikes/                   throwaway probe code (never built or checked)
 .claude/skills/           vendored guildmaster skill kit (cite-don't-import)
 docs/skill-sources.md     skill provenance ledger
 culture.yaml              mesh identity (suffix + backend)
-.github/workflows/        tests (python + core jobs) + deploy (npm, then PyPI)
+.github/workflows/        tests (python + core jobs) + deploy (npm, then PyPI); PRs stage a dev version on npm
 ```
 
 This file describes the repository **as it exists on disk today**. When you

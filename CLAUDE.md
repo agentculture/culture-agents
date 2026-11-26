@@ -287,7 +287,10 @@ is or how it works, update all five prompt files so they don't drift.
 - **Deploy**: a push to `main` publishes npm with provenance, then PyPI via
   Trusted Publishing (`.github/workflows/publish.yml`). `core/package.json`
   carries the same version as `pyproject.toml`; the workflow fails when they
-  differ. PRs do an npm dry-run and a TestPyPI dry-run.
+  differ. PRs do an npm dry-run; same-repo PRs also stage a development
+  version on npm (`<version>-dev.<run>.<attempt>`, tag `dev`, not publicly
+  installable, removed only by the owner with 2FA) and publish a dev build to
+  TestPyPI.
 - Keep docs grounded in what is on disk. Mark anything ahead of reality
   `(planned)`.
 

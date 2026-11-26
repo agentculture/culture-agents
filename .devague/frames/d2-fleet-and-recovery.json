@@ -1,0 +1,778 @@
+{
+  "slug": "d2-fleet-and-recovery",
+  "title": "D2 fleet and recovery",
+  "schema_version": 6,
+  "status": "drafting",
+  "created": "2026-11-25T21:59:31Z",
+  "updated": "2026-11-26T06:31:50Z",
+  "claims": [
+    {
+      "id": "c1",
+      "kind": "announcement",
+      "text": "culture-agents runs a small fleet without losing track of work: two runs can work in one repository at once, a restarted core takes back live control of the workers that survived it, a duplicate submit is answered once, work is placed only on a host that can take it, a halted host is never reported as a success, and a question a run asks its operator is still waiting after a restart.",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h1",
+          "text": "Every clause of the announcement is covered by a requirement in this frame and by a test in the D2 acceptance suite; a clause without a passing test is reported as not delivered.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c2",
+      "kind": "audience",
+      "text": "Operators and calling agents (the agents CLI today; culture-rules and embodiment later) that submit work to more than one culture-agents host and need the state they read to stay true across restarts and host failures.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h2",
+          "text": "The agents CLI is the only caller D2 is tested with. culture-rules and embodiment are named as later callers and nothing in D2 is built for them alone.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c3",
+      "kind": "requirement",
+      "text": "After a core restart, the core takes back live control (steer, cancel, attach) of every worker that survived it. reconcile() rebuilds the in-memory controls map through the existing reconnectWorker, and the 'reconnect' capability stops being refused.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h3",
+          "text": "Reattach is proven by killing the core process (SIGKILL, not a clean stop) while a stub-harness run is mid-turn, starting a new core, and observing a steer and a cancel take effect on that run. A worker whose control socket no longer answers is reported 'unknown', never reattached by guess.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c4",
+      "kind": "requirement",
+      "text": "Two runs can be active in one repository at the same time, each steered independently, with a stated bound on how many. The one-active-run-per-repository 'busy' rule becomes a limit check, and the 'worktree_isolation' capability reports what is actually guaranteed.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h4",
+          "text": "Two concurrent runs in one repository each return commits only on their own runs/<id> branch, and neither branch contains the other's commits. The bound is a number a caller can read, and a submit past it gets a typed refusal, not a queue that is silently created.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c5",
+      "kind": "boundary",
+      "text": "Per-run isolation stays what D1 built: each run works in its own sandbox clone made from a git bundle, and its commits return into its own runs/<id> branch. The host checkout and index are never written, and no git worktree is created on the host.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h5",
+          "text": "No code path in D2 calls 'git worktree' or writes the host checkout or index. This holds only if q1 is answered 'sandbox clones are the isolation D2 means'.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q1",
+          "text": "Issue #2 words the D2 test as 'confirm separate worktrees'. Each run already has its own clone inside its sandbox. Is that the isolation D2 means, or do you want host-side git worktrees as well (for example to hand a result over for review)?",
+          "resolved": false,
+          "blocking": false,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c6",
+      "kind": "requirement",
+      "text": "A duplicate submit with the same idempotency key returns the first run instead of starting a second one, and the same key with a different request is refused as a conflict. Steer and cancel deduplicate on their keys the same way. The key index is on disk, so it holds across a restart.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h6",
+          "text": "The key index is written to disk before the submit is acknowledged, so a crash between the two cannot produce a second run for the same key. The comparison that decides 'same request' is stated in the contract, including how long a key is remembered.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c7",
+      "kind": "requirement",
+      "text": "A run can ask its operator a question and wait. The question is written to the run's on-disk log, is still pending after a core restart, and 'agents runs answer' delivers the answer into the same run. A harness that cannot ask says so in its capability report.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h7",
+          "text": "At least one real harness can ask and wait without allow-all approvals. docs/d0/probe.md:286-295 lists approvals as unverified in the AI SDK adapter, so this requirement is conditional on a probe that runs before the plan; if no harness can ask, the capability is reported unsupported and the requirement is cut down to the store and the 'answer' verb against the stub.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c8",
+      "kind": "requirement",
+      "text": "A submit names where the work may run, and the core admits it only when that host can take it: the harness is available, the concurrency bound has room, and the host's heat and model-gateway signals do not say hold. A signal that is missing or stale reads as unknown, never as permission and never as a hard failure of the control plane.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h8",
+          "text": "The heat and model-gateway signals are read through the interfaces heat-governor and lobes already publish, with no change to either. A test covers each of: signal says go, signal says hold, signal missing, signal stale.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c9",
+      "kind": "requirement",
+      "text": "When a host halts, every run that was active on it reads 'unknown' (or a state that says the host is unreachable) to every caller, and never 'succeeded'. The rule that already holds for a dead worker on one host holds across hosts.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h9",
+          "text": "A halted host is detected by something that can be tested (a missed heartbeat or a failed request with a stated timeout), and the reader's answer never changes a run's stored terminal state: 'unknown' is a view until the host returns and reports.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c10",
+      "kind": "requirement",
+      "text": "Finished runs stop accumulating: there is a way to list the runs/<id> branches a repository holds, and a rule for removing one that requires positive evidence its commits are kept elsewhere (merged, or on another ref). Unknown liveness defers removal; nothing is force-deleted.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h10",
+          "text": "Removal never runs 'git branch -D'. The evidence rule (merged into a named ref, or reachable from another ref) is checked by git itself, and a branch whose run is 'unknown' or still retained is skipped and listed as skipped.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c11",
+      "kind": "requirement",
+      "text": "The three recovery gaps recorded after D1 are closed: a cancel whose grace period ends during retention cleanup still leaves a retention record, the worker's 'conflict' reply on a refused append has a test, and the daemon installs its signal handlers before it reports that it is listening.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h11",
+          "text": "Each of the three gaps has a test that fails on today's main and passes after the fix: late cancel during retention cleanup still leaves a retention record; the worker's 'conflict' reply; signal handlers installed before the 'listening' log line (core/src/daemon/main.ts:135-139).",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c12",
+      "kind": "decision",
+      "text": "D2 ships as control API version 3.0, one deliberate major bump that carries every contract change of the gate together, instead of a series of bumps.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c13",
+      "kind": "decision",
+      "text": "D2 is delivered in two parts. Part one stays on one host: reattach after restart, concurrent runs in one repository, idempotent submit, operator questions, branch cleanup and the three known gaps. Part two adds more than one host: a network transport with authenticated callers, placement and admission, and halted-host detection. Part one does not wait for the decisions part two needs.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [
+        {
+          "id": "q3",
+          "text": "Decision 3 of issue #2 (who owns a run, and who may attach to, steer or answer someone else's) is still open (docs/d0/decisions.md:78-93). Operator answers and any network transport both need it. Do you want it settled inside D2, and for part one is 'the socket owner may do everything' still enough?",
+          "resolved": false,
+          "blocking": false,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c14",
+      "kind": "assumption",
+      "text": "A fleet is one core per host, each owning its own run store, sandboxes and repositories; a caller reaches a remote core over the network rather than one central controller driving every host.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [
+        {
+          "id": "q2",
+          "text": "Which machines are the fleet for D2, and how do they reach each other? No record names them: the D0 and D1 documents describe one x86_64 host, and other repos' docs use spark, spark2, thor, odin and orin only as examples. I need the hosts, whether a repository exists on more than one of them, and the network between them (LAN, tailnet, ssh).",
+          "resolved": false,
+          "blocking": true,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c15",
+      "kind": "assumption",
+      "text": "D2 needs no message broker. Waiting on a run stays a read of its per-run event log by cursor, and cross-host control is a request to that host's core.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [
+        {
+          "id": "q4",
+          "text": "Issue #5 carries your suggestion of MQTT for event polling and cross-machine control. The cursor contract does not need a broker, and events-cli already runs one for embodiment and culture-rules. Should D2 stay broker-free, or publish run events to events-cli as an optional second transport?",
+          "resolved": false,
+          "blocking": false,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c16",
+      "kind": "non_goal",
+      "text": "pause, resume, session continuation, agent-to-agent delegation and the 'artifacts' verb stay deferred after D2 and keep answering 'unsupported'. Issue #2's D2 gate names none of them.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [
+        {
+          "id": "q5",
+          "text": "The hands-on test found that steer is not preemption: both drivers deliver it into the running turn (claude-code/backend.ts:98, opencode/turn.ts:147) and it landed after the batch it was meant to redirect. Should D2 add an interrupting variant (cancel the turn, then re-prompt in the same session), or only say this more prominently where steer is documented?",
+          "resolved": false,
+          "blocking": false,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c17",
+      "kind": "non_goal",
+      "text": "D2 changes no sibling repository. heat-governor and lobes are read as they are, cultureagent and agent-lifecycle are cited and not edited or archived, and anything a sibling lacks is filed as an issue on that repository.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c18",
+      "kind": "non_goal",
+      "text": "No workledger-cli integration in D2.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c19",
+      "kind": "boundary",
+      "text": "The contract keeps its D1 guarantees: no AI SDK type appears in it, an unsupported action is refused with the typed 'unsupported' error naming the capability, the event cursor stays per run, gapless and never reset, a terminal state is final, and 'unknown' is never reported as success.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h12",
+          "text": "The contract tests that hold these guarantees in D1 still pass unchanged in meaning under API 3.0; a guarantee that 3.0 must weaken is listed in the spec as a breaking change, not changed silently.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c20",
+      "kind": "boundary",
+      "text": "Workers stay detached processes that never depend on the core: a core stop or crash never signals them, each one enforces its own deadline and writes its own terminal event, and the per-run control socket protocol does not change.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h13",
+          "text": "A test stops and kills the core while runs are active and asserts that no worker received a signal and each run still reached its own terminal event or deadline.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c21",
+      "kind": "boundary",
+      "text": "Local use keeps its D1 security posture: the owner-only Unix socket, deny by default dispatch, and an exact-match allow-list that no API route can read or write. A network transport is added beside the socket, not in place of it.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h14",
+          "text": "With no network transport configured, the core opens no listening TCP socket (checked in a test), and the allow-list file is not reachable through any route, new or old.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c22",
+      "kind": "non_goal",
+      "text": "The release workflow change (stage a dev version on pull requests, publish on main) is not part of D2; it goes out first as its own pull request.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c23",
+      "kind": "after_state",
+      "text": "After part one, on one host: a core that restarts steers, cancels and attaches to the workers that outlived it; one repository holds several active runs up to a stated bound; a repeated submit, steer or cancel with the same idempotency key takes effect once; a run's question to its operator is on disk and answerable after a restart; finished run branches can be listed and removed with evidence. After part two: the same control API is reachable on more than one host, a submit is admitted only where the host can take it, and a run on a halted host reads 'unknown'.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h15",
+          "text": "Each sentence of the after state maps to one requirement (c3, c4, c6, c7, c8, c9, c10); the part-two half is not claimed as delivered when only part one has shipped.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c24",
+      "kind": "before_state",
+      "text": "Today (D1, control API 2.0), a restarted core reads a surviving worker's state from disk but cannot steer, cancel or attach to it: reconnectWorker exists (core/src/worker/spawn.ts:201) and only tests call it. A second submit to a repository with an active run is refused as busy (core/src/runs/service.ts:117-129). The idempotency key is stored on the run (core/src/runs/service.ts:141) and never compared. 'answer' is always refused as unsupported (contract/api.json:477-480). The API is served on one Unix socket on one host. Nothing lists or removes runs/<id> branches.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h16",
+          "text": "Every file and line cited in the before state is re-read on main when the spec is exported, and a citation that has moved is corrected before export.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c25",
+      "kind": "why_it_matters",
+      "text": "Issue #2 allows archiving agent-lifecycle and cultureagent only after this repository passes recovery tests, and D3 to D5 (chat, culture-rules, embodiment) will submit work to it without a person watching. A caller that retries after a timeout, or reads state after a restart, has to get a true answer: one run, not two, and never a success the core did not observe.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h17",
+          "text": "The recovery tests issue #2 requires before archiving agent-lifecycle and cultureagent are named in the spec, and D2 states which of them it passes and which it leaves for D6.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c26",
+      "kind": "success_signal",
+      "text": "Part one passes a D2 acceptance suite in tests/acceptance/d2/ with a mock stage that always runs: (1) kill the core with 2 runs active in 1 repository, restart it, then steer one and cancel the other, and both take effect; (2) send the same submit 2 times with 1 idempotency key and count exactly 1 run, and the same key with a different request returns 'conflict'; (3) a run asks a question, the core restarts, the question is still pending, and 'agents runs answer' delivers it; (4) a submit past the concurrency bound is refused with a typed error; (5) 0 runs report 'succeeded' unless a worker wrote that terminal event.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h18",
+          "text": "The mock stage uses the real CLI and the real core with the stub harness, as the D1 suite does, and a live stage reports NOT VERIFIED when a harness is unavailable, never a pass.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c27",
+      "kind": "success_signal",
+      "text": "Part two passes on at least 2 real hosts: a submit from host A runs on host B and is steered and cancelled from A; with host B halted, every run that was active on it reads 'unknown' on A within a stated number of seconds and 0 read 'succeeded'; a submit to a host whose heat or gateway signal says hold is refused, and a missing signal reads 'unknown'.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h19",
+          "text": "The two hosts are real machines named by the owner (q2). Until they are named, part two has no success signal that can be run, and it is reported as not started.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    }
+  ],
+  "open_vagueness": [
+    {
+      "id": "v1",
+      "text": "How the core daemon is supervised (a systemd user unit, or started by the CLI) is still undecided. No unit file exists in the repository and the CLI only prints a hint. culture already installs systemd units for its server and agents (culture docs/durable-mesh.md). A fleet makes this matter more: a host that reboots has to bring its core back.",
+      "kind": "unknown_nonblocking",
+      "claim_id": "c13",
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v2",
+      "text": "Run logs and event streams are stored without redaction (core/src/store/files.ts:1-4, mode 0600). grant cannot help as it is: 'grant run --inject' execs the child and is gone, and hidden secrets cannot be listed, so a scrubber has no list of values. culture-rules has a Redactor (actors/secrets.py:123) that masks values it resolved itself. Redaction becomes pressing once logs cross hosts or operators answer questions in them.",
+      "kind": "unknown_nonblocking",
+      "claim_id": "c7",
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v3",
+      "text": "Decision 1 of issue #2 is open: which capabilities stay ours and which belong to the AI SDK adapter. Unverified in the adapter: stop, detach, resume across processes, approvals without allow-all, host tools (docs/d0/decisions.md:47-55, docs/d0/probe.md:286-295). Operator questions depend on the approvals answer, so it needs a probe before the plan.",
+      "kind": "unknown_nonblocking",
+      "claim_id": "c7",
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v4",
+      "text": "OpenShell is alpha. @ai-openshell/sdk is pinned at 0.1.10 and the calls used are wrapped in OpenShellClientLike (sandbox/openshell-client.ts:399-416), but the openshell CLI version ('sandbox ssh-config', 'provider get') is not checked by code.",
+      "kind": "unknown_nonblocking",
+      "claim_id": "c5",
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    },
+    {
+      "id": "v5",
+      "text": "Records that have gone stale and should be corrected when D2's documents are written: docs/d0/decisions.md:156-185 still lists the OpenCode path as open (the D1 frame's c63 and the live acceptance settled it); the D1 frame's parked item on reaching the local model gateway from the sandbox is settled by docs/d0/probe.md:132-146 (host.openshell.internal:8001); the published explainer predates both. The local cultureagent checkout is 2 commits behind upstream (0.15.2 against 0.17.0), so citations from it must be re-checked against upstream main.",
+      "kind": "follow_up",
+      "claim_id": null,
+      "resolved": false,
+      "resolution": "",
+      "resolution_claim_id": null
+    }
+  ],
+  "scope_entries": [
+    {
+      "id": "s1",
+      "surface": "core/src/runs/service.ts + core/src/worker/spawn.ts (restart and live control)",
+      "finding": "The only thing a restart loses is the in-memory map controls: Map<RunId, WorkerControl> (service.ts:60, filled only in submitNow at :171); the worker and its <rundir>/control.sock are intact. reconnectWorker (spawn.ts:201) already pings that socket and checks the PID, but only core/test/worker/worker.test.ts calls it. live_control is derived from controls.has(id) (store/derive.ts:334), so control is refused as unsupported('reconnect').",
+      "seeds": [
+        "c3"
+      ]
+    },
+    {
+      "id": "s2",
+      "surface": "core/src/sandbox/worktree.ts + naming.ts (git handoff)",
+      "finding": "worktree.ts contains no 'git worktree' command: prepare() bundles the base ref and clones it inside the sandbox (:107-159); collect() fetches refs/heads/runs/<id> back with a non-forced refspec and checks ancestry (:169-225). The only host write is that one ref. Sandbox name (ca-<sha256(runId)>), branch (runs/<runId>), bundle and ssh_config temp dirs are all per run id (naming.ts), so two runs on one repository collide on nothing at this layer.",
+      "seeds": [
+        "c5",
+        "c4"
+      ]
+    },
+    {
+      "id": "s3",
+      "surface": "core/src/runs/service.ts:117-129 + runs/scan.ts:68-108 (busy rule)",
+      "finding": "The one-run-per-repository limit is a policy check only: submitNow calls activeRunFor(scan, repo) and throws ControlError('busy'), keyed on the canonical repo string over the on-disk run store. No other admission limit exists (no global, per-agent, per-harness or per-host cap). The D1 acceptance suite asserts 'busy' (docs/d0/d1-acceptance.md:110-111), so those tests change with it.",
+      "seeds": [
+        "c4"
+      ]
+    },
+    {
+      "id": "s4",
+      "surface": "core/src/runs/service.ts:141 + runs/control.ts:52 (idempotency key)",
+      "finding": "The key is accepted on submit, steer and cancel and copied onto the run or action record, and nothing looks it up: a duplicate submit gets a new run id (or 'busy'), a duplicate steer is delivered twice. contract/README.md:301-313 says D1 does not promise deduplication and that it is 'planned for D2 and will be a versioned behaviour change'.",
+      "seeds": [
+        "c6"
+      ]
+    },
+    {
+      "id": "s5",
+      "surface": "cultureagent/bridges/core/idempotency.py + server.py (prior art, local checkout 0.15.2, 2 commits behind upstream)",
+      "finding": "The bridge reserves a key under a lock, replays the stored response to a duplicate, waits up to 10 s for an in-flight one and then answers 409 with Retry-After (server.py:318-350); one JSON file per sha256(key), written by temp file and rename (idempotency.py:40-100). It has no expiry, and it never compares the payload: the same key with a different request gets the old answer. D2 cites the reservation and replay, and adds the payload check and an expiry.",
+      "seeds": [
+        "c6"
+      ]
+    },
+    {
+      "id": "s6",
+      "surface": "culture-rules/culture_rules/engine/actorport.py + actors/agent.py (the D4 caller)",
+      "finding": "ActorPort.invoke passes one idempotency_key per run and step, identical across attempts, hosts and restarts, and requires the adapter to deduplicate on it; an adapter that cannot must set supports_idempotency_key = False and the step then fails as unsafe_retry. The bridge actor also sends a per-attempt id '<key>#<attempt>' (agent.py:1012-1034). D2's dedup has to return the earlier run for a repeated key so that D4 can use it unchanged.",
+      "seeds": [
+        "c6"
+      ]
+    },
+    {
+      "id": "s7",
+      "surface": "core/src/harness/claude-code/{agent,map}.ts + opencode/client.ts + daemon/routes.ts (operator questions)",
+      "finding": "Nothing represents a question today. Claude Code runs with permissionMode 'allow-all' (agent.ts:26) and maps a tool-approval-request to an error (map.ts:90-91); OpenCode sessions are created with an allow-everything permission (client.ts:82). The routes runs.pause, runs.resume and runs.answer exist and always refuse through refuseDeferred (routes.ts:53-63, 216-232). Whether the AI SDK adapter can run without allow-all is unverified (docs/d0/decisions.md:48-50).",
+      "seeds": [
+        "c7"
+      ]
+    },
+    {
+      "id": "s8",
+      "surface": "contract/control-action.json + event.json + run.json (questions in the contract)",
+      "finding": "answer_request exists with a free-string question_id that no schema produces. event.json has five kinds (run.state, run.output, run.control, run.refused, run.error) and none for a question; run.json has no waiting state and its transition table is closed. A question therefore needs a new event kind, probably a new state, and a question id with a defined source.",
+      "seeds": [
+        "c7"
+      ]
+    },
+    {
+      "id": "s9",
+      "surface": "embodiment issues #129 and #89 (the D5 caller)",
+      "finding": "#129 asks for an ask_operator tool that 'blocks until the operator answers' and gives up after 60 minutes by default, with the acceptance line 'A run that calls ask_operator shows a pending question... resumes on the operator's answer, and records a timeout when none comes', plus 'Run state is still listed after a daemon restart' and 'Two runs in the same repository work in separate worktrees and branches'. These are the requirements D2's operator questions and concurrency have to satisfy for D5.",
+      "seeds": [
+        "c7",
+        "c4"
+      ]
+    },
+    {
+      "id": "s10",
+      "surface": "heat-governor docs/contracts/state.md + heat_governor/client.py (0.20.1)",
+      "finding": "The daemon writes state.json about once a second (path: $HEAT_GOVERNOR_STATE, else $XDG_RUNTIME_DIR/heat-governor/state.json) with host, at, stale_after_s, level, admit and concurrency_factor (1.0, 0.5, 0.0). admit is false in hot and critical. It gates new work only and never interrupts running work. The reference client admits by default when the file is missing or stale (if_unknown='admit'); a conservative reader must pass 'hold'. A fleet read exists ('heat-governor mesh status --json', host list in fleet.toml, read over ssh); its authenticated network listener is marked planned.",
+      "seeds": [
+        "c8"
+      ]
+    },
+    {
+      "id": "s11",
+      "surface": "lobes-cli lobes/gateway/server.py:4593-4690 (GET /status, 0.99.0)",
+      "finding": "The model gateway on port 8001 is lobes. /status returns busy{running, waiting}, backends[] with an optional declared capacity, and pressure{shed, reason, thermal_shedding}; the gateway answers 429 while shed is true. There is no explicit admit flag and capacity can be absent. harness/availability.ts:37-60 does not probe this gateway, so OpenCode reports available:true while its model is down and the turn fails at run time.",
+      "seeds": [
+        "c8"
+      ]
+    },
+    {
+      "id": "s12",
+      "surface": "docs/d0/decisions.md:122-136 (Decision 6, closed) + runs/service.ts:112-114",
+      "finding": "Decision 6 is closed: placement reads heat-governor's state and the lobes status endpoint as they are, and a missing or stale signal reads as unknown (old frame claim c29). The placement logic itself is 'which is D2' and nothing implements it; today a submit for another node is refused as unsupported('placement').",
+      "seeds": [
+        "c8"
+      ]
+    },
+    {
+      "id": "s13",
+      "surface": "core/src/store/liveness.ts:154-179 + store/derive.ts:307-336 (liveness and the unknown rule)",
+      "finding": "On one host this is already true: liveness is the worker PID plus its /proc start time plus the boot_id recorded in worker.json, a reboot or a reused PID reads as dead, and a run with no terminal event and no live worker settles as 'unknown' (terminal). The worker also enforces the deadline itself (worker/run-loop.ts:241-253), so a down core does not affect it. Nothing detects a halted remote host: there is no host heartbeat, no host state and no health event in the contract.",
+      "seeds": [
+        "c9"
+      ]
+    },
+    {
+      "id": "s14",
+      "surface": "core/src/sandbox/worktree.ts (run branches) + cultureagent/bridges/core/reap.py",
+      "finding": "No code lists, prunes, merges or expires runs/<id> branches: the only branch operations are the fetch and the update-ref -d rollback on a failed ancestry check. This repository holds 7 such branches now. cultureagent's reap.py is the rule to cite: reaping needs positive evidence the work is durable (:22-47), unknown liveness defers everything (:503-510), there is no --force, and planning (reap.py) is separate from mutation (reclaim.py). It is a manual CLI there; nothing calls it automatically.",
+      "seeds": [
+        "c10"
+      ]
+    },
+    {
+      "id": "s15",
+      "surface": "core/src/worker/run-loop.ts:197-234,267 + daemon/main.ts:135-139 (known gaps)",
+      "finding": "retained.json is written only in the 'failed' case (run-loop.ts:198); the cancel grace timer (:227-234) disposes and finishes with no writeRetained, so reclaim() deletes that sandbox. The conflict reply is at run-loop.ts:267 and no test asserts it. main.ts writes 'listening' to stderr at :135 and installs SIGTERM and SIGINT handlers at :138-139; core/test/daemon/lifecycle.test.ts:81-93 waits for that 'listening' line and then signals, so a signal landing in between takes the default action and ends the process by signal, which is the failure seen once in CI. That cause is plausible, not proven; issue #5 says the startup race 'is not it'.",
+      "seeds": [
+        "c11"
+      ]
+    },
+    {
+      "id": "s16",
+      "surface": "contract/README.md:76-100 + capabilities.json (versioning rules)",
+      "finding": "Under the contract's own rules almost every D2 change is MAJOR: a deferred capability becoming supportable (capabilities.json pins the deferred set to supported:false, so flipping worktree_isolation, reconnect, placement or answer changes the schema), any new event kind, any new state, any new field on run, agent or run_result (objects are closed). Only a new route or a new optional request field is MINOR. The README calls idempotency dedup 'a versioned behaviour change' without saying which bump.",
+      "seeds": [
+        "c12"
+      ]
+    },
+    {
+      "id": "s17",
+      "surface": "core/src/daemon/daemon.ts + culture_agents/cli/_client.py (transport and authentication)",
+      "finding": "The daemon listens on a Unix socket only (daemon.ts:344,352), owner-only by a 0700 directory and a 0600 socket; there is no TCP listener, token or TLS. The 'caller' principal in each request is client-supplied and not authenticated (runs/service.ts:142). The CLI client is hard-wired to AF_UNIX and takes a path only (_client.py:121-131,162). Agent ids already carry a node ('<node>-<agent>'), and the allow-list is keyed on (agent_id, harness, repo) with no host.",
+      "seeds": [
+        "c13",
+        "c14"
+      ]
+    },
+    {
+      "id": "s18",
+      "surface": "core/src/harness/config.ts + sandbox/run-sandbox.ts (host-bound assumptions)",
+      "finding": "A run is tied to one machine in several places: the repository is an absolute local path and runs/<id> is fetched into that local repository; the OpenShell gateway defaults to 127.0.0.1:17670 with a local TLS directory; the sandbox endpoint is forwarded to a host loopback port (run-sandbox.ts:238-246); the model gateway is host.openshell.internal:8001; the image tag culture-agents-run:dev is local; retained.json and the run store are local files. This fits one core per host, each with local repositories, and does not fit a core that drives sandboxes on another machine.",
+      "seeds": [
+        "c14"
+      ]
+    },
+    {
+      "id": "s19",
+      "surface": "docs/d0 records + culture mesh.yaml + heat-governor fleet.toml (the fleet itself)",
+      "finding": "docs/d0/compatibility-matrix.md:161-162 says 'Nothing about the fleet: every probe ran on one x86_64 host'. culture's ~/.culture/mesh.yaml lists only this node's peer links and no command enumerates hosts; heat-governor's fleet.toml is a host list read over ssh with placeholder names in the tracked example; culture-rules keeps its own machine and heartbeat registry. No cross-reference between these lists exists.",
+      "seeds": [
+        "c14"
+      ]
+    },
+    {
+      "id": "s20",
+      "surface": "embodiment/embodiment/bus.py + culture-rules/culture_rules/events/events_cli_adapter.py (brokers)",
+      "finding": "MQTT is already the events substrate elsewhere in the workspace, through events-cli ('events-cli owns the MQTT broker'); there is no mosquitto, nats or redis in culture, heat-governor or lobes-cli. In culture-agents the event cursor is per run, gapless, and 'the position in the log, not the transport' (contract/README.md:250-262), and issue #5 records the broker only as a suggestion to decide.",
+      "seeds": [
+        "c15"
+      ]
+    },
+    {
+      "id": "s21",
+      "surface": "core/src/harness/common/capabilities.ts:73-87 + issue #2 delivery plan",
+      "finding": "The shared capability block marks pause, resume, answer, continue_session, delegate, placement, reconnect and worktree_isolation as deferred for every harness. Issue #2's D2 line names concurrency, placement, idempotency, restart reconciliation, halted hosts and operator questions, which maps to answer, placement, reconnect and worktree_isolation. The other four are not in the gate; delegation also has no authority schema at all (submit_request.parent_run_id is request-side only).",
+      "seeds": [
+        "c16"
+      ]
+    },
+    {
+      "id": "s22",
+      "surface": ".devague/handoff-issue-2.md:122-124 + agent-lifecycle/agent_lifecycle/runtime (0.11.0, level with upstream)",
+      "finding": "The permission to change siblings by pull request 'ended with' D0 and D1; cross-repo work goes back to issues. agent-lifecycle keeps all supervision state in memory (the restart budget is an in-memory deque, restart_policy.py; no file writes in the package), so its restart recovery cannot be ported as is. What is worth citing: exit classification, the rolling-window restart budget and backoff (base 1.0, factor 2.0, cap 60.0), with an injectable clock.",
+      "seeds": [
+        "c17"
+      ]
+    },
+    {
+      "id": "s23",
+      "surface": "workledger-cli (0.7.0, main)",
+      "finding": "The repository is a scaffold: its CLI has only whoami, learn, explain, overview, doctor and cli overview, and no ledger verb or record schema exists. The design lives in its issues #1, #4 and #6. There is nothing for a run to reference yet.",
+      "seeds": [
+        "c18"
+      ]
+    },
+    {
+      "id": "s24",
+      "surface": "contract/README.md (rules to keep) + docs/specs/2026-11-24-issue-2-cross-repo-reorganization.md",
+      "finding": "These are confirmed claims of the D1 frame (c12 no AI SDK types; c10 and c43 honest capability reporting; c42 terminal states; spec:73 'a run whose outcome cannot be established reads unknown, never succeeded') and README rules (cursor :250-262, check order :161-179, closed objects). The Python CLI validates every core response against the same schemas, so each of them is tested from both sides.",
+      "seeds": [
+        "c19"
+      ]
+    },
+    {
+      "id": "s25",
+      "surface": "core/src/worker/{spawn,main,run-loop,control}.ts",
+      "finding": "The worker is spawned detached and unref'd with stdio to worker.log (spawn.ts:161-177), ignores SIGHUP (main.ts:249), runs the driver to completion and writes the terminal event itself (run-loop.ts:94-151). Control is one newline-delimited JSON request and reply per connection on <rundir>/control.sock, mode 0600 (control.ts:1-21). test/runs/restart.test.ts:25,82 pins the behaviour. Reattaching needs none of this to change.",
+      "seeds": [
+        "c20",
+        "c3"
+      ]
+    },
+    {
+      "id": "s26",
+      "surface": "core/src/daemon/allowlist.ts + daemon.ts:260-357",
+      "finding": "The allow-list is keyed on (agent_id, harness, canonical repo) with no wildcard, loaded from culture-agents/allowlist.json under the user's XDG config directory and re-read on every call; a missing or invalid file counts as empty (allowlist.ts:456-500). The socket directory is 0700 and refused when owned by another uid; the socket is 0600 and verified. Old frame claim c45 confirmed deny by default, enforced by the core.",
+      "seeds": [
+        "c21"
+      ]
+    },
+    {
+      "id": "s27",
+      "surface": ".github/workflows/publish.yml + npm staged publishing docs (docs.npmjs.com/staged-publishing, /trusted-publishers)",
+      "finding": "Decided by the owner on 2026-11-25: each same-repository pull request stages <version>-dev.<run number> with --tag dev, and main publishes the real version. npm's docs confirm a staged version blocks publishing that version, that 'npm stage publish' works with a trusted publisher while approve, reject, list and view do not, and that a pre-release needs an explicit tag. They state no expiry for staged versions, so each one stays until the owner rejects it with 2FA.",
+      "seeds": [
+        "c22"
+      ]
+    }
+  ],
+  "lapses": [],
+  "obligations": []
+}

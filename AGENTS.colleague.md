@@ -93,6 +93,11 @@ usage, the full skill kit list).
 - **Dependencies:** `agentfront` and `jsonschema` are the approved Python
   runtime dependencies; any other needs the owner's approval. `teken` and
   `pyyaml` are dev-only. Every npm dependency in `core/package.json` is an exact pin.
+- **Deploy:** a push to `main` publishes npm, then PyPI, via Trusted Publishing
+  (`.github/workflows/publish.yml`). Pull requests do an npm dry-run; same-repo
+  pull requests also stage a development version on npm
+  (`<version>-dev.<run>.<attempt>`, tag `dev`, not publicly installable, removed
+  only by the owner with 2FA) and publish a dev build to TestPyPI.
 - **Every tracked Python and TypeScript file stays at or under 400 lines**
   (`spikes/` and vendored skills are exempt). Split modules before crossing
   the cap.
