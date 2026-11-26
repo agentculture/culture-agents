@@ -11,6 +11,7 @@
  */
 import { scrubSecrets } from "../daemon/secrets.js";
 import { spawn } from "node:child_process";
+import { workerEnv } from "../trace/config.js";
 import { closeSync, openSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -169,7 +170,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
         cwd: dir,
         detached: true,
         stdio: ["ignore", logFd, logFd],
-        env: scrubSecrets(options.env ?? process.env),
+        env: workerEnv(scrubSecrets(options.env ?? process.env)),
       });
     } finally {
       closeSync(logFd);

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { startPublishing } from "../publish/index.js";
+import { startTracing } from "../trace/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
 import { retentionFromEnv, pruneFinishedRuns } from "../store/retention.js";
@@ -176,6 +177,8 @@ async function serveUntilStopped(
   }
   // Run events also go to the events broker when one is configured. Never awaited by a request, never needed by a run.
   const publishing = runs ? await startPublishing({ stateDir, node, env, log: err }) : null;
+  // Run traces go to Langfuse when an endpoint is configured; same rules: never awaited by a request, never needed by a run.
+  const tracing = runs ? startTracing({ stateDir, node, env, log: err }) : null;
   // Sandboxes of finished runs that their workers could not delete: at startup, then periodically.
   const reclaim = (): void => {
     runs?.reclaim().then(
@@ -209,6 +212,7 @@ async function serveUntilStopped(
   clearInterval(pruneTimer);
   const stopping = (async () => {
     await publishing?.stop();
+    await tracing?.stop();
     await daemon.stop();
     await stateLock?.release();
   })();
