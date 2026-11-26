@@ -24,7 +24,7 @@ export function createDriver(context: DriverContext): Driver {
   const options = context.options as ClaudeCodeDriverOptions;
   const run = context.run;
   const driver = new RunDriver(
-    new SandboxWorkspaceFactory(run.id, run.repo, options.sandbox),
+    new SandboxWorkspaceFactory(run.id, run.repo, options.sandbox, undefined, run.base_commit),
     new ClaudeCodeBackend(run.id, options.model, realAgentFactory, options.tap),
     {
       task: run.task,

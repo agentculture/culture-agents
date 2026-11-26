@@ -3,6 +3,8 @@
  * socket, the real store and real worker processes running the fake driver. Every response is
  * validated against the contract. Cleanup kills every daemon and worker and removes the tree.
  */
+import { execFileSync } from "node:child_process";
+import { hostEnv } from "../../src/sandbox/host-command.js";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -58,6 +60,7 @@ export function makeEnv(t: TestContext, harnesses: FakeHarness[] | null): Env {
   };
   const configHome = join(root, "config");
   for (const dir of [env.repoA, env.repoB, join(configHome, "culture-agents")]) mkdirSync(dir, { recursive: true });
+  for (const dir of [env.repoA, env.repoB]) commitedRepo(dir);
   const ids = (harnesses ?? [HANG]).map((h) => h.id);
   const entries = ids.flatMap((harness) => [env.repoA, env.repoB].map((repo) => ({ agent_id: AGENT, harness, repo })));
   writeFileSync(join(configHome, "culture-agents", "allowlist.json"), JSON.stringify({ version: 1, entries }));
@@ -235,4 +238,11 @@ export function attach(env: Env, id: string, after: number): Promise<Attach> {
     req.on("error", reject);
     req.end();
   });
+}
+
+/** Make `dir` a git repository with one commit (a submit resolves its base commit when accepted). */
+export function commitedRepo(dir: string): void {
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: hostEnv() });
+  git("init", "-q", "-b", "main");
+  git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "--allow-empty", "-m", "one");
 }

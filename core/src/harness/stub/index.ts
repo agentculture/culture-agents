@@ -32,7 +32,7 @@ export function createDriver(context: DriverContext): Driver {
   const options = context.options as StubDriverOptions;
   const run = context.run;
   const driver = new RunDriver(
-    new StubWorkspaceFactory(run.id, run.repo, { ref: options.ref, identity: options.identity }),
+    new StubWorkspaceFactory(run.id, run.repo, { ref: run.base_commit ?? options.ref, identity: options.identity }),
     new StubBackend(options.stepMs === undefined ? {} : { stepMs: options.stepMs }),
     { task: run.task, commitMessage: `run ${run.id}: changes by stub`, processSettleMs: 0 },
   );

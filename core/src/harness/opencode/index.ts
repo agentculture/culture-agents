@@ -19,7 +19,7 @@ export interface OpenCodeDriverOptions {
 export function createDriver(context: DriverContext): Driver {
   const options = context.options as OpenCodeDriverOptions;
   const run = context.run;
-  const driver = new RunDriver(new SandboxWorkspaceFactory(run.id, run.repo, options.sandbox), new OpenCodeBackend(options.opencode), {
+  const driver = new RunDriver(new SandboxWorkspaceFactory(run.id, run.repo, options.sandbox, undefined, run.base_commit), new OpenCodeBackend(options.opencode), {
     task: run.task,
     commitMessage: `run ${run.id}: changes by opencode`,
     ...(options.stopSettleMs === undefined ? {} : { stopSettleMs: options.stopSettleMs }),

@@ -33,6 +33,7 @@ import {
   type SubmitResponse,
 } from "../contract/index.js";
 import type { AllowlistState } from "../daemon/allowlist.js";
+import { resolveBaseCommit, startRef } from "./base-commit.js";
 import { ControlError, notFound, unavailable, unsupported } from "../daemon/errors.js";
 import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../daemon/ports.js";
 import { deriveRun } from "../store/derive.js";
@@ -174,6 +175,7 @@ export class StoreRunService implements RunService {
       });
     }
     // Step 8: create the session and run, start the worker, acknowledge once durable.
+    const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
     const created = this.now();
     const run = buildRunId(request.agent_id, newUlid(created.getTime()));
     const record: Run = {
@@ -197,6 +199,7 @@ export class StoreRunService implements RunService {
       live_control: true,
       worker_pid: null,
       branch: null,
+      base_commit: baseCommit,
     };
     // On disk: the key, then the run directory, then the worker.
     const fault = this.options.submitFault ?? (() => undefined);
