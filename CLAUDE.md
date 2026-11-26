@@ -94,6 +94,7 @@ markdownlint-cli2 "**/*.md" "#**/node_modules" "#.local" "#.claude/skills" "#.te
 uv run teken cli doctor . --strict        # agent-first rubric gate
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost endpoints
 python3 scripts/check-file-length.py      # 400-line cap per tracked Python and TypeScript file
+python3 scripts/check-example-node.py     # ids and node fields name only the example node, thor
 uv run python scripts/harness-smoke.py --stage all --require config  # all five harness configs
 ```
 

@@ -88,6 +88,9 @@ jobs:
       - name: file length (max 400 lines per tracked Python/TypeScript file)
         run: python3 scripts/check-file-length.py
 
+      - name: example node (ids and node fields name only the example node)
+        run: python3 scripts/check-example-node.py
+
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
