@@ -36,8 +36,8 @@ export type DeferredRequest = PauseRequest | ResumeRequest | AnswerRequest;
  *   control routes, and the always-refused routes (pause, resume, answer). It decides that refusal
  *   itself (step 4) and hands it to `recordRefusal`, because only the run logic can write a run's log.
  * - `submit` receives a request that already passed the allow-list, with `repo` canonicalized
- *   (realpath). It performs steps 4 to 7 of the submit order (harness known and available,
- *   capabilities, busy, create session and run, start the worker).
+ *   (realpath). It performs steps 4 to 8 of the submit order (harness known and available,
+ *   capabilities, idempotency key, busy, write the key, create session and run, start the worker).
  * - `steer` and `cancel` perform steps 5 to 9 of the control order (capability, state, live
  *   control, delivery) and return the accepted action record.
  */

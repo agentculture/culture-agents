@@ -152,14 +152,14 @@ export class StoreRunService implements RunService {
     }
     if (request.session_id !== undefined) throw unsupported("continue_session", "Continuing a session is not supported in this API version.");
     if (request.parent_run_id !== undefined) throw unsupported("delegate", "Delegating from a parent run is not supported in this API version.");
-    // A known idempotency key: the first run (replayed) or `conflict`, before the busy check.
+    // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the busy check.
     const key = request.idempotency_key;
     const digest = key === undefined ? null : requestDigest("submit", request);
     if (key !== undefined && digest !== null) {
       const replay = replaySubmit(this.keys, key, digest, (id) => this.read(id));
       if (replay !== null) return replay;
     }
-    // Step 6: one active run per canonical repository (the server passes `repo` canonicalized).
+    // Step 7: one active run per canonical repository (the server passes `repo` canonicalized).
     const unreadable = unreadableRunHolding(this.scan, request.repo);
     if (unreadable !== null) {
       throw new ControlError("internal", `Run ${unreadable} has a live worker but its stored state cannot be read, so ${request.repo} may be in use; resolve that run before submitting here.`);
@@ -171,7 +171,7 @@ export class StoreRunService implements RunService {
         repo: request.repo,
       });
     }
-    // Step 7: create the session and run, start the worker, acknowledge once durable.
+    // Step 8: create the session and run, start the worker, acknowledge once durable.
     const created = this.now();
     const run = buildRunId(request.agent_id, newUlid(created.getTime()));
     const record: Run = {

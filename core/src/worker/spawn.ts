@@ -4,7 +4,7 @@
  * `spawnWorker` resolves only after the durability condition holds: the worker's identity
  * (pid), its event log with event 1 (`null` -> `queued`) and its cursor are on disk, owner-only,
  * and its control socket answers. Only then may the daemon acknowledge the submit (README,
- * order of checks for runs.submit, step 7).
+ * order of checks for runs.submit, step 8).
  *
  * `reconnectWorker` finds a surviving worker after a daemon restart and reports whether its
  * control socket answers. It never signals or terminates the worker.
