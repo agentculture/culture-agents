@@ -40,6 +40,7 @@ packages = ["culture_agents"]
 "contract/agent.json" = "culture_agents/contract/agent.json"
 "contract/allowlist.json" = "culture_agents/contract/allowlist.json"
 "contract/api.json" = "culture_agents/contract/api.json"
+"contract/branches.json" = "culture_agents/contract/branches.json"
 "contract/capabilities.json" = "culture_agents/contract/capabilities.json"
 "contract/common.json" = "culture_agents/contract/common.json"
 "contract/control-action.json" = "culture_agents/contract/control-action.json"
