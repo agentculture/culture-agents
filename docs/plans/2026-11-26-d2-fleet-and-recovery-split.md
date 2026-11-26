@@ -35,21 +35,21 @@ Edit the Owner/Model columns before approving gate 2 — the default Model is a 
 | `t14` | Claude subagent on the host (adds an npm dependency; the sandbox has no registry) | session model |
 | `t15` | agents run, opencode harness | local gateway, cortex role |
 | `t5` | agents run, opencode harness | local gateway, cortex role |
-| `t6` | agents run, claude-code harness | sonnet |
+| `t6` | agents run, claude-code harness | opus |
 | `t10` | agents run, claude-code harness (moved from OpenCode: one OpenCode run at a time) | sonnet |
 | `t7` | agents run, opencode harness | local gateway, cortex role |
 | `t11` | agents run, claude-code harness | sonnet |
 | `t12` | agents run, opencode harness | local gateway, cortex role |
-| `t8` | agents run, claude-code harness | sonnet |
-| `t13` | agents run, claude-code harness | sonnet |
+| `t8` | agents run, claude-code harness | opus |
+| `t13` | agents run, claude-code harness | opus |
 | `t17` | agents run, opencode harness | local gateway, cortex role |
 | `t16` | agents run, opencode harness | local gateway, cortex role |
 | `t18` | agents run, claude-code harness | sonnet |
 | `t19` | agents run, opencode harness | local gateway, cortex role |
 | `t20` | Claude subagent on the host | session model |
-| `t21` | agents run, claude-code harness | sonnet |
+| `t21` | agents run, claude-code harness | opus |
 | `t22` | agents run, opencode harness | local gateway, cortex role |
-| `t23` | agents run, claude-code harness | sonnet |
+| `t23` | agents run, claude-code harness | opus |
 | `t24` | agents run, opencode harness | local gateway, cortex role |
 | `t25` | agents run, opencode harness | local gateway, cortex role |
 | `t26` | agents run, opencode harness | local gateway, cortex role |
