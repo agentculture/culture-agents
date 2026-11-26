@@ -36,14 +36,22 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 to t17, t29 | merged |
+| t1 to t18, t29 | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t18 part one acceptance suite (Claude Code, sonnet) | running, dispatched 23:13 UTC, run `spark-culture-agents.run.01M8D24RXDXGVBDQGCG56YFH7Q` |
-| t19 documents | blocked on t18; part two (t20 to t26, t28) after t18 |
+| t19 documents (Claude Code, sonnet) | running, dispatched 23:33 UTC, run `spark-culture-agents.run.01M8D3AN0ZC3XW6NJSEB79114R` |
+| part two (t20 to t26, t28) | not started; t20 needs the owner's approval before t21 to t26 |
 
-After t18 merges, run the live stage on the host
-(`CULTURE_AGENTS_ACCEPTANCE_LIVE=1`) and fill in
-`docs/d2/part-one-acceptance.md`.
+The live stage of the part one acceptance suite was run on the host for
+Claude Code only (timing check measured; see
+`docs/d2/part-one-acceptance.md`). OpenCode is NOT VERIFIED: its check starts
+3 local-model runs at once, against the owner's 1-at-a-time rule. To run the
+live stage: source the scratchpad `core-env.sh` in a subshell, put the
+OpenShell binary's directory on `PATH`, set
+`CULTURE_AGENTS_ACCEPTANCE_LIVE=1`.
+
+After t19: bump the version, write the changelog, pre-PR review in OpenCode,
+open the pull request with the `cicd` skill, then `/validate-delivery` and
+`/summarize-delivery`.
 
 Deviation `d3` (proposed, waits for the owner): t13 built operator questions
 for the stub driver only; the Claude Code and OpenCode drivers have no ask
@@ -55,8 +63,8 @@ call as text and the turn ended. Its only commit is a stray
 `core/node_modules` symlink; do not merge that branch. Recorded as plan risk
 r15.
 
-Last merge gate (after t16, 23:12 UTC), on the merged tree: core 652 passed
-and 8 skipped, Python 1687 passed and 9 skipped, lint, contract types and the
+Last merge gate (after t18, 23:32 UTC), on the merged tree: core 652 passed
+and 8 skipped, Python 1693 passed and 13 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
 merge, the gate, the commit and the dispatch.
