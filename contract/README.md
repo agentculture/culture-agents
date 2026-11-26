@@ -139,11 +139,11 @@ behaviour inside 3.0, without another bump.
 | `run.control` records a steer or a cancel only | event | tightened: an accepted answer is a `run.answer` | this change |
 | `answer_request`: `question_id` must be a question id; `answer` is optional; `choice_ids` and `decision` are new | `runs.answer` request | `caller` and `question_id` are required | t13 (core), t16 (CLI), *shape only* |
 | `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13; until then it is refused as `unsupported` |
-| `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`, built), t17 (`warnings`, *shape only*) |
+| `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`, built), t17 (`warnings`, built) |
 | `replayed` on the accepted action response | `accepted_response` | optional | t6 (built) |
 | `runs.submit` may answer `conflict` and `limit_reached` | route | | t6 (`conflict`, built), t8 (`limit_reached`, built) |
 | `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | `reconnect` and `worktree_isolation` are reported supported; `answer` is still reported unsupported | t13, t9 (built), t8 (built) |
-| `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17 (`limits` are read from the configuration t8 added, built), *shape only* |
+| `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17, built |
 
 `busy` is removed in 3.0 (t8, built): the error code, its `active_run_id` and `repo` fields and the one-active-run-per-repository rule are gone from the schemas, this file and the CLI. Two or more runs may be active in one repository; no limit applies unless the operator configures one, and a submit past a configured limit gets `limit_reached`.
 
@@ -574,7 +574,7 @@ survived a core restart; a run whose stored state cannot be read but whose
 worker may be alive also counts, against every repository when its record
 cannot be read either.
 
-**(planned, t17.)** A capability document may carry three optional fields
+**(built, t17.)** A capability document carries three optional fields
 about the core's own host. They never describe another host.
 
 - `limits`: every limit by name, `runs_per_repository` and `runs_per_host`.
@@ -588,7 +588,11 @@ about the core's own host. They never describe another host.
   signal is `unknown`. It is never read as `admit`, and it is never a failure
   of the control plane.
 
-A local submit under an `unknown` signal is admitted, and the submit response
+The heat signal is read from heat-governor's `state.json` as it publishes it
+(`$HEAT_GOVERNOR_STATE`, else `$XDG_RUNTIME_DIR/heat-governor/state.json`; `at`
+in epoch seconds, `stale_after_s`, `admit`). The gateway is not consulted yet.
+
+A local submit under an `unknown` consulted signal is admitted, and the submit response
 then carries a `warnings` entry with code `signal_unknown` naming the signal.
 
 ## Retention of finished runs

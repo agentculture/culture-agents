@@ -69,3 +69,33 @@ def test_stopped_core_exits_2_with_a_hint(no_core, capsys, verb) -> None:
     assert "error: cannot reach the core" in r.err
     assert "hint:" in r.err
     assert "Traceback" not in r.err
+
+
+def test_status_reports_limits_active_runs_and_admission_in_text_and_json(
+    core, capsys: pytest.CaptureFixture[str]
+) -> None:
+    doc = fixture("capabilities", "root.with-limits-and-admission")
+    core.overrides["GET /v1/harnesses/{id}"] = (200, doc)
+    text = run(capsys, "agents", "status", AGENT_ID)
+    assert text.rc == 0
+    assert "limit runs_per_repository: 2" in text.out
+    assert "limit runs_per_host: none set" in text.out
+    assert f"active runs: {doc['active_runs']}" in text.out
+    assert f"admission heat: {doc['admission']['heat']['state']}" in text.out
+    assert "admission gateway: unknown (not consulted)" in text.out
+    as_json = run(capsys, "agents", "status", AGENT_ID, "--json")
+    assert as_json.rc == 0
+    for harness in as_json.json()["harnesses"]:
+        assert harness["limits"] == doc["limits"]
+        assert harness["active_runs"] == doc["active_runs"]
+        assert harness["admission"] == doc["admission"]
+
+
+def test_status_states_unknown_signals_and_no_limits(
+    core, capsys: pytest.CaptureFixture[str]
+) -> None:
+    doc = fixture("capabilities", "root.no-limits-signals-unknown")
+    core.overrides["GET /v1/harnesses/{id}"] = (200, doc)
+    r = run(capsys, "agents", "status", AGENT_ID)
+    assert "limit runs_per_repository: none set" in r.out
+    assert "admission heat: unknown - no heat state was found on this host" in r.out

@@ -1,0 +1,31 @@
+# Task report: t17, capability report (limits, active runs, admission per signal)
+
+## Built
+- `core/src/runs/admission.ts` (new): reads the heat signal, reports the gateway as not consulted, adds `limits`, `active_runs` and `admission` to every capability document, and builds `signal_unknown` warnings.
+- Heat is read as heat-governor publishes it. Path is `$HEAT_GOVERNOR_STATE`, else `$XDG_RUNTIME_DIR/heat-governor/state.json`. Fields: `at` as an epoch number, `stale_after_s`, `level`, `admit`. `admit` true reads admit and false reads hold. A missing, unreadable, malformed, stale or future-stamped reading reads unknown. The payload reader is injectable (`readHeat(..., read)`, `readHeatFile` on the service).
+- The gateway is `consulted: false`, state unknown, with the reason stated (lobes-cli issue 346 not released). It never produces a warning.
+- `core/src/runs/service.ts` (narrow edits): the capability documents behind `/v1/agents`, `/v1/harnesses` and `/v1/harnesses/{id}` carry the host report. A fresh submit adds `warnings` when a consulted signal is unknown, and omits `warnings` otherwise. `main.ts` passes `env` to the service.
+- One active-run function: `activeRunList(stateDir)` in `store/entries.ts`. The report (`countActiveRuns`) and the tracing `fleet.active_runs` gauge (`trace/follower.ts`) both count through it.
+- CLI: `culture_agents/cli/_render.py` `host_lines` renders limits ("none set" for null), active runs and per-signal admission. `agents agents status` shows them in text, and `--json` carries the contract payload unchanged.
+- `contract/README.md`: t17 rows marked built and the heat path documented.
+
+## Heat format: NOT VERIFIED
+heat-governor is not on this host and there is no network, so the publisher's `state.json` was not read. The format comes from the spec's citation of heat-governor `docs/contracts/state.md` and `heat_governor/client.py` (0.20.1), entry s10, plus the task note. The tests use payloads built from that description. A live read on a real host was not done. The pull request should cite `docs/specs/2026-11-25-d2-fleet-and-recovery.md` s10, not a file read here.
+
+## Tests and results
+- `cd core && npm run build && npm test`: 644 tests, 632 pass, 0 fail (the rest are skipped by existing opt-in gates).
+- `npm run lint`, `npm run typecheck` and `npm run check:contract-types` all passed.
+- `/usr/local/share/dogfood/venv/bin/python -m pytest -n auto -q`: 1672 passed, 9 skipped, 1 failed. The failure is `tests/test_contract_packaging.py::test_a_built_wheel_holds_the_schemas_byte_for_byte`. It cannot reach pypi to fetch hatchling, and it fails the same way with my changes stashed.
+- `scripts/check-example-node.py`, `scripts/scan-secrets.py` and `scripts/check-file-length.py` were all clean.
+
+## Acceptance
+1. The report states each limit or none, the active count and per-signal admit, hold or unknown: proven. `core/test/runs/admission.test.ts` ("the report states limits...", "configured limits appear...") runs the real daemon and validates against the schema.
+2. Heat is read as published; missing or stale reads unknown; a local submit under unknown is admitted with a warning: partly proven. The reader and the submit warning are proven by `admission.test.ts` against payloads built from the cited format. The match to a real publisher's output is NOT VERIFIED.
+3. `agents agents status` shows the same in text and `--json`: proven. `tests/test_cli_agents.py` has `test_status_reports_limits_active_runs_and_admission_in_text_and_json` and `test_status_states_unknown_signals_and_no_limits`, run against the fake core and its contract fixtures. Not run against the built core.
+
+## Choices and gaps
+- `active_runs` counts only readable active runs, as the gauge did. Limits also count unreadable live runs, so the report can read lower than what the limit check counts.
+- A hold does not refuse a local submit in this task. Refusal belongs to t24.
+- No existing test was changed or deleted.
+- `core/src/daemon/harness-catalog.ts` was left unchanged on purpose. The host report is added in the service, which already owns the limits.
+- The service was already at 373 lines and is now 390.
