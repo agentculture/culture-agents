@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { runKey, sandboxName } from "../../src/sandbox/naming.js";
 import { createRunSandboxes } from "../../src/sandbox/run-sandboxes.js";
-import { CANCELLED_EXIT, WRITE_CHUNK } from "../../src/sandbox/run-sandbox.js";
+import { CANCELLED_EXIT, GATEWAY_MESSAGE_LIMIT, WRITE_CHUNK } from "../../src/sandbox/run-sandbox.js";
 import {
   SandboxBusyError,
   SandboxCleanupError,
@@ -196,6 +196,11 @@ test("files round-trip, missing files are null, and large writes are chunked", a
   assert.equal(back?.length, big.length);
   const writes = fake.execs.filter((e) => e.script.includes("cat >"));
   assert.equal(writes.length, 3);
+});
+
+test("a write chunk leaves room under the gateway's message limit", () => {
+  // A chunk of exactly the limit was refused by a live gateway: the command and framing ride along.
+  assert.ok(WRITE_CHUNK * 2 <= GATEWAY_MESSAGE_LIMIT);
 });
 
 test("spawn streams output, cancel ends the remote process, stop cancels the rest", async () => {
