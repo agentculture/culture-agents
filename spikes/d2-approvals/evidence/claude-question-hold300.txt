@@ -1,0 +1,21 @@
+[0.1s] creating sandbox for run ccq-mwxtrs30 (image culture-agents-run:dev, providers claude-sub)
+[1.1s] sandbox t1q-56f928f5d5c2602 ready, working tree /sandbox/work
+[1.1s] createSession, model haiku, permissionMode allow-reads
+[4.0s] tool-call askUserQuestions {"allowPartialAnswers":true,"questions":[{"id":"question-1","question":"Which colour should I use?","header":"Colour","options":[{"id":"option-1","label":"red",
+[4.0s] stream ended: finishReason "tool-calls", session.turnState awaiting-tool-result, 0 approval(s) and 1 question(s) pending
+[4.1s] held, before the answer: files [README], claude processes in sandbox 3
+[4.1s] holding the turn for 300000 ms with no answer
+[304.1s] held, after the wait: files [README], claude processes in sandbox 3
+[304.1s] answering into the same turn: {"toolApprovalContinuations":[],"toolResultContinuations":[{"type":"tool-result","toolCallId":"toolu_011XmNGSXhsXjTFu5hz3WZYm","toolName":"askUserQuestions","output":{"type":"json","value":{"action":"answered","answers":{"question-1":{"optionIds":[],"freeform":"ultraviolet-7341"}}}}}]}
+[306.0s] tool-call write {"file_path":"colour.txt","content":"ultraviolet-7341"}
+[306.0s] tool-approval-request toolu_01Snmqq5tTvVRzhojWWjaPC9 for write
+[306.0s] stream ended: finishReason "tool-calls", session.turnState awaiting-approval, 1 approval(s) and 0 question(s) pending
+[306.0s] answering into the same turn: {"toolApprovalContinuations":[{"type":"tool-approval-response","approvalId":"toolu_01Snmqq5tTvVRzhojWWjaPC9","approved":true}],"toolResultContinuations":[]}
+[306.9s] tool-result write {"type":"create","filePath":"colour.txt","content":"ultraviolet-7341","structuredPatch":[],"originalFile":null,"userModified":false}
+[308.6s] stream ended: finishReason "stop", session.turnState idle, 0 approval(s) and 0 question(s) pending
+[308.7s] after the turn: files [README colour.txt], claude processes in sandbox 2
+[308.7s] final text: "done"
+[308.7s] approved.txt: ""; colour.txt: "ultraviolet-7341"
+[308.7s] checks: raised 2, answered 2, held with nothing written true
+[314.1s] sandbox t1q-56f928f5d5c2602 deleted
+[314.1s] RESULT claude-code question (allow-reads): PASS

@@ -1,0 +1,18 @@
+[0.1s] creating sandbox for run cca-mwxtrs30 (image culture-agents-run:dev, providers claude-sub)
+[1.0s] sandbox t1q-129ce85c575ba5b ready, working tree /sandbox/work
+[1.0s] createSession, model haiku, permissionMode allow-reads
+[4.9s] tool-call write {"file_path":"approved.txt","content":"yes"}
+[4.9s] tool-approval-request toolu_013SSUJWbLJrXEabTXoezUAV for write
+[4.9s] stream ended: finishReason "tool-calls", session.turnState awaiting-approval, 1 approval(s) and 0 question(s) pending
+[4.9s] held, before the answer: files [README], claude processes in sandbox 3
+[4.9s] holding the turn for 300000 ms with no answer
+[305.0s] held, after the wait: files [README], claude processes in sandbox 2
+[305.0s] answering into the same turn: {"toolApprovalContinuations":[{"type":"tool-approval-response","approvalId":"toolu_013SSUJWbLJrXEabTXoezUAV","approved":true}],"toolResultContinuations":[]}
+[305.7s] tool-result write {"type":"create","filePath":"approved.txt","content":"yes","structuredPatch":[],"originalFile":null,"userModified":false}
+[307.5s] stream ended: finishReason "stop", session.turnState idle, 0 approval(s) and 0 question(s) pending
+[307.5s] after the turn: files [README approved.txt], claude processes in sandbox 2
+[307.5s] final text: "done"
+[307.5s] approved.txt: "yes"; colour.txt: ""
+[307.5s] checks: raised 1, answered 1, held with nothing written true
+[312.9s] sandbox t1q-129ce85c575ba5b deleted
+[312.9s] RESULT claude-code approve (allow-reads): PASS

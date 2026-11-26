@@ -1,0 +1,41 @@
+{"t":"1.9s","type":"start"}
+{"t":"3.2s","type":"raw"}
+{"t":"3.2s","type":"raw"}
+{"t":"3.6s","type":"raw"}
+{"t":"4.3s","type":"start-step"}
+{"t":"4.3s","type":"tool-call","tool":"askUserQuestions","toolCallId":"toolu_01RAGtcxoQrjYSRkFvFx2Frm","providerExecuted":false,"input":"{\"allowPartialAnswers\":true,\"questions\":[{\"id\":\"question-1\",\"question\":\"Which colour should I use?\",\"header\":\"Colour\",\"options\":[{\"id\":\"option-1\",\"label\":\"red\",\"description\":\"Write 'red' to colour.txt\"},{\"id\":\"option-2\",\"label\":\"green\",\"description\":\"Write 'green' to colour.txt\"}],\"allowMultiple\":false,\"allowFreeForm\":true}]}"}
+{"t":"4.3s","type":"raw"}
+{"t":"4.3s","type":"finish-step"}
+{"t":"4.3s","type":"finish","finishReason":"tool-calls"}
+{"t":"4.3s","streamEnded":true,"finish":"tool-calls","turnState":"awaiting-tool-result","approvals":0,"questions":1}
+{"t":"4.4s","state":"held, before the answer","files":"README","claudeProcesses":3}
+{"t":"24.4s","state":"held, after the wait","files":"README","claudeProcesses":3}
+{"t":"24.4s","answer":{"toolApprovalContinuations":[],"toolResultContinuations":[{"type":"tool-result","toolCallId":"toolu_01RAGtcxoQrjYSRkFvFx2Frm","toolName":"askUserQuestions","output":{"type":"json","value":{"action":"answered","answers":{"question-1":{"optionIds":[],"freeform":"ultraviolet-7341"}}}}}]}}
+{"t":"24.4s","type":"start"}
+{"t":"24.4s","type":"raw"}
+{"t":"25.1s","type":"start-step"}
+{"t":"25.1s","type":"reasoning-start"}
+{"t":"26.1s","type":"reasoning-end"}
+{"t":"26.1s","type":"tool-input-start"}
+{"t":"26.1s","type":"tool-input-delta"}
+{"t":"26.1s","type":"tool-input-delta"}
+{"t":"26.1s","type":"tool-input-delta"}
+{"t":"26.1s","type":"tool-input-delta"}
+{"t":"26.1s","type":"tool-input-delta"}
+{"t":"26.1s","type":"tool-input-delta"}
+{"t":"26.1s","type":"tool-call","tool":"write","toolCallId":"toolu_01Ez2qQrC2TzxVeiiLLnKcFk","providerExecuted":true,"input":"{\"file_path\":\"colour.txt\",\"content\":\"ultraviolet-7341\"}"}
+{"t":"26.1s","type":"tool-input-end"}
+{"t":"26.1s","type":"raw"}
+{"t":"26.1s","type":"tool-result","tool":"write","toolCallId":"toolu_01Ez2qQrC2TzxVeiiLLnKcFk","output":"{\"type\":\"create\",\"filePath\":\"colour.txt\",\"content\":\"ultraviolet-7341\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false}"}
+{"t":"26.1s","type":"finish-step"}
+{"t":"26.1s","type":"raw"}
+{"t":"26.8s","type":"start-step"}
+{"t":"26.8s","type":"text-start"}
+{"t":"26.8s","type":"text-end"}
+{"t":"26.8s","type":"raw"}
+{"t":"26.8s","type":"finish-step"}
+{"t":"27.0s","type":"finish","finishReason":"stop"}
+{"t":"27.0s","streamEnded":true,"finish":"stop","turnState":"idle","approvals":0,"questions":0}
+{"t":"27.1s","state":"after the turn","files":"README colour.txt","claudeProcesses":2}
+{"t":"27.1s","finalText":"done","approvedTxt":"","colourTxt":"ultraviolet-7341","raised":1,"answered":1,"heldClean":true}
+{"t":"32.5s","result":"PASS"}

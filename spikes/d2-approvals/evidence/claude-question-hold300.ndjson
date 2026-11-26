@@ -1,0 +1,51 @@
+{"t":"1.6s","type":"start"}
+{"t":"2.9s","type":"raw"}
+{"t":"2.9s","type":"raw"}
+{"t":"4.0s","type":"start-step"}
+{"t":"4.0s","type":"tool-call","tool":"askUserQuestions","toolCallId":"toolu_011XmNGSXhsXjTFu5hz3WZYm","providerExecuted":false,"input":"{\"allowPartialAnswers\":true,\"questions\":[{\"id\":\"question-1\",\"question\":\"Which colour should I use?\",\"header\":\"Colour\",\"options\":[{\"id\":\"option-1\",\"label\":\"red\",\"description\":\"Use red\"},{\"id\":\"option-2\",\"label\":\"green\",\"description\":\"Use green\"}],\"allowMultiple\":false,\"allowFreeForm\":true}]}"}
+{"t":"4.0s","type":"raw"}
+{"t":"4.0s","type":"finish-step"}
+{"t":"4.0s","type":"finish","finishReason":"tool-calls"}
+{"t":"4.0s","streamEnded":true,"finish":"tool-calls","turnState":"awaiting-tool-result","approvals":0,"questions":1}
+{"t":"4.1s","state":"held, before the answer","files":"README","claudeProcesses":3}
+{"t":"304.1s","state":"held, after the wait","files":"README","claudeProcesses":3}
+{"t":"304.1s","answer":{"toolApprovalContinuations":[],"toolResultContinuations":[{"type":"tool-result","toolCallId":"toolu_011XmNGSXhsXjTFu5hz3WZYm","toolName":"askUserQuestions","output":{"type":"json","value":{"action":"answered","answers":{"question-1":{"optionIds":[],"freeform":"ultraviolet-7341"}}}}}]}}
+{"t":"304.1s","type":"start"}
+{"t":"304.1s","type":"raw"}
+{"t":"304.7s","type":"start-step"}
+{"t":"304.7s","type":"reasoning-start"}
+{"t":"306.0s","type":"reasoning-end"}
+{"t":"306.0s","type":"tool-input-start"}
+{"t":"306.0s","type":"tool-input-delta"}
+{"t":"306.0s","type":"tool-input-delta"}
+{"t":"306.0s","type":"tool-input-delta"}
+{"t":"306.0s","type":"tool-input-delta"}
+{"t":"306.0s","type":"tool-input-delta"}
+{"t":"306.0s","type":"tool-call","tool":"write","toolCallId":"toolu_01Snmqq5tTvVRzhojWWjaPC9","providerExecuted":true,"input":"{\"file_path\":\"colour.txt\",\"content\":\"ultraviolet-7341\"}"}
+{"t":"306.0s","type":"tool-input-end"}
+{"t":"306.0s","type":"raw"}
+{"t":"306.0s","type":"raw"}
+{"t":"306.0s","type":"tool-approval-request","approvalId":"toolu_01Snmqq5tTvVRzhojWWjaPC9","toolCallId":"toolu_01Snmqq5tTvVRzhojWWjaPC9","tool":"write"}
+{"t":"306.0s","type":"finish-step"}
+{"t":"306.0s","type":"finish","finishReason":"tool-calls"}
+{"t":"306.0s","streamEnded":true,"finish":"tool-calls","turnState":"awaiting-approval","approvals":1,"questions":0}
+{"t":"306.0s","answer":{"toolApprovalContinuations":[{"type":"tool-approval-response","approvalId":"toolu_01Snmqq5tTvVRzhojWWjaPC9","approved":true}],"toolResultContinuations":[]}}
+{"t":"306.0s","type":"start"}
+{"t":"306.0s","type":"tool-approval-response"}
+{"t":"306.9s","type":"start-step"}
+{"t":"306.9s","type":"tool-result","tool":"write","toolCallId":"toolu_01Snmqq5tTvVRzhojWWjaPC9","output":"{\"type\":\"create\",\"filePath\":\"colour.txt\",\"content\":\"ultraviolet-7341\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false}"}
+{"t":"307.0s","type":"raw"}
+{"t":"307.0s","type":"raw"}
+{"t":"307.6s","type":"start-step"}
+{"t":"307.6s","type":"reasoning-start"}
+{"t":"308.3s","type":"reasoning-end"}
+{"t":"308.3s","type":"text-start"}
+{"t":"308.3s","type":"text-end"}
+{"t":"308.3s","type":"raw"}
+{"t":"308.3s","type":"finish-step"}
+{"t":"308.3s","type":"raw"}
+{"t":"308.6s","type":"finish","finishReason":"stop"}
+{"t":"308.6s","streamEnded":true,"finish":"stop","turnState":"idle","approvals":0,"questions":0}
+{"t":"308.7s","state":"after the turn","files":"README colour.txt","claudeProcesses":2}
+{"t":"308.7s","finalText":"done","approvedTxt":"","colourTxt":"ultraviolet-7341","raised":2,"answered":2,"heldClean":true}
+{"t":"314.1s","result":"PASS"}
