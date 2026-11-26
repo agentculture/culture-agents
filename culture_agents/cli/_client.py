@@ -30,7 +30,7 @@ from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CoreErro
 
 #: The contract's ``api.json`` -> ``api_version``. ``tests/test_cli_client.py``
 #: fails if this drifts from the contract.
-CLIENT_API_VERSION = "2.0"
+CLIENT_API_VERSION = "3.0"
 VERSION_HEADER = "Agents-Api-Version"
 SOCKET_ENV = "CULTURE_AGENTS_SOCKET"
 
@@ -41,6 +41,7 @@ EXIT_FOR_CODE = {
     "not_found": EXIT_USER_ERROR,
     "busy": EXIT_USER_ERROR,
     "conflict": EXIT_USER_ERROR,
+    "limit_reached": EXIT_USER_ERROR,
     "unsupported": EXIT_USER_ERROR,
     "incompatible_version": EXIT_ENV_ERROR,
     "unavailable": EXIT_ENV_ERROR,
@@ -56,6 +57,10 @@ _HINTS = {
     "not_found": "list what exists with 'agents agents list' or 'agents runs list'",
     "busy": "wait for the active run to end, or cancel it with 'agents runs cancel <run_id>'",
     "conflict": "inspect the run with 'agents runs show <run_id>', then retry when it allows",
+    "limit_reached": (
+        "the operator configured this limit on the core and nothing was queued: wait for an "
+        "active run to end, then submit again"
+    ),
     "unsupported": (
         "the core refuses this capability on purpose; see which ones a harness supports with "
         "'agents agents status <agent_id>'"

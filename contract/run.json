@@ -46,9 +46,17 @@
     "task": {
       "$ref": "common.json#/$defs/text"
     },
+    "base_commit": {
+      "description": "The commit of `repo` the run starts from, resolved by the core when the submit was accepted. Absent only on a run recorded before the core set it (see README: base commit).",
+      "$ref": "common.json#/$defs/git_sha"
+    },
     "owner": {
-      "description": "The principal that submitted the run (the submit request's caller).",
+      "description": "The principal named by the submit request's `caller`, recorded as supplied and not authenticated. See `submitter` for what the core established.",
       "$ref": "common.json#/$defs/principal"
+    },
+    "submitter": {
+      "description": "Who submitted the run, as the core established it and never from a request field. Absent only on a run recorded before the core set it (see README: submitter).",
+      "$ref": "#/$defs/submitter"
     },
     "idempotency_key": {
       "oneOf": [
@@ -94,8 +102,15 @@
       "description": "Cursor of the newest event in the run's event log.",
       "$ref": "common.json#/$defs/cursor"
     },
+    "pending_questions": {
+      "description": "Questions the run has asked its operator that have no answer yet, oldest first, read from the run's event log. Empty when it is waiting for nothing. Absent when the core does not report questions.",
+      "type": "array",
+      "items": {
+        "$ref": "event.json#/$defs/question"
+      }
+    },
     "live_control": {
-      "description": "True when this core can deliver steer and cancel to the run's worker. False for every terminal run and for a run whose worker survived a core restart (D1 cannot reconnect).",
+      "description": "True when this core can deliver steer, cancel and answer to the run's worker. False for every terminal run, and for a run whose worker this core has not reattached to.",
       "type": "boolean"
     },
     "worker_pid": {
@@ -141,6 +156,9 @@
           },
           "ended_at": {
             "$ref": "common.json#/$defs/timestamp"
+          },
+          "pending_questions": {
+            "maxItems": 0
           }
         }
       },
@@ -205,7 +223,8 @@
         "failed",
         "cancelled",
         "timed_out",
-        "unknown"
+        "unknown",
+        "unanswered"
       ]
     },
     "active_state": {
@@ -221,7 +240,95 @@
         "failed",
         "cancelled",
         "timed_out",
-        "unknown"
+        "unknown",
+        "unanswered"
+      ],
+      "description": "A final state. `unanswered`: a question the run asked its operator passed its own time limit. `unknown`: the outcome cannot be established; it is never a success."
+    },
+    "submitter": {
+      "description": "Who submitted a run, as the core established it. `local_user`: the request arrived on the core's own control socket, and `uid` is the operating-system user that owns that socket. `member`: the request arrived from another core, and `node` is the fleet member the connection authenticated as. No request field sets or changes it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "local_user",
+            "member"
+          ]
+        },
+        "uid": {
+          "description": "local_user only: the numeric id of the user that owns the control socket.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "user": {
+          "description": "local_user only (optional): that user's account name, when the core could resolve it.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "node": {
+          "description": "member only: the node name of the authenticated fleet member.",
+          "$ref": "common.json#/$defs/node"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "local_user"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "uid"
+            ],
+            "not": {
+              "required": [
+                "node"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "kind"
+            ],
+            "properties": {
+              "kind": {
+                "const": "member"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "node"
+            ],
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "uid"
+                  ]
+                },
+                {
+                  "required": [
+                    "user"
+                  ]
+                }
+              ]
+            }
+          }
+        }
       ]
     },
     "run_list": {

@@ -1,0 +1,8 @@
+{
+  "error": {
+    "code": "denied",
+    "message": "x",
+    "retryable": false,
+    "idempotency_key": "deploy-42"
+  }
+}

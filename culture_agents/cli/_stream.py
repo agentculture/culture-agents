@@ -54,7 +54,9 @@ _MAX_STALLED_RECONNECTS = 5
 # One stream line carries one event; the core never sends one near this size.
 _MAX_LINE_BYTES = 4 * 1024 * 1024
 _BACKOFF = (0.2, 0.5, 1.0, 2.0)  # seconds between reconnect attempts; the last one repeats
-_TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled", "timed_out", "unknown"})
+_TERMINAL_STATES = frozenset(
+    {"succeeded", "failed", "cancelled", "timed_out", "unanswered", "unknown"}
+)
 
 
 class _Outage:

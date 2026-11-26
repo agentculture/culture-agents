@@ -1,0 +1,6 @@
+{"run_id":"thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":1,"time":"2026-11-25T10:00:01Z","kind":"run.state","data":{"from":null,"to":"queued","reason":null}}
+{"run_id":"thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":2,"time":"2026-11-25T10:00:02Z","kind":"run.state","data":{"from":"queued","to":"running","reason":null}}
+{"run_id":"thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":3,"time":"2026-11-25T10:00:03Z","kind":"run.output","data":{"channel":"text","text":"I need one detail."}}
+{"run_id":"thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":4,"time":"2026-11-25T10:00:04Z","kind":"run.question","data":{"question":{"id":"thor-culture-agents.qst.01JDQ5X0000000000000000001","kind":"question","text":"Which colour should the banner use?","choices":[{"id":"red","label":"Red"},{"id":"green","label":"Green","description":"Matches the logo."}],"free_text":true,"multiple":false,"answer_by":"2026-11-25T22:00:04Z"}}}
+{"run_id":"thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":5,"time":"2026-11-25T10:00:05Z","kind":"run.state","data":{"from":"running","to":"cancelling","reason":"question_limit"}}
+{"run_id":"thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5","cursor":6,"time":"2026-11-25T10:00:06Z","kind":"run.state","data":{"from":"cancelling","to":"unanswered","reason":"question_limit"}}

@@ -85,7 +85,7 @@ def test_an_unrecognised_error_body_is_internal() -> None:
 def test_every_request_carries_the_version_header(core) -> None:
     client = CoreClient()
     client.get("/v1/runs", "run_list")
-    assert {r["version_header"] for r in core.requests} == {"2.0"}
+    assert {r["version_header"] for r in core.requests} == {CLIENT_API_VERSION}
     assert core.requests[0]["path"] == "/v1/version"  # version first, once
     client.get("/v1/runs", "run_list")
     assert [r["path"] for r in core.requests].count("/v1/version") == 1

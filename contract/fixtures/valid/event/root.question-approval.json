@@ -1,0 +1,18 @@
+{
+  "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "cursor": 4,
+  "time": "2026-11-25T10:00:04Z",
+  "kind": "run.question",
+  "data": {
+    "question": {
+      "id": "thor-culture-agents.qst.01JDQ5X0000000000000000002",
+      "kind": "approval",
+      "text": "Write the file approved.txt",
+      "choices": [],
+      "free_text": false,
+      "multiple": false,
+      "tool": "write",
+      "answer_by": "2026-11-25T22:00:04Z"
+    }
+  }
+}

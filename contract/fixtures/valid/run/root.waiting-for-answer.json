@@ -1,0 +1,52 @@
+{
+  "id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "agent_id": "thor-culture-agents",
+  "session_id": "thor-culture-agents.ses.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "harness": "claude-code",
+  "repo": "/srv/repos/demo",
+  "task": "Add a unit test for the parser's empty-input case.",
+  "owner": {
+    "kind": "operator",
+    "id": "thor-operator"
+  },
+  "idempotency_key": null,
+  "deadline": null,
+  "state": "running",
+  "state_reason": null,
+  "terminal": false,
+  "created_at": "2026-11-25T10:00:00Z",
+  "updated_at": "2026-11-25T10:00:04Z",
+  "started_at": "2026-11-25T10:00:02Z",
+  "ended_at": null,
+  "cursor": 4,
+  "live_control": true,
+  "worker_pid": 41231,
+  "branch": null,
+  "submitter": {
+    "kind": "local_user",
+    "uid": 1000,
+    "user": "operator"
+  },
+  "base_commit": "3f786850e387550fdab836ed7e6dc881de23001b",
+  "pending_questions": [
+    {
+      "id": "thor-culture-agents.qst.01JDQ5X0000000000000000001",
+      "kind": "question",
+      "text": "Which colour should the banner use?",
+      "choices": [
+        {
+          "id": "red",
+          "label": "Red"
+        },
+        {
+          "id": "green",
+          "label": "Green",
+          "description": "Matches the logo."
+        }
+      ],
+      "free_text": true,
+      "multiple": false,
+      "answer_by": "2026-11-25T22:00:04Z"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://culture.dev/contract/agents/capabilities.json",
   "title": "Harness capability document",
-  "description": "What one harness can do through this core, stated honestly. Every capability name is always present. A control action whose capability is not supported is refused with an `unsupported` error naming it, never dropped or simulated.",
+  "description": "What one harness can do through this core, stated honestly, and what this core's host can take right now. Every capability name is always present. A control action whose capability is not supported is refused with an `unsupported` error naming it, never dropped or simulated. `limits`, `active_runs` and `admission` describe this core's own host and never another one.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -36,6 +36,19 @@
     },
     "capabilities": {
       "$ref": "#/$defs/capability_set"
+    },
+    "limits": {
+      "description": "The limits the operator configured on this core. Absent when the core does not report them.",
+      "$ref": "#/$defs/limits"
+    },
+    "active_runs": {
+      "description": "How many runs are active on this core's host right now, across every harness and repository. Absent when the core does not report it.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "admission": {
+      "description": "What each admission signal says for this harness on this host right now. Absent when the core does not report it.",
+      "$ref": "#/$defs/admission"
     },
     "extension": {
       "$ref": "common.json#/$defs/extension"
@@ -109,7 +122,7 @@
       }
     },
     "deferred": {
-      "description": "A capability no harness supports in this API version. Changing it to supportable is a schema change (README: versioning).",
+      "description": "A capability no harness supports in this API version: pause, resume, continue_session, delegate and placement. Changing one to supportable is a schema change (README: versioning).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -169,7 +182,7 @@
           "$ref": "#/$defs/deferred"
         },
         "answer": {
-          "$ref": "#/$defs/deferred"
+          "$ref": "#/$defs/capability"
         },
         "continue_session": {
           "$ref": "#/$defs/deferred"
@@ -181,10 +194,124 @@
           "$ref": "#/$defs/deferred"
         },
         "reconnect": {
-          "$ref": "#/$defs/deferred"
+          "$ref": "#/$defs/capability"
         },
         "worktree_isolation": {
-          "$ref": "#/$defs/deferred"
+          "$ref": "#/$defs/capability"
+        }
+      }
+    },
+    "limit_name": {
+      "description": "A limit an operator can configure. runs_per_repository: active runs in one repository. runs_per_host: active runs on the core's host.",
+      "enum": [
+        "runs_per_repository",
+        "runs_per_host"
+      ]
+    },
+    "limits": {
+      "description": "Every limit by name. null means the operator configured none, and then no submit is refused for it. No limit applies unless one is configured.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runs_per_repository",
+        "runs_per_host"
+      ],
+      "properties": {
+        "runs_per_repository": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        },
+        "runs_per_host": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "signal_name": {
+      "description": "An admission signal. heat: the host's heat state. gateway: the model gateway's admit state, for harnesses that use the gateway.",
+      "enum": [
+        "heat",
+        "gateway"
+      ]
+    },
+    "signal_state": {
+      "description": "admit: the signal allows new work. hold: it says not to start new work. unknown: it is missing or stale; it is never read as admit or as a failure of the control plane.",
+      "enum": [
+        "admit",
+        "hold",
+        "unknown"
+      ]
+    },
+    "signal": {
+      "description": "One admission signal as this core read it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "consulted",
+        "reason",
+        "observed_at"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "#/$defs/signal_state"
+        },
+        "consulted": {
+          "description": "Whether admission reads this signal for this harness. When false the state does not affect admission and `reason` says why it is not read.",
+          "type": "boolean"
+        },
+        "reason": {
+          "description": "Why the state is hold or unknown, or why the signal is not consulted. null only for a plain admit.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 500
+        },
+        "observed_at": {
+          "description": "The time the signal's publisher stamped on the reading, or null when there is no reading.",
+          "$ref": "common.json#/$defs/nullable_timestamp"
+        }
+      },
+      "if": {
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "const": "admit"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "admission": {
+      "description": "Every admission signal by name.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "heat",
+        "gateway"
+      ],
+      "properties": {
+        "heat": {
+          "$ref": "#/$defs/signal"
+        },
+        "gateway": {
+          "$ref": "#/$defs/signal"
         }
       }
     },

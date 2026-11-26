@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "limit_reached",
+    "message": "the limit runs_per_host is 4 and 4 runs are active on this host; nothing was queued",
+    "retryable": true,
+    "limit": {
+      "name": "runs_per_host",
+      "value": 4,
+      "active": 4
+    }
+  }
+}

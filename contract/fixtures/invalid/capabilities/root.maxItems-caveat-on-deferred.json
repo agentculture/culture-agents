@@ -27,7 +27,9 @@
     "pause": {
       "supported": false,
       "reason": "pause is deferred beyond D1",
-      "caveats": []
+      "caveats": [
+        "x"
+      ]
     },
     "resume": {
       "supported": false,
@@ -37,9 +39,7 @@
     "answer": {
       "supported": false,
       "reason": "deferred",
-      "caveats": [
-        "x"
-      ]
+      "caveats": []
     },
     "continue_session": {
       "supported": false,

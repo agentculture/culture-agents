@@ -29,6 +29,7 @@ _STATES = (
     "failed",
     "cancelled",
     "timed_out",
+    "unanswered",
     "unknown",
 )
 _KINDS = ("operator", "agent")

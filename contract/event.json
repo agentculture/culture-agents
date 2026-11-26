@@ -42,6 +42,12 @@
         },
         {
           "$ref": "#/$defs/error_data"
+        },
+        {
+          "$ref": "#/$defs/question_data"
+        },
+        {
+          "$ref": "#/$defs/answer_data"
         }
       ]
     }
@@ -141,6 +147,44 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.question"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/question_data"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "const": "run.answer"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "$ref": "#/$defs/answer_data"
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -150,7 +194,9 @@
         "run.output",
         "run.control",
         "run.refused",
-        "run.error"
+        "run.error",
+        "run.question",
+        "run.answer"
       ]
     },
     "state_data": {
@@ -219,7 +265,7 @@
       }
     },
     "control_data": {
-      "description": "A control action that was accepted and delivered to the worker.",
+      "description": "A steer or cancel that was accepted and delivered to the worker. An accepted answer is a `run.answer` event instead.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -231,6 +277,12 @@
           "properties": {
             "outcome": {
               "const": "accepted"
+            },
+            "kind": {
+              "enum": [
+                "steer",
+                "cancel"
+              ]
             }
           }
         }
@@ -279,6 +331,137 @@
         },
         "fatal": {
           "type": "boolean"
+        }
+      }
+    },
+    "question": {
+      "description": "A question a run asks its operator, normalized from what the harness raised. `text`, `choices` and `tool` come from the harness and are untrusted data. The run waits for the answer; nothing else is held for it.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "text",
+        "choices",
+        "free_text",
+        "multiple",
+        "answer_by"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "common.json#/$defs/question_id"
+        },
+        "kind": {
+          "description": "question: the harness asks for information, answered with choices or free text. approval: the harness asks whether it may take one action, answered with a decision.",
+          "enum": [
+            "question",
+            "approval"
+          ]
+        },
+        "text": {
+          "description": "What is asked. For an approval, a description of the action that waits.",
+          "$ref": "common.json#/$defs/text"
+        },
+        "choices": {
+          "description": "The answers the harness offers, in its order. Empty when it offers none.",
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/choice"
+          }
+        },
+        "free_text": {
+          "description": "Whether an answer in the caller's own words is accepted.",
+          "type": "boolean"
+        },
+        "multiple": {
+          "description": "Whether more than one choice may be given.",
+          "type": "boolean"
+        },
+        "tool": {
+          "description": "approval only (optional): the name of the tool that waits for the decision.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "answer_by": {
+          "description": "When this question's own time limit passes, on the executing core's clock. After it the run ends `unanswered`.",
+          "$ref": "common.json#/$defs/timestamp"
+        }
+      }
+    },
+    "choice": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/choice_id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      }
+    },
+    "choice_id": {
+      "description": "Identifies one choice within its question.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "question_data": {
+      "description": "A question was asked and the run now waits for its answer. It is written to the log before the run starts waiting.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question"
+      ],
+      "properties": {
+        "question": {
+          "$ref": "#/$defs/question"
+        }
+      }
+    },
+    "answer_data": {
+      "description": "An answer was accepted and delivered into the run. At most one per question. `answer` is the caller's own words and is untrusted data.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "question_id",
+        "action"
+      ],
+      "properties": {
+        "question_id": {
+          "$ref": "common.json#/$defs/question_id"
+        },
+        "action": {
+          "$ref": "control-action.json#/$defs/action_record",
+          "properties": {
+            "kind": {
+              "const": "answer"
+            },
+            "outcome": {
+              "const": "accepted"
+            }
+          }
+        },
+        "decision": {
+          "$ref": "control-action.json#/$defs/decision"
+        },
+        "choice_ids": {
+          "$ref": "control-action.json#/$defs/choice_ids"
+        },
+        "answer": {
+          "$ref": "common.json#/$defs/text"
         }
       }
     },

@@ -24,6 +24,9 @@ export type SessionId = string;
 /** Stable control-action id: `<node>-<agent>.act.<ULID>`, using the target run's agent. At most 127 characters: a mesh id of at most 96, then the 31 of `.act.<ULID>`. */
 export type ActionId = string;
 
+/** Stable id of a question a run asks its operator: `<node>-<agent>.qst.<ULID>`, using the run's agent. Assigned by the run's worker when it records the question, never by a harness or a client. At most 127 characters: a mesh id of at most 96, then the 31 of `.qst.<ULID>`. */
+export type QuestionId = string;
+
 /** Harness identifier, a free lowercase string (for example `claude-code`, `opencode`). Deliberately not an enum. */
 export type HarnessId = string;
 
@@ -36,7 +39,7 @@ export type NullableTimestamp = string | null;
 /** Absolute POSIX path of a repository on the core's host, with no `.` or `..` segments, no trailing slash and no control characters (a newline would hide a `..` segment from the pattern). */
 export type RepoPath = string;
 
-/** Caller-chosen key, recorded and returned. D1 does not deduplicate on it (see README). */
+/** Caller-chosen key, recorded and returned. A repeat of the same key with the same request takes effect once, and the same key with a different request is a `conflict` (see README: idempotency keys). */
 export type IdempotencyKey = string;
 
 /** Per-run event cursor: the first event is 1 and each next event is exactly 1 higher. */
@@ -45,12 +48,12 @@ export type Cursor = number;
 /** API version `MAJOR.MINOR`. */
 export type ApiVersion = string;
 
-/** Free text from a caller (task, steer message). Untrusted data, never a control command. */
+/** Free text from a caller or a harness (task, steer message, question, answer). Untrusted data, never a control command. */
 export type CallerText = string;
 
 export type GitSha = string;
 
-/** Who asked: an operator or an agent, by mesh id. In D1 the core records it as supplied; authority comes from the owner-only socket and the allow-list, not from this field. */
+/** Who asked, as the request says: an operator or an agent, by mesh id. The core records it as supplied and does not authenticate it; authority comes from the owner-only socket and the allow-list, not from this field. What the core itself established about the caller is the run's `submitter`. */
 export type Principal = {
   kind: "operator" | "agent";
   id: MeshId;

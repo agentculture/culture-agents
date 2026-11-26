@@ -67,11 +67,12 @@ test("compatibility: unparseable versions are never compatible", () => {
 const TABLE: Record<string, RunState[]> = {
   queued: ["running", "cancelling", "failed", "unknown"],
   running: ["cancelling", "succeeded", "failed", "unknown"],
-  cancelling: ["cancelled", "timed_out", "succeeded", "failed", "unknown"],
+  cancelling: ["cancelled", "timed_out", "unanswered", "succeeded", "failed", "unknown"],
   succeeded: [],
   failed: [],
   cancelled: [],
   timed_out: [],
+  unanswered: [],
   unknown: [],
 };
 
@@ -89,7 +90,7 @@ test("the first state is queued and nothing else", () => {
 });
 
 test("terminal and active states", () => {
-  const terminal: RunState[] = ["succeeded", "failed", "cancelled", "timed_out", "unknown"];
+  const terminal: RunState[] = ["succeeded", "failed", "cancelled", "timed_out", "unanswered", "unknown"];
   const active: RunState[] = ["queued", "running", "cancelling"];
   for (const s of terminal) {
     assert.equal(isTerminal(s), true, s);
@@ -101,9 +102,9 @@ test("terminal and active states", () => {
   }
 });
 
-test("cancelled and timed_out are reachable only through cancelling", () => {
+test("cancelled, timed_out and unanswered are reachable only through cancelling", () => {
   for (const from of runStates) {
-    for (const to of ["cancelled", "timed_out"] as const) {
+    for (const to of ["cancelled", "timed_out", "unanswered"] as const) {
       assert.equal(canTransition(from, to), from === "cancelling", `${from} -> ${to}`);
     }
   }
@@ -192,6 +193,7 @@ const ERRORS: Record<ErrorCode, [number, number, boolean | null]> = {
   not_found: [404, 1, false],
   busy: [409, 1, true],
   conflict: [409, 1, null],
+  limit_reached: [429, 1, true],
   unsupported: [422, 1, false],
   incompatible_version: [412, 2, false],
   unavailable: [503, 2, true],
