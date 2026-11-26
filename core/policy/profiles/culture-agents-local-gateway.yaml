@@ -7,7 +7,7 @@
 #   openshell provider create --name lobes-ca --type culture-agents-local-gateway \
 #     --credential LOBES_GATEWAY_KEY
 # The key is named by its environment variable only; inside the sandbox it is
-# an `openshell-RESOLVE-PLACEHOLDER:env:` placeholder resolved by the proxy at egress.
+# an `openshell:resolve:env:` placeholder resolved by the proxy at egress.
 # OpenCode reads it through the config reference `{env:LOBES_GATEWAY_KEY}` with
 # baseURL http://host.openshell.internal:8001/v1.
 #

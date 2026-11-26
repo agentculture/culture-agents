@@ -76,7 +76,7 @@ static checks). Suspend and continue were **not exercised**.
 - **AI SDK leak on failed start:** `HarnessAgent.createSession` did not destroy
   a provider-created sandbox when the adapter's `doStart` failed; one sandbox
   leaked.
-- **Credentials:** the sandbox held only `openshell-RESOLVE-PLACEHOLDER:env:` placeholders.
+- **Credentials:** the sandbox held only `openshell:resolve:env:` placeholders.
   Not tested: without an explicit `auth`, the Claude Code adapter would look
   for host credentials and forward them. Read from source only.
 
