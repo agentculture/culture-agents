@@ -99,7 +99,9 @@ def test_check3_a_question_survives_a_restart_and_is_answered(make_core: MakeCor
     assert answered["action"]["outcome"] == "accepted"
     assert core.wait_terminal(run["id"], 20)["state"] == "succeeded"
     assert core.show(run["id"])["pending_questions"] == []
-    again = core.cli("runs", "answer", run["id"], "--question", question, "--answer", "red", "--json")
+    again = core.cli(
+        "runs", "answer", run["id"], "--question", question, "--answer", "red", "--json"
+    )
     assert again.rc == 1 and again.error_code() == "conflict", "a question takes one answer"
     kinds = [e["kind"] for e in core.events(run["id"])]
     assert kinds.count("run.question") == 1 and kinds.count("run.answer") == 1
