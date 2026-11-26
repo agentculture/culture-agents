@@ -482,7 +482,7 @@
       "method": "POST",
       "path": "/v1/runs/{run_id}/answer",
       "summary": "Answer one pending question of a run. Refused with unsupported, capability answer, when the run's harness cannot ask.",
-      "cli": "agents runs answer (planned)",
+      "cli": "agents runs answer",
       "d1": "unsupported",
       "request": "control-action.json#/$defs/answer_request",
       "response": "control-action.json#/$defs/accepted_response",

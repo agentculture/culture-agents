@@ -16,6 +16,7 @@ import json
 import re
 import socketserver
 import threading
+import time
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,7 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "GET /v1/runs/{id}/result": (200, fixture("run", "run_result.succeeded")),
     "POST /v1/runs/{id}/steer": (202, fixture("control-action", "accepted_response.steer")),
     "POST /v1/runs/{id}/cancel": (202, fixture("control-action", "accepted_response.cancel")),
+    "POST /v1/runs/{id}/answer": (202, fixture("control-action", "accepted_response.answer")),
     "GET /v1/branches": (200, fixture("branches", "root.two-branches")),
     "POST /v1/branches/remove": (200, fixture("branches", "remove_response.mixed")),
 }
@@ -96,6 +98,12 @@ class _Handler(BaseHTTPRequestHandler):
                 "version_header": self.headers.get("Agents-Api-Version"),
             }
         )
+        if method == "POST" and isinstance(body, dict):
+            core.keyed.setdefault((parts.path, body.get("idempotency_key")), 0)
+            core.keyed[(parts.path, body.get("idempotency_key"))] += 1
+        if method == "POST" and core.post_stalls:
+            time.sleep(core.post_stalls.pop(0))  # past the client's timeout: no answer in time
+            return
         if parts.path.endswith("/attach") and method == "GET":
             return self._attach(core, query)
         if (
@@ -174,6 +182,11 @@ class FakeCore:
         self.attach_cutoffs: list[int | None | bytes | tuple[int, Any]] = []
         #: Stop the core right after the next attach stream has been sent.
         self.stop_after_attach = False
+        #: One entry per POST: sleep this long before answering (the request was recorded
+        #: and, as in a real core, took effect). Used to make the client time out.
+        self.post_stalls: list[float] = []
+        #: (path, idempotency key) -> how many times it arrived.
+        self.keyed: dict[tuple[str, Any], int] = {}
         self._server: _Server | None = None
         self.start()
 
@@ -203,6 +216,10 @@ class FakeCore:
 
     def seen(self, method: str, path: str) -> list[dict[str, Any]]:
         return [r for r in self.requests if r["method"] == method and r["path"] == path]
+
+    def effects(self, path: str) -> int:
+        """Distinct keys seen on *path*: what a core that honours keys would have done."""
+        return len([k for k in self.keyed if k[0] == path])
 
     def close(self) -> None:
         self.stop()

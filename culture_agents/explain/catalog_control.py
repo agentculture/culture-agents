@@ -56,6 +56,7 @@ run state; the CLI only asks.
 - `runs attach <run_id>` — follow events live.
 - `runs steer <run_id> <message>` — send a mid-run instruction.
 - `runs cancel <run_id>` — start cancellation.
+- `runs answer <run_id>` — answer one pending question of a run.
 - `runs logs <run_id>` — a page of stored events.
 - `runs result <run_id>` — the outcome of a finished run.
 
@@ -78,8 +79,10 @@ on its own. No limit applies unless the operator configured one in the
 core's config file; a submit past it answers `limit_reached`, naming the
 limit and its value, and nothing is queued.
 
-Optional: `--deadline <UTC time>`, `--idempotency-key` (a repeat with the
-same request returns the first run; a changed request is `conflict`),
+Optional: `--deadline <UTC time>`, `--idempotency-key` (default: the CLI
+generates one and prints it; a repeat with the same request returns the first
+run; a changed request is `conflict`; after a timeout the CLI retries with the
+same key, so one run exists),
 `--caller` and `--caller-kind` (default `<node>-operator`, kind `operator`),
 `--session-id` and `--parent-run-id` (the core refuses both as `unsupported`).
 
@@ -160,7 +163,9 @@ _STEER = f"""\
 # agents runs steer <run_id> <message>
 
 Delivers a mid-run instruction. Accepted means delivered to the run's worker,
-not that the harness obeyed. A harness that cannot steer, a run that is not
+not that the harness obeyed. `--idempotency-key` is generated and printed when
+omitted; after a timeout the CLI retries with the same key, so it takes effect
+once. A harness that cannot steer, a run that is not
 `running`, and a run whose live control was lost in a core restart are refused
 (`unsupported` or `conflict`); nothing is queued or simulated.
 
@@ -174,12 +179,38 @@ _CANCEL = f"""\
 # agents runs cancel <run_id>
 
 Starts cancellation: the run moves to `cancelling`, then a terminal state once
-the harness has stopped. `--reason` is recorded. Cancelling a run that is
+the harness has stopped. `--reason` is recorded. `--idempotency-key` is
+generated and printed when omitted, and retried unchanged after a timeout. Cancelling a run that is
 already `cancelling` is accepted and has no further effect.
 
 ## Usage
 
     agents runs cancel <run_id> --reason "wrong repository"
+
+{CORE_NOTE}"""
+
+_ANSWER = f"""\
+# agents runs answer <run_id> --question <question_id>
+
+Answers one pending question of a run (`runs show` lists `pending_questions`).
+Give `--answer <text>`, `--choice <id>[,<id>...]` or both; for an approval give
+`--decision approve|deny` (`--answer` is then an optional reason). Accepted
+means the answer was delivered into the run's turn.
+
+A question takes exactly one answer. The core does not replay an answer by
+`--idempotency-key`, so the CLI never retries it: a second answer to the same
+question is `conflict`, as is an answer after the question's time limit or to a
+run that is not `running`. A refusal is shown as its typed error in text and in
+`--json` (`unsupported`, `conflict`, `not_found`, `invalid`, `unavailable`).
+After `unavailable` check `runs show` before answering again.
+
+Only the stub harness can ask today. Claude Code and OpenCode report `answer`
+as unsupported, so this verb is refused with `unsupported` for their runs.
+
+## Usage
+
+    agents runs answer <run_id> --question <question_id> --answer "Use SQLite."
+    agents runs answer <run_id> --question <question_id> --decision deny --json
 
 {CORE_NOTE}"""
 
@@ -219,6 +250,7 @@ CONTROL_ENTRIES: dict[tuple[str, ...], str] = {
     ("runs", "attach"): _ATTACH,
     ("runs", "steer"): _STEER,
     ("runs", "cancel"): _CANCEL,
+    ("runs", "answer"): _ANSWER,
     ("runs", "logs"): _LOGS,
     ("runs", "result"): _RESULT,
 }
