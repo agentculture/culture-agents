@@ -1,0 +1,32 @@
+# Task t29 report: run traces to a local Langfuse over OTLP
+
+## Built
+- `core/src/trace/`: `config.ts` (env, keys read once and removed, `workerEnv`), `spans.ts` (spans from the event log, pure), `otlp.ts` (OTLP JSON, Node `fetch`, ids derived from run id), `follower.ts` (log follower with `traced.json` position per run, plus a `fleet.active_runs` gauge), `index.ts` (`startTracing`).
+- Wired into `core/src/daemon/main.ts` (start after the publisher, stop with it) and `core/src/worker/spawn.ts` (workers start with every `CULTURE_AGENTS_TRACE_*` variable removed).
+- `docs/d2/observability.md`. Tests: `core/test/trace/trace.test.ts`.
+- No dependency added; package.json untouched.
+
+## Commands run (final results)
+- `cd core && npm run lint`: clean. `npm run typecheck`: clean (ran through the build).
+- `cd core && npm test`: 588 tests, 576 pass, 0 fail (12 skipped, opt-in live tests).
+- `/usr/local/share/dogfood/venv/bin/python -m pytest -n auto`: 1606 passed, 9 skipped, 1 failed. The failure is `tests/test_contract_packaging.py::test_a_built_wheel_holds_the_schemas_byte_for_byte`; it needs pypi.org to build a wheel, and it fails the same way with my changes stashed.
+- `npm run check:contract-types`: NOT run (no contract change).
+- The core/node_modules symlink was removed.
+
+## Acceptance
+1. Proven: "a run exports one trace with a span for each step..." (local HTTP receiver started by the test).
+2. Proven: the "receiver that is down" test (unreachable port: terminal state and log bytes unchanged, one warning, bounded time, spans arrive when it is back). The exporter runs in its own loop with a 5 s fetch timeout; no request path calls it. Partly: I did not run a full daemon with the endpoint unset or down; the unset case is `startTracing` returning null (covered by `loadTraceConfig` returning null).
+3. Proven: the content test (all `MARKERS` absent by default, present with content on).
+4. Proven against the store's active count (`activeRuns(listRunEntries)`), 2 + 1 split by harness and model. Partly: the core has no `active_runs` field in its capability report yet, so I matched the store function the limits use, not the report itself.
+5. Proven: the keys/env test and the no-dependency test. Worker absence is proven for `workerEnv` and by the spawn wiring, not by inspecting a real worker process's environment.
+6. Doc written. Live check: NOT VERIFIED (no Docker or network).
+
+## Assumptions and choices
+- The Langfuse path `/api/public/otel/v1/traces` (JSON, basic auth) is from memory; I could not confirm it against current docs (no network). The doc says so.
+- The follower reuses the publisher's pattern (own `traced.json`, `listRunIds`) but reads the whole log with `readLog`, because the publisher's `log-tail.ts` deliberately drops content, which spans need. It does not share code with `log-tail.ts`.
+- The model comes from the harness configuration, not from the harness.
+- The log has no collection event, so `result.collection` is the gap between the last turn event and the terminal state. `run.submit` is zero length.
+- No existing test was changed.
+
+## Left unchanged on purpose
+`core/src/publish/*`, the contract, the five files with the placeholder text.
