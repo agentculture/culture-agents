@@ -508,6 +508,52 @@
         "conflict",
         "unavailable"
       ]
+    },
+    {
+      "id": "branches.list",
+      "method": "GET",
+      "path": "/v1/branches",
+      "summary": "Every runs branch of one repository with its run's state and the git evidence of whether its commits are reachable from another ref.",
+      "cli": "agents branches list",
+      "d1": "supported",
+      "request": null,
+      "response": "branches.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {
+        "repo": {
+          "$ref": "common.json#/$defs/repo_path"
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied"
+      ]
+    },
+    {
+      "id": "branches.remove",
+      "method": "POST",
+      "path": "/v1/branches/remove",
+      "summary": "Delete the finished runs branches of one repository that git shows reachable from another ref, with git branch -d only; skip and report the rest.",
+      "cli": "agents branches remove",
+      "d1": "supported",
+      "request": "branches.json#/$defs/remove_request",
+      "response": "branches.json#/$defs/remove_response",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied"
+      ]
     }
   ]
 }

@@ -27,6 +27,8 @@ D1_ROUTES = {
     "runs.cancel",
     "runs.logs",
     "runs.result",
+    "branches.list",
+    "branches.remove",
 }
 DEFERRED_ROUTES = {"runs.pause", "runs.resume", "runs.answer"}
 #: Pinned to unsupported by the schema in 3.0.
