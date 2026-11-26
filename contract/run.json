@@ -47,7 +47,7 @@
       "$ref": "common.json#/$defs/text"
     },
     "base_commit": {
-      "description": "The commit of `repo` the run starts from, resolved by the core when the submit was accepted. Absent only on a run recorded before the core set it (see README: base commit).",
+      "description": "The commit of `repo` the run starts from, resolved by the core when the submit was accepted. Absent only on a run recorded before the core set it (README: authorization).",
       "$ref": "common.json#/$defs/git_sha"
     },
     "owner": {
@@ -55,7 +55,7 @@
       "$ref": "common.json#/$defs/principal"
     },
     "submitter": {
-      "description": "Who submitted the run, as the core established it and never from a request field. Absent only on a run recorded before the core set it (see README: submitter).",
+      "description": "Who submitted the run, as the core established it and never from a request field. Absent only on a run recorded before the core set it (README: authorization).",
       "$ref": "#/$defs/submitter"
     },
     "idempotency_key": {

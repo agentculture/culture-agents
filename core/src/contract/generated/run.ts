@@ -12,11 +12,11 @@ export type Run = {
   harness: HarnessId;
   repo: RepoPath;
   task: CallerText;
-  /** The commit of `repo` the run starts from, resolved by the core when the submit was accepted. Absent only on a run recorded before the core set it (see README: base commit). */
+  /** The commit of `repo` the run starts from, resolved by the core when the submit was accepted. Absent only on a run recorded before the core set it (README: authorization). */
   base_commit?: GitSha;
   /** The principal named by the submit request's `caller`, recorded as supplied and not authenticated. See `submitter` for what the core established. */
   owner: Principal;
-  /** Who submitted the run, as the core established it and never from a request field. Absent only on a run recorded before the core set it (see README: submitter). */
+  /** Who submitted the run, as the core established it and never from a request field. Absent only on a run recorded before the core set it (README: authorization). */
   submitter?: Submitter;
   idempotency_key: IdempotencyKey | null;
   deadline: NullableTimestamp;
