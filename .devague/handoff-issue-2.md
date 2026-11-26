@@ -36,22 +36,15 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 to t12, t14, t15, t29 | merged |
+| t1 to t12, t14, t15, t17, t29 | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t17 capability report (Claude Code, sonnet) | run succeeded at about 20:50 UTC; NOT yet gated or merged |
-| t13 operator questions (Claude Code, opus core) | run FAILED at 20:44 UTC: the Claude subscription hit its 5-hour limit (resets 22:00 UTC). A failed turn collects nothing, so there is no branch. Dispatch it again after the reset |
+| t13 operator questions (Claude Code, opus core) | running, dispatched again 22:14 UTC after the first run failed on the subscription's 5-hour limit |
 | t16 CLI keys and answer verb | blocked on t13 |
-| t18, t19 | blocked on t13, t16, t17; part two (t20 to t26, t28) after t18 |
+| t18, t19 | blocked on t13 and t16; part two (t20 to t26, t28) after t18 |
 
-Run ids (prefix `spark-culture-agents.run.`): t17 `01M8CS38263366CRT7PKRGVB0G`
-(merge with `mg.sh`, then `gate.sh t17`, then `ci.sh`), t13 failed run
-`01M8CS37B5RGFZ02JX7T1KR0XE` (Opus core). The worktrees `agent-t13` and
-`agent-t17` still exist; the t13 brief and note are in the scratchpad
-`briefs/` directory, and `dispatch.sh t13 ag-opus briefs/note-t13.txt`
-repeats the dispatch.
-
-The session that ran this also reached its own usage limit at 20:52 UTC, so
-no Claude Code task can run before the reset.
+Run id (prefix `spark-culture-agents.run.`): t13 `01M8CYPXRV6NSXPSQ49CRJ13FV`
+(Opus core). `dispatch.sh` fails when the worktree already exists; submit
+directly with `ag-opus runs submit` in that case.
 
 The OpenCode run of t15 (`01M8CMGNK4T2NR1DTBFN42CDAD`) ended as succeeded
 after 82 minutes with no file written: the model printed a malformed tool
@@ -59,8 +52,8 @@ call as text and the turn ended. Its only commit is a stray
 `core/node_modules` symlink; do not merge that branch. Recorded as plan risk
 r15.
 
-Last merge gate (after t15, 20:34 UTC), on the merged tree: core 631 passed
-and 8 skipped, Python 1671 passed and 9 skipped, lint, contract types and the
+Last merge gate (after t17, 22:12 UTC), on the merged tree: core 636 passed
+and 8 skipped, Python 1673 passed and 9 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
 merge, the gate, the commit and the dispatch.
