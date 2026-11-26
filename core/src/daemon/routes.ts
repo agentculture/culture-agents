@@ -207,10 +207,10 @@ async function steerOrCancel({ ctx, req, res, p }: RouteCall, steer: boolean): P
   const body = await readJsonBody(req);
   if (steer) {
     checkBody("control-action#steer_request", body);
-    return sendJson(res, 202, "control-action#accepted_response", { action: await ctx.service.steer(runId, body as never) });
+    return sendJson(res, 202, "control-action#accepted_response", await ctx.service.steer(runId, body as never));
   }
   checkBody("control-action#cancel_request", body);
-  return sendJson(res, 202, "control-action#accepted_response", { action: await ctx.service.cancel(runId, body as never) });
+  return sendJson(res, 202, "control-action#accepted_response", await ctx.service.cancel(runId, body as never));
 }
 
 /** A deferred control route (pause, resume, answer): checked like any other, then refused as `unsupported`. */
@@ -269,7 +269,7 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return harnessShow(call);
     case "runs.submit": {
       const request = checkSubmit(ctx, await readJsonBody(req));
-      return sendJson(res, 201, "control-action#submit_response", { run: await svc.submit(request) });
+      return sendJson(res, 201, "control-action#submit_response", await svc.submit(request));
     }
     case "runs.list":
       return runsList(call);

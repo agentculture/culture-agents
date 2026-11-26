@@ -100,8 +100,17 @@ function replyError(run: Run, reply: ControlReply): ControlError | null {
   return unavailable(`The worker of run ${run.id} did not accept the action: ${body.message}`);
 }
 
-/** Run steps 5 to 9 for one action and return the accepted record, or throw the typed refusal. */
-export async function control(kind: ControlKind, target: ControlTarget, request: SteerRequest | CancelRequest): Promise<AcceptedResponse["action"]> {
+/**
+ * Run steps 5 to 9 for one action and return the accepted record, or throw the typed refusal.
+ * `beforeDeliver` runs once the action passed every check, just before it is sent to the worker
+ * (the run service writes the action's idempotency key there).
+ */
+export async function control(
+  kind: ControlKind,
+  target: ControlTarget,
+  request: SteerRequest | CancelRequest,
+  beforeDeliver?: (action: ActionRecord) => void,
+): Promise<AcceptedResponse["action"]> {
   const { run } = target;
   const action = record(run, kind, request, target.now);
   const refusal = capabilityRefusal(kind, target) ?? stateRefusal(kind, run);
@@ -112,6 +121,7 @@ export async function control(kind: ControlKind, target: ControlTarget, request:
   if (!run.live_control || target.worker === null) {
     throw new ControlError("unavailable", `This core holds no control channel to the worker of run ${run.id} yet; retry shortly.`, { run_id: run.id, retry_after_ms: 500 });
   }
+  beforeDeliver?.(action);
   let reply: ControlReply;
   try {
     reply =

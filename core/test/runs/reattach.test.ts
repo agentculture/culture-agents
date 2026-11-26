@@ -92,7 +92,7 @@ test("a control request before the reattach attempt finished waits, then retry-s
   const waiting = service.steer(run.id, { caller: CALLER, message: "late" }); // would time out at 150 ms...
   release();
   const accepted = await waiting; // ...but the attempt finishes first
-  assert.equal(accepted.kind, "steer");
+  assert.equal(accepted.action.kind, "steer");
   assert.deepEqual(echoes(readLog(runDir(env.stateDir, run.id), run.id).events), ["steer: late"]);
   await service.cancel(run.id, { caller: CALLER });
 });
