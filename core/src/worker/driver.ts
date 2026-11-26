@@ -61,6 +61,12 @@ export interface Driver {
    * the harness did not stop within the worker's cancel grace period.
    */
   dispose(): Promise<void>;
+  /**
+   * The sandbox this driver has decided to keep, or null. The worker asks once it has forced the
+   * harness down after the cancel grace period, because a driver still in its retention cleanup
+   * has not reported `failed` by then and never will before the worker finishes the run.
+   */
+  retained?(): Retained | null;
 }
 
 /** A driver module exports `createDriver` of this type. */
