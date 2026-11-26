@@ -125,9 +125,10 @@ test("capability documents validate against the contract, available or not", asy
       assert.ok(result.ok, `${entry.id} (${label}): ${JSON.stringify(result.ok ? null : result.issues)}`);
       assert.equal(doc.harness, entry.id);
       if (entry.id !== "stub") assert.equal(doc.available, label === "available", `${entry.id} availability (${label})`);
-      for (const c of ["pause", "resume", "answer", "continue_session", "delegate", "placement", "reconnect", "worktree_isolation"] as const) {
+      for (const c of ["pause", "resume", "answer", "continue_session", "delegate", "placement", "worktree_isolation"] as const) {
         assert.equal(doc.capabilities[c].supported, false, `${entry.id}: ${c} is deferred`);
       }
+      assert.equal(doc.capabilities.reconnect.supported, true, `${entry.id}: reconnect is supported`);
     }
   }
   const claude = await getHarness(ok, "claude-code")?.capabilities();
@@ -144,7 +145,7 @@ test("every undeclared capability of every harness is refused, typed, and never 
   for (const entry of listHarnesses(config)) {
     const doc = await entry.capabilities();
     const undeclared = (Object.keys(doc.capabilities) as CapabilityName[]).filter((c) => !doc.capabilities[c].supported);
-    assert.ok(undeclared.length >= 8);
+    assert.ok(undeclared.length >= 7);
     for (const capability of undeclared) {
       const refusal = refusalFor(doc, capability);
       assert.ok(refusal, `${entry.id}: ${capability} refused`);

@@ -32,7 +32,7 @@ export function capabilitiesOf(harness: FakeHarness): Capabilities {
       continue_session: deferred,
       delegate: deferred,
       placement: deferred,
-      reconnect: deferred,
+      reconnect: yes,
       worktree_isolation: deferred,
     },
   };

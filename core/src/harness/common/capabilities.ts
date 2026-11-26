@@ -16,14 +16,14 @@ import type {
 const deferred = (reason: string): Deferred => ({ supported: false, reason, caveats: [] });
 
 /**
- * The block every harness reports as unsupported today. `answer`, `reconnect` and
- * `worktree_isolation` may be supported since API 3.0, but no driver or core path builds them yet,
- * so they are reported unsupported, with the reason.
+ * The block every harness reports as unsupported today, except `reconnect`, which the core
+ * provides itself (runs/reattach.ts). `answer` and `worktree_isolation` may be supported since API
+ * 3.0, but no driver or core path builds them yet, so they are reported unsupported, with the reason.
  */
 export function deferredCapabilities(): Pick<
   CapabilitySet,
-  "pause" | "resume" | "answer" | "continue_session" | "delegate" | "placement" | "reconnect" | "worktree_isolation"
-> {
+  "pause" | "resume" | "answer" | "continue_session" | "delegate" | "placement" | "worktree_isolation"
+> & { reconnect: Capability } {
   return {
     pause: deferred("Pausing a run is deferred beyond D1 for every harness."),
     resume: deferred("Resuming a paused run is deferred beyond D1 for every harness."),
@@ -31,7 +31,7 @@ export function deferredCapabilities(): Pick<
     continue_session: deferred("Continuing an earlier session is deferred beyond D1; every run starts a new session."),
     delegate: deferred("Agent-to-agent delegation is deferred beyond D1."),
     placement: deferred("D1 runs on a single host; placement on another node is deferred."),
-    reconnect: unsupported("D1 cannot reattach live control to a worker that survived a core restart."),
+    reconnect: supported("Live control is rebuilt over the worker's own control socket; a worker that does not answer is reported unknown."),
     worktree_isolation: unsupported("One active run per repository in D1; concurrent runs in one repository are deferred."),
   };
 }

@@ -22,7 +22,7 @@ import {
 
 const lastState = (log: RunEvent[]) => [...log].reverse().find((e) => e.kind === "run.state")?.data as StateData;
 
-test("a worker survives a daemon SIGKILL: reported from disk, no live control, busy held, terminal state reached", async (t) => {
+test("a worker survives a daemon SIGKILL: reported from disk, control reattached, busy held, terminal state reached", async (t) => {
   const env = makeEnv(t, [TIMED]);
   const first = await startDaemon(t, env);
   const run = await submit(env, "fake-timed", env.repoA);
@@ -36,20 +36,16 @@ test("a worker survives a daemon SIGKILL: reported from disk, no live control, b
   assert.deepEqual(listed.runs.map((r) => r.id), [run.id]);
   const shown = await getRun(env, run.id);
   assert.equal(shown.state, "running", "state comes from the on-disk log");
-  assert.equal(shown.live_control, false);
   assert.equal(shown.worker_pid, pid);
   assert.equal(lastState(await events(env, run.id)).to, "running");
 
-  const steer = await refused(env, "POST", `/v1/runs/${run.id}/steer`, "unsupported", { caller: CALLER, message: "hello?" });
-  assert.equal(steer.capability, "reconnect");
-  const cancel = await refused(env, "POST", `/v1/runs/${run.id}/cancel`, "unsupported", { caller: CALLER });
-  assert.equal(cancel.capability, "reconnect");
-  // A deferred action is still refused at step 4, naming itself; without live control it is not recorded.
+  await waitRun(env, run.id, (r) => r.live_control, "live control after reattach");
+  await ok(env, "POST", `/v1/runs/${run.id}/steer`, 202, "control-action#accepted_response", { caller: CALLER, message: "hello?" });
+  // A deferred action is still refused at step 4, naming itself.
   assert.equal((await refused(env, "POST", `/v1/runs/${run.id}/pause`, "unsupported", { caller: CALLER })).capability, "pause");
   const busy = await refused(env, "POST", "/v1/runs", "busy", submitBody("fake-timed", env.repoA));
   assert.equal(busy.active_run_id, run.id);
   assert.ok(processExists(pid), "the restart never signalled the worker");
-  assert.ok(!(await events(env, run.id)).some((e) => e.kind === "run.refused"), "refusals without live control are not written");
 
   const ended = await waitRun(env, run.id, (r) => r.terminal, "terminal after restart", 10_000);
   assert.equal(ended.state, "succeeded");
@@ -75,7 +71,7 @@ test("a fatal error in the daemon stops it with exit 2 and never touches the wor
   await startDaemon(t, env); // the socket, the info file and both locks were released
   const shown = await getRun(env, run.id);
   assert.equal(shown.state, "running");
-  assert.equal(shown.live_control, false);
+  await waitRun(env, run.id, (r) => r.live_control, "live control after reattach");
   assert.ok(processExists(pid));
 });
 

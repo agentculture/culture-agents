@@ -188,14 +188,15 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     assert all(r["state"] in STATES for r in listed.values())
     assert listed[finished["id"]]["state"] == "succeeded"
     assert listed[working["id"]]["state"] == "running", "the surviving worker is still at work"
-    assert not listed[working["id"]]["live_control"]
+    assert listed[working["id"]]["live_control"], "D2: the core reattached to the survivor"
     assert listed[orphan["id"]]["state"] == "unknown", "a dead worker is unknown, never succeeded"
     assert listed[hung["id"]]["state"] == "running"
-    assert not listed[hung["id"]]["live_control"]
+    assert listed[hung["id"]]["live_control"], "D2: the core reattached to the survivor"
     assert hung_pid in core.worker_pids(), "the restart did not signal the surviving worker"
+    # D1 refused this as `unsupported`; since D2 (plan task t9) a restarted core takes back
+    # live control of a worker that survived it.
     steer = core.cli("runs", "steer", hung["id"], "hello?", "--json")
-    assert steer.rc == 1, "no live control after a restart"
-    assert steer.error_code() == "unsupported", "no live control after a restart"
+    assert steer.rc == 0, f"live control after a restart: {steer}"
 
     # The surviving worker finishes on its own, and its success is backed by its commits.
     assert core.wait_terminal(working["id"], 60)["state"] == "succeeded"
