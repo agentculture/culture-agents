@@ -146,6 +146,24 @@ def test_npm_publish_runs_on_push_only() -> None:
     assert cond == "github.event_name == 'push' && needs.version-gate.outputs.npm == 'publish'"
 
 
+def test_pypi_publish_runs_on_push_only() -> None:
+    doc = _load()
+    (job,) = [
+        j
+        for j in doc["jobs"].values()
+        if any(
+            "uv publish" in _run_text(s) and "test.pypi.org" not in _run_text(s) for s in _steps(j)
+        )
+    ]
+    cond = " ".join(str(job.get("if", "")).split())
+    assert cond == (
+        "always() && github.event_name == 'push'"
+        " && needs.test.result == 'success'"
+        " && needs.version-gate.result == 'success'"
+        " && (needs.publish-npm.result == 'success' || needs.publish-npm.result == 'skipped')"
+    )
+
+
 def test_npm_stage_uses_the_trusted_publisher() -> None:
     job = _stage_job(_load())
     # The trusted publisher on npm names this workflow and the `npm` environment.
