@@ -12,6 +12,136 @@ This is working state, not a design document. The authoritative records are:
   `docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md` and the
   derived `docs/current-spec.md`.
 
+## D2 workforce run in progress (written 2026-11-26, 19:45 UTC)
+
+Read this section first. It supersedes "Start here", "Open items" and
+"Inputs for D2" below, which describe the state before D2 was planned.
+
+### Where the work is
+
+- Branch `runs/d2-part-one`, based on `main` after PR 14 (0.15.3). It holds
+  the confirmed plan, the split record and every merged task. The version is
+  not bumped yet; bump and write the changelog when the pull request opens.
+- Spec `docs/specs/2026-11-25-d2-fleet-and-recovery.md` (re-exported with
+  observability, claims c66 to c71). Plan
+  `docs/plans/2026-11-26-d2-fleet-and-recovery.md`, 29 confirmed tasks.
+  Assignments and models:
+  `docs/plans/2026-11-26-d2-fleet-and-recovery-split.md`.
+- The owner's status artifact is
+  `https://claude.ai/artifact/RoWVa9am389rfeHhFxEpD7` (version 9; source in
+  the scratchpad as `issue-2-map.html`, update by publishing that path).
+- A session cron job posts a status every 20 minutes; it dies with the session.
+
+### Task state
+
+| Task | State |
+| --- | --- |
+| t1 approvals probe, t2 rename to `thor`, t3 contract 3.0, t4 store version, t9 reattach, t10 three D1 gaps, t14 broker publishing | merged |
+| t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
+| t5 store retention, t6 idempotency, t12 secret removal | run succeeded; result on a `runs/spark-culture-agents.run.<id>` branch; NOT yet gated or merged |
+| t15 branch cleanup (OpenCode), t29 tracing (Claude Code) | running |
+| t7, t8, t11, t13, t16, t17, t18, t19 | blocked on the above; part two (t20 to t26, t28) after t18 |
+
+Run ids (prefix `spark-culture-agents.run.`): t5 `01M8CNK6QWBPT9S8877NH69WME`,
+t12 `01M8CNK7BCDHDNWM6TP612KMQA`, t6 `01M8CNK7YG5BKE6H1RPBFRDMPW` (Opus
+core), t15 `01M8CMGNK4T2NR1DTBFN42CDAD`, t29 `01M8CNZW9HF9QR9ZEJ3CS3F30W`.
+
+Last merge gate, on the merged tree: core 573 passed and 8 skipped, Python
+1607 passed and 9 skipped, lint, contract types and the three scans clean.
+
+### How dispatch works (dogfooding the `agents` CLI)
+
+- Two dispatch cores run from the worktree
+  `../.worktrees.culture-agents/dispatch-core` (0.15.2 plus the chunk fix,
+  API 2.0): the default socket runs Claude Code on sonnet, and
+  `/run/user/1000/culture-agents/core-opus.sock` runs it on opus. Each has
+  its own state directory, `~/.local/state/culture-agents-dogfood` and
+  `-dogfood-opus`. Both were started as background tasks of this session;
+  they do not survive it. Their environment is in the scratchpad file
+  `core-env.sh` (for the core process only; never give it to the owner to
+  source, it sets `XDG_CONFIG_HOME`).
+- The repository's own CLI is now API 3.0 and refuses those cores. Use the
+  scratchpad wrappers `ag` (sonnet core) and `ag-opus`.
+- The allow-list is the scratchpad file `cfg/culture-agents/allowlist.json`;
+  the cores re-read it per request. One entry per task worktree.
+- The OpenShell gateway and binary come from an earlier session's scratchpad
+  (`43e5a03f-…/scratchpad/openshell-bin`, `osh/`). If that directory goes,
+  dispatch stops.
+- Run image `culture-agents-run:dogfood` is local only: the normal image plus
+  the core's `node_modules` and a Python environment under
+  `/usr/local/share/dogfood`. Rebuild it when a lockfile changes (build
+  context in the scratchpad, `dogfood-image/`).
+- A brief is built by the scratchpad script `brief.py <waves.json> <task>`,
+  quoting the plan verbatim. Each run commits a `TASK-REPORT.md`; at merge it
+  moves to `docs/d2/task-reports/<task>.md`.
+- Merge gate per task: `git merge --no-ff --no-commit <runs/… branch>`, move
+  the report, run `npm test`, lint and contract types in `core/`, the full
+  Python suite, the three scans and markdownlint, then commit. Agents often
+  skip the Python suite; expect to update a D1 test that encodes old
+  behaviour.
+- One worktree per task under `../.worktrees.culture-agents/agent-<task>`,
+  because D1 allows one active run per repository path.
+- For an OpenCode run, start from a history-free snapshot commit (see
+  `snapshot/t15`): the agent otherwise reads the placeholder marker out of old
+  diffs. Replay its commits onto the real branch at merge (cherry-pick the
+  range after the snapshot commit).
+
+### Owner's standing instructions from this run
+
+- Choose the model per task without asking (opus: t6, t8, t13, t21, t23).
+- One OpenCode run at a time. Never hard-timeout a local-model run.
+- Run only `harness-smoke.py --stage config`; `--stage all` starts slow
+  local-model probes and has failed unexplained twice.
+- No real host name or address in any tracked file. The local gateway's role
+  listing names real machines; keep that output out of commits and messages.
+  `thor` and `spark` are both real mesh machines; the owner chose the Jetson
+  Thor name as the example knowingly.
+
+### Found by dogfooding
+
+- Sandbox writes used chunks of exactly 1 MiB, the gateway's whole-message
+  limit, so a repository over 1 MiB could not start a run. Fixed on the
+  branch (`WRITE_CHUNK` is 512 KiB). Releases up to 0.15.3 have the bug.
+- Text containing OpenShell's credential placeholder marker ends a run once a
+  harness reads it. The marker is out of the working tree and
+  `scripts/scan-secrets.py` fails on it; git history still holds it (plan
+  risk r13).
+- A failed turn collects nothing (plan risk r14, no task).
+- The core has one model per harness for the whole daemon.
+- Three OpenCode runs at once on one local model: two failed when the gateway
+  lost its route to the serving machine. This led to the observability
+  decision and to lobes-cli issue 348 (per-model load).
+
+### Waiting on the owner
+
+- Deviation `d1` (marker fix; t2 and t3 moved to host subagents) is still
+  proposed. `d2` (observability) is approved.
+- Whether to add `placement` and a typed "admission held" refusal to contract
+  3.0 now; under the contract's own rule they cannot be minor additions
+  later. Recommended: add both now.
+- Two records still name the real chat server (`docs/d0/d1-acceptance.md`
+  line 116 and one delivery record): redact or leave.
+- t14: enabling publishing on a store with history publishes every past run
+  from its first event; the broker address must be loopback.
+- Langfuse: not installed on this host. The owner was asked whether I should
+  bring it up from its own compose file; no answer yet. The live check of t29
+  against a real Langfuse is mine to run on the host after t29 merges.
+- Housekeeping: reject seven staged dev versions on npm, limit the `npm` and
+  `pypi` environments to `main`, delete the stale remote branch
+  `runs/d2-frame`, and two leftover local branches in the lobes-cli checkout.
+
+### Next steps
+
+1. Gate and merge t5, t12, t6 (t5 and t6 both touch `core/src/store/`).
+2. Dispatch t7 (sonnet) and t11 (sonnet) after t6; then t8 (opus) after t7.
+   Fold "unreadable run on the wire" into t8, as t4's report suggests.
+3. When t15 and t29 end, gate them; t29's live Langfuse check follows.
+4. Remove merged `runs/spark-…` result branches and the two smoke branches at
+   the end, with the owner's go-ahead for forced deletes.
+5. After wave 8 (t18 acceptance, t19 documents): bump the version, open the
+   pull request through the `cicd` skill, and run the pre-PR review in
+   OpenCode. Then `/validate-delivery` and `/summarize-delivery`.
+
 ## Start here in a new session
 
 1. **Release workflow: stage on pull requests, publish on `main`.** Decided
