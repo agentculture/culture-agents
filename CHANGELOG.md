@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.3] - 2026-11-26
+
+### Added
+
+- The D2 (fleet and recovery) spec, `docs/specs/2026-11-25-d2-fleet-and-recovery.md`, exported from the converged frame with the owner's decisions, the challenge pass and 27 obligations. It is a spec only; nothing of D2 is built.
+
 ## [0.15.2] - 2026-11-26
 
 ### Changed
