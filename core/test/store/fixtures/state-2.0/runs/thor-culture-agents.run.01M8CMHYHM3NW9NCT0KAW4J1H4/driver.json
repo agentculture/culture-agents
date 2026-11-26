@@ -1,0 +1,1 @@
+{"module":"/sandbox/work/core/dist/src/worker/fake-driver.js","options":{"steps":[{"op":"started"},{"op":"output","data":{"channel":"text","text":"done"}},{"op":"completed"}]}}
