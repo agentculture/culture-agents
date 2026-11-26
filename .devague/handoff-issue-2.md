@@ -38,7 +38,7 @@ Read this section first. It supersedes "Start here", "Open items" and
 | --- | --- |
 | t1 to t15, t17, t29 | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t16 CLI keys, retry and the answer verb (Claude Code, sonnet) | running, dispatched 22:58 UTC |
+| t16 CLI keys, retry and the answer verb (Claude Code, sonnet) | running, dispatched 22:54 UTC |
 | t18, t19 | blocked on t16; part two (t20 to t26, t28) after t18 |
 
 Deviation `d3` (proposed, waits for the owner): t13 built operator questions
@@ -51,7 +51,7 @@ call as text and the turn ended. Its only commit is a stray
 `core/node_modules` symlink; do not merge that branch. Recorded as plan risk
 r15.
 
-Last merge gate (after t13, 22:56 UTC), on the merged tree: core 652 passed
+Last merge gate (after t13, 22:53 UTC), on the merged tree: core 652 passed
 and 8 skipped, Python 1673 passed and 9 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
