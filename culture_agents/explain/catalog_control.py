@@ -74,9 +74,9 @@ an allow-list entry matching agent, harness and repo, and answers `denied`
 otherwise. A repository with an active run answers `busy`.
 
 Optional: `--deadline <UTC time>`, `--idempotency-key` (a repeat with the
-same request returns the first run; a changed request is `conflict`), `--caller` and `--caller-kind` (default
-`<node>-operator`, kind `operator`), `--session-id` and `--parent-run-id`
-(the core refuses both as `unsupported`).
+same request returns the first run; a changed request is `conflict`),
+`--caller` and `--caller-kind` (default `<node>-operator`, kind `operator`),
+`--session-id` and `--parent-run-id` (the core refuses both as `unsupported`).
 
 ## Usage
 
