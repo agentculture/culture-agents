@@ -34,6 +34,8 @@ export const RUN_FILES = {
   collected: "collected.json",
   /** A sandbox kept after a completed turn's work could not be brought to the host: `{ sandbox, until }`. */
   retained: "retained.json",
+  /** A cache of a finished run's derived record, rebuilt from the event log when missing or stale. Never the source of truth. */
+  summary: "summary.json",
   /** The worker's own stdout/stderr (diagnostics only, never parsed). */
   log: "worker.log",
 } as const;

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { startPublishing } from "../publish/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
+import { retentionFromEnv, pruneFinishedRuns } from "../store/retention.js";
 import { cleanupStore } from "../store/startup.js";
 import { loadAllowlist } from "./allowlist.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
@@ -179,8 +180,21 @@ async function serveUntilStopped(
       (e: unknown) => err(`culture-agents core: could not reclaim sandboxes of finished runs: ${e instanceof Error ? e.message : String(e)}`),
     );
   };
+  // Finished run directories past the retention period (CULTURE_AGENTS_RUN_RETENTION_DAYS, default 30, off or 0 keeps all).
+  const prune = (): void => {
+    if (!runs) return;
+    try {
+      const ids = pruneFinishedRuns(stateDir, { retentionMs: retentionFromEnv(env) });
+      if (ids.length > 0) err(`culture-agents core: removed ${ids.length} finished run directory(ies) past retention: ${ids.join(", ")}`);
+    } catch (e) {
+      err(`culture-agents core: could not prune finished runs: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  };
   reclaim();
+  prune();
   const reclaimTimer = setInterval(reclaim, options.reclaimIntervalMs ?? 300_000);
+  const pruneTimer = setInterval(prune, options.reclaimIntervalMs ?? 300_000);
+  pruneTimer.unref();
   reclaimTimer.unref();
   const state = daemon.allowlistState();
   err(`culture-agents core: listening on ${daemon.paths.socket} (pid ${process.pid}); allow-list ${state.status}, ${state.entries.length} entries`);
@@ -189,6 +203,7 @@ async function serveUntilStopped(
     void fatal?.then(() => resolve(2));
   });
   clearInterval(reclaimTimer);
+  clearInterval(pruneTimer);
   const stopping = (async () => {
     await publishing?.stop();
     await daemon.stop();

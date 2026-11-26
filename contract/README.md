@@ -561,6 +561,30 @@ another host.
 A local submit under an `unknown` signal is admitted, and the submit response
 then carries a `warnings` entry with code `signal_unknown` naming the signal.
 
+## Retention of finished runs
+
+The core removes a finished run's directory (`<state>/runs/<run-id>/`) only when
+all of these hold. Any doubt keeps the directory.
+
+- The run's state is known and finished: its event log ends in `succeeded`,
+  `failed` or `cancelled`. A run that reads `unknown`, a run whose record or
+  log cannot be read, and a run whose worker may be alive are never removed.
+- Its sandbox is not retained: there is no `retained.json`, or its `until` has
+  passed.
+- The retention period has passed since the later of the run's `ended_at` and
+  the end of its sandbox retention.
+
+The period is `CULTURE_AGENTS_RUN_RETENTION_DAYS` in the core's environment:
+30 days when unset; `0`, `off` or any unusable value keeps every run. The core
+checks at startup and on the reclaim interval. A removed run answers `not_found`.
+
+Each finished run also keeps `summary.json`: its derived record and the byte
+size of the event log it came from. It is a cache. The event log stays the
+source of truth: a summary that is missing, invalid or whose size differs from
+the log is ignored and rebuilt from the log, and the listing is the same
+without it. Only finished runs have one, so listing, submit and attach do not
+read the event logs of finished runs.
+
 ## Authorization and the allow-list
 
 - Dispatch is denied by default. The core enforces this, and nothing in a

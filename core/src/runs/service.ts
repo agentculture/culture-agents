@@ -59,6 +59,8 @@ export interface RunServiceOptions {
   reattachWaitMs?: number;
   /** Reaches a surviving worker. Default `reconnectWorker`; tests hold it open. */
   reconnect?: ReconnectFn;
+  /** How store files are read (event logs, summaries). Default `fs.readFileSync`; tests inject a counting reader. */
+  readFile?: (path: string) => Buffer;
 }
 
 export class StoreRunService implements RunService {
@@ -77,7 +79,7 @@ export class StoreRunService implements RunService {
         process.stderr.write(`${line}\n`);
       });
     this.reattacher = new Reattacher({ stateDir: options.stateDir, controls: this.controls, reconnect: options.reconnect ?? ((dir, id) => reconnectWorker(dir, id)), warn });
-    this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), unresponsive: (id) => this.reattacher.unresponsive(id), warn };
+    this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), unresponsive: (id) => this.reattacher.unresponsive(id), warn, ...(options.readFile && { readFile: options.readFile }) };
   }
 
   /**
