@@ -180,7 +180,7 @@ export async function defineContractSuite(target: ContractTarget): Promise<void>
     const driver = await target.createDriver(run, "refusal");
     const caps = driver.capabilities.capabilities;
     const undeclared = (Object.keys(caps) as CapabilityName[]).filter((c) => !caps[c].supported);
-    assert.ok(undeclared.length >= 8, "at least the deferred capabilities are undeclared");
+    assert.ok(undeclared.length >= 7, "at least the deferred capabilities are undeclared");
     let forwarded = 0;
     const inner = driver.inner as Driver;
     const original = { steer: inner.steer.bind(inner), cancel: inner.cancel.bind(inner) };

@@ -26,6 +26,8 @@ export interface ScanOptions {
   stateDir: string;
   /** Whether this core holds live control of the run's worker. */
   controllable: (runId: RunId) => boolean;
+  /** Why a live worker could not be reattached (its control socket did not answer), or null. The run reads `unknown`. */
+  unresponsive?: (runId: RunId) => string | null;
   /** Where to report a run that cannot be read (corrupt log or record). */
   warn: (line: string) => void;
 }
@@ -51,7 +53,10 @@ export function readRun(options: ScanOptions, runId: string, strict = false): Ru
   const dir = runDir(options.stateDir, runId);
   if (!existsSync(dir)) return null;
   try {
-    return showRunAt(dir, { controllable: options.controllable(runId), settle: true })?.run ?? null;
+    const run = showRunAt(dir, { controllable: options.controllable(runId), settle: true })?.run ?? null;
+    const silent = run !== null && !run.terminal ? (options.unresponsive?.(runId) ?? null) : null;
+    // Reported only: the worker is alive and is still the log's writer, so nothing is appended.
+    return silent === null || run === null ? run : { ...run, state: "unknown", state_reason: silent, terminal: true, live_control: false, ended_at: run.updated_at };
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     if (strict) throw new UnreadableRunError(runId, detail);

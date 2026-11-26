@@ -4,7 +4,7 @@
  *
  * 5. the run's harness capability document supports the action, else `unsupported` naming it;
  * 6. the state allows it, else `conflict` (`steer` needs `running`; `cancel` needs an active state);
- * 7. live control (false after a core restart), else `unsupported`, capability `reconnect`;
+ * 7. live control (rebuilt by reattach after a core restart), else `unavailable` with `retry_after_ms`;
  * 8. delivery over the worker's control channel, else `unavailable`;
  * 9. the accepted action record (the worker appends it to the log as `run.control`).
  *
@@ -110,7 +110,7 @@ export async function control(kind: ControlKind, target: ControlTarget, request:
     throw refusal;
   }
   if (!run.live_control || target.worker === null) {
-    throw unsupported("reconnect", `Run ${run.id} survived a core restart; this core cannot reconnect to its worker, so live control is unavailable.`);
+    throw new ControlError("unavailable", `This core holds no control channel to the worker of run ${run.id} yet; retry shortly.`, { run_id: run.id, retry_after_ms: 500 });
   }
   let reply: ControlReply;
   try {

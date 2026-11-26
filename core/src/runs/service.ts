@@ -34,10 +34,11 @@ import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
-import { WorkerSpawnError, spawnWorker, type WorkerControl } from "../worker/spawn.js";
+import { WorkerSpawnError, reconnectWorker, spawnWorker, type WorkerControl } from "../worker/spawn.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
 import type { HarnessCatalog } from "./ports.js";
+import { Reattacher, type ReconnectFn } from "./reattach.js";
 import { activeRunFor, readRun, resultOf, scanRuns, unreadableRunHolding, UnreadableRunError, type ScanOptions } from "./scan.js";
 
 export interface RunServiceOptions {
@@ -54,35 +55,41 @@ export interface RunServiceOptions {
   /** Poll interval of a live event stream. Default 20 ms. */
   followPollMs?: number;
   warn?: (line: string) => void;
+  /** How long a control request waits for its run's reattach attempt before `unavailable` with `retry_after_ms`. Default 5000. */
+  reattachWaitMs?: number;
+  /** Reaches a surviving worker. Default `reconnectWorker`; tests hold it open. */
+  reconnect?: ReconnectFn;
 }
 
 export class StoreRunService implements RunService {
   private readonly controls = new Map<RunId, WorkerControl>();
   private readonly scan: ScanOptions;
+  private readonly reattacher: Reattacher;
   private readonly now: () => Date;
   /** Serializes submits so the busy check and the spawn are one step per repository. */
   private submitChain: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly options: RunServiceOptions) {
     this.now = options.now ?? (() => new Date());
-    this.scan = {
-      stateDir: options.stateDir,
-      controllable: (id) => this.controls.has(id),
-      warn:
-        options.warn ??
-        ((line) => {
-          process.stderr.write(`${line}\n`);
-        }),
-    };
+    const warn =
+      options.warn ??
+      ((line) => {
+        process.stderr.write(`${line}\n`);
+      });
+    this.reattacher = new Reattacher({ stateDir: options.stateDir, controls: this.controls, reconnect: options.reconnect ?? ((dir, id) => reconnectWorker(dir, id)), warn });
+    this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), unresponsive: (id) => this.reattacher.unresponsive(id), warn };
   }
 
   /**
    * Startup reconciliation: rebuild every run from disk. Orphaned runs (no live worker, no
-   * terminal event) get `unknown` appended; surviving workers are only read, never signalled, and
-   * report `live_control: false`. Existing events are never rewritten. Returns the runs.
+   * terminal event) get `unknown` appended; surviving workers are never signalled: the core
+   * reattaches to each over its control socket (started here, finished in the background; a control
+   * request waits for its run's attempt). Existing events are never rewritten. Returns the runs.
    */
   reconcile(): Run[] {
-    return scanRuns(this.scan);
+    const runs = scanRuns(this.scan);
+    for (const run of runs) if (!run.terminal) void this.reattacher.begin(run.id);
+    return runs;
   }
 
   /** Ask the harnesses to delete what finished runs of this store left behind (README: cancel, sandbox). */
@@ -229,8 +236,16 @@ export class StoreRunService implements RunService {
   }
 
   private async act(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse["action"]> {
-    const run = this.read(runId);
+    let run = this.read(runId);
     if (run === null) throw notFound(`No run ${runId}.`, { run_id: runId });
+    if (!run.terminal && !run.live_control) {
+      // The run's worker may have survived a restart: its reattach attempt comes before the answer.
+      const wait = this.options.reattachWaitMs ?? 5000;
+      if (!(await this.reattacher.settle(run.id, wait))) {
+        throw new ControlError("unavailable", `The core is still reattaching to the worker of run ${run.id}; retry shortly.`, { run_id: run.id, retry_after_ms: 500 });
+      }
+      run = this.read(runId) ?? run;
+    }
     const entry = this.options.catalog.get(run.harness);
     const capabilities = entry ? await entry.capabilities() : null;
     const worker = run.live_control ? (this.controls.get(run.id) ?? null) : null;
