@@ -19,7 +19,6 @@
         "invalid",
         "denied",
         "not_found",
-        "busy",
         "conflict",
         "limit_reached",
         "unsupported",
@@ -61,14 +60,6 @@
         "run_id": {
           "description": "The run the error concerns, when there is one. Required for conflict.",
           "$ref": "common.json#/$defs/run_id"
-        },
-        "active_run_id": {
-          "description": "busy only: the active run holding the repository.",
-          "$ref": "common.json#/$defs/run_id"
-        },
-        "repo": {
-          "description": "busy only: the canonical repository path that is busy.",
-          "$ref": "common.json#/$defs/repo_path"
         },
         "client_api_version": {
           "$ref": "common.json#/$defs/api_version"
@@ -121,45 +112,6 @@
             "not": {
               "required": [
                 "capability"
-              ]
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "code"
-            ],
-            "properties": {
-              "code": {
-                "const": "busy"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "active_run_id",
-              "repo"
-            ],
-            "properties": {
-              "retryable": {
-                "const": true
-              }
-            }
-          },
-          "else": {
-            "not": {
-              "anyOf": [
-                {
-                  "required": [
-                    "active_run_id"
-                  ]
-                },
-                {
-                  "required": [
-                    "repo"
-                  ]
-                }
               ]
             }
           }

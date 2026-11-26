@@ -125,7 +125,8 @@ def test_route_errors_and_streaming_are_consistent(route):
 def test_error_table_matches_error_schema_and_exit_codes():
     codes = set(SCHEMAS["error.json"]["$defs"]["code"]["enum"])
     assert codes == set(API["errors"])
-    assert {"unsupported", "busy", "denied", "not_found", "invalid"} <= codes
+    assert {"unsupported", "limit_reached", "denied", "not_found", "invalid"} <= codes
+    assert "busy" not in codes  # removed in 3.0 by t8
     assert {"incompatible_version", "unavailable"} <= codes
     for code, row in API["errors"].items():
         assert row["exit_code"] == (2 if code in ENVIRONMENT_ERRORS else 1), code
@@ -194,7 +195,6 @@ ID_PROPS = {
     "agent_id": "mesh_id",
     "run_id": "run_id",
     "session_id": "session_id",
-    "active_run_id": "run_id",
     "parent_run_id": "run_id",
 }
 

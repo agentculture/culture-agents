@@ -26,7 +26,7 @@ before it is shown."""
 _EXIT_CODES = """\
   0 success
   1 user-input error (bad flag, bad path, missing arg) or a request the core
-    refuses (denied, unsupported, busy, conflict, invalid, not_found)
+    refuses (denied, unsupported, limit_reached, conflict, invalid, not_found)
   2 environment / setup error (core not running, incompatible API version, an
     answer from the core that breaks the contract)
   3+ reserved"""

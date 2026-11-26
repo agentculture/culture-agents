@@ -1,10 +1,9 @@
 {
   "error": {
-    "code": "busy",
+    "code": "conflict",
     "message": "x",
-    "retryable": true,
-    "active_run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
-    "repo": "/srv/repos/demo",
+    "retryable": false,
+    "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
     "limit": {
       "name": "runs_per_repository",
       "value": 2,

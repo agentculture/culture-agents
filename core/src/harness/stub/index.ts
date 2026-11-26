@@ -28,6 +28,11 @@ export function stubCore(): Pick<CapabilitySet, "submit" | "stream" | "steer" | 
   };
 }
 
+/** The stub has no sandbox: its clone per run is a temporary directory on the host, still never a worktree. */
+export const STUB_ISOLATION = supported(
+  "Each run works in its own temporary clone of the repository on the host (the stub has no sandbox), made from the commit recorded at submit, and its commits return only to its own runs/<run_id> branch. No git worktree is created, and the host checkout and index are never written.",
+);
+
 export function createDriver(context: DriverContext): Driver {
   const options = context.options as StubDriverOptions;
   const run = context.run;
@@ -36,5 +41,5 @@ export function createDriver(context: DriverContext): Driver {
     new StubBackend(options.stepMs === undefined ? {} : { stepMs: options.stepMs }),
     { task: run.task, commitMessage: `run ${run.id}: changes by stub`, processSettleMs: 0 },
   );
-  return guardDriver(driver, capabilityDocument({ harness: "stub", available: true, version: "stub-1", transport: STUB_TRANSPORT, core: stubCore() }));
+  return guardDriver(driver, capabilityDocument({ harness: "stub", available: true, version: "stub-1", transport: STUB_TRANSPORT, core: stubCore(), isolation: STUB_ISOLATION }));
 }

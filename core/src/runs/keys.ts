@@ -1,7 +1,7 @@
 /**
  * Idempotency on the run service's routes (contract/README.md: idempotency keys), over the on-disk
  * key index (store/idempotency.ts). A key is looked up after the capability checks and before
- * the busy check of a submit, and before the capability check of a steer or cancel:
+ * the limit check of a submit, and before the capability check of a steer or cancel:
  *
  * - no entry: the request proceeds and its key is written before anything else happens;
  * - an entry whose effect is not established yet: settled from the store first (released, so the

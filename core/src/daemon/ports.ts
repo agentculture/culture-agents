@@ -28,7 +28,7 @@ export type DeferredRequest = PauseRequest | ResumeRequest | AnswerRequest;
  * elsewhere; the server knows nothing else. Only contract types cross this boundary.
  *
  * Error convention: an implementation reports every contract refusal by throwing `ControlError`
- * (errors.ts), for example `not_found`, `busy`, `unsupported`, `conflict`, `unavailable`. Any other
+ * (errors.ts), for example `not_found`, `limit_reached`, `unsupported`, `conflict`, `unavailable`. Any other
  * exception becomes `internal`. A "missing" lookup returns `null` where the signature says so.
  *
  * Who checks what (contract/README.md, order of checks):
@@ -38,7 +38,7 @@ export type DeferredRequest = PauseRequest | ResumeRequest | AnswerRequest;
  *   itself (step 4) and hands it to `recordRefusal`, because only the run logic can write a run's log.
  * - `submit` receives a request that already passed the allow-list, with `repo` canonicalized
  *   (realpath). It performs steps 4 to 8 of the submit order (harness known and available,
- *   capabilities, idempotency key, busy, write the key, create session and run, start the worker).
+ *   capabilities, idempotency key, configured limits, write the key, create session and run, start the worker).
  * - `steer` and `cancel` perform steps 5 to 9 of the control order (capability, state, live
  *   control, delivery) and return the accepted action record.
  */

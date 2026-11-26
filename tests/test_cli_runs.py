@@ -189,11 +189,18 @@ def test_cancel(core, capsys: pytest.CaptureFixture[str]) -> None:
     )
 
 
-def test_busy_and_denied_are_user_errors(core, capsys: pytest.CaptureFixture[str]) -> None:
-    core.respond("POST /v1/runs", 409, fixture("error", "root.busy"))
-    busy = run(capsys, *SUBMIT, "--json")
-    assert busy.rc == 1
-    assert busy.err_json()["active_run_id"] == RUN_ID
+def test_limit_reached_and_denied_are_user_errors(core, capsys: pytest.CaptureFixture[str]) -> None:
+    core.respond("POST /v1/runs", 429, fixture("error", "root.limit-reached"))
+    limited = run(capsys, *SUBMIT, "--json")
+    assert limited.rc == 1
+    assert limited.err_json()["error_code"] == "limit_reached"
+    assert limited.err_json()["limit"] == {
+        "name": "runs_per_repository",
+        "value": 2,
+        "active": 2,
+        "repo": "/srv/repos/demo",
+    }
+    assert "nothing was queued" in limited.err_json()["remediation"]
     core.respond("POST /v1/runs", 403, fixture("error", "root.denied"))
     assert run(capsys, *SUBMIT).rc == 1
 

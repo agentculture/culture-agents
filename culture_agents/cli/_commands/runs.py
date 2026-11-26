@@ -3,7 +3,7 @@
 Every verb is one or two calls on the core's control socket. The CLI never
 decides what the core may do: ``pause``, ``resume``, ``answer``, sessions,
 delegation and placement are not verbs here, and a request the core refuses
-(``unsupported``, ``denied``, ``busy``) surfaces as that typed error.
+(``unsupported``, ``denied``, ``limit_reached``) surfaces as that typed error.
 
 Task text and steer messages are data sent verbatim, never interpreted.
 """

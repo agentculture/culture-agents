@@ -18,12 +18,14 @@ import {
   submitBody,
   waitFor,
   waitRun,
+  writeLimits,
 } from "./support.js";
 
 const lastState = (log: RunEvent[]) => [...log].reverse().find((e) => e.kind === "run.state")?.data as StateData;
 
-test("a worker survives a daemon SIGKILL: reported from disk, control reattached, busy held, terminal state reached", async (t) => {
+test("a worker survives a daemon SIGKILL: reported from disk, control reattached, counted against a limit, terminal state reached", async (t) => {
   const env = makeEnv(t, [TIMED]);
+  writeLimits(env, { runsPerRepository: 1 });
   const first = await startDaemon(t, env);
   const run = await submit(env, "fake-timed", env.repoA);
   await waitRun(env, run.id, (r) => r.state === "running", "running");
@@ -43,8 +45,9 @@ test("a worker survives a daemon SIGKILL: reported from disk, control reattached
   await ok(env, "POST", `/v1/runs/${run.id}/steer`, 202, "control-action#accepted_response", { caller: CALLER, message: "hello?" });
   // A deferred action is still refused at step 4, naming itself.
   assert.equal((await refused(env, "POST", `/v1/runs/${run.id}/pause`, "unsupported", { caller: CALLER })).capability, "pause");
-  const busy = await refused(env, "POST", "/v1/runs", "busy", submitBody("fake-timed", env.repoA));
-  assert.equal(busy.active_run_id, run.id);
+  // The surviving run counts against the configured limit (written before the first start).
+  const limited = await refused(env, "POST", "/v1/runs", "limit_reached", submitBody("fake-timed", env.repoA));
+  assert.deepEqual(limited.limit, { name: "runs_per_repository", value: 1, active: 1, repo: env.repoA });
   assert.ok(processExists(pid), "the restart never signalled the worker");
 
   const ended = await waitRun(env, run.id, (r) => r.terminal, "terminal after restart", 10_000);
@@ -53,7 +56,7 @@ test("a worker survives a daemon SIGKILL: reported from disk, control reattached
   assert.equal(result.state, "succeeded");
   assert.equal(result.summary, "done");
   await waitFor(() => !processExists(pid), 5000, "worker exit");
-  assert.equal((await submit(env, "fake-timed", env.repoA)).state, "queued", "the repository is free again");
+  assert.equal((await submit(env, "fake-timed", env.repoA)).state, "queued", "the repository has room again");
 });
 
 test("a fatal error in the daemon stops it with exit 2 and never touches the worker", async (t) => {
@@ -117,11 +120,12 @@ test("with the default empty catalog every submit is refused not_found and agent
   await refused(env, "GET", "/v1/agents/thor-nobody", "not_found");
 });
 
-test("submit refuses continue_session and delegate before the busy check", async (t) => {
+test("submit refuses continue_session and delegate before the limit check", async (t) => {
   const env = makeEnv(t, [HANG]);
+  writeLimits(env, { runsPerRepository: 1 });
   await startDaemon(t, env);
   const run = await submit(env, "fake", env.repoA);
-  // continue_session is checked before busy, so the busy repository does not hide it.
+  // continue_session is checked before the limit, so the full repository does not hide it.
   const cont = await refused(env, "POST", "/v1/runs", "unsupported", submitBody("fake", env.repoA, { session_id: run.session_id }));
   assert.equal(cont.capability, "continue_session");
   const del = await refused(env, "POST", "/v1/runs", "unsupported", submitBody("fake", env.repoA, { parent_run_id: run.id }));

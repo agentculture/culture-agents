@@ -16,9 +16,17 @@ import type {
 const deferred = (reason: string): Deferred => ({ supported: false, reason, caveats: [] });
 
 /**
- * The block every harness reports as unsupported today, except `reconnect`, which the core
- * provides itself (runs/reattach.ts). `answer` and `worktree_isolation` may be supported since API
- * 3.0, but no driver or core path builds them yet, so they are reported unsupported, with the reason.
+ * What `worktree_isolation` guarantees for a sandboxed harness: a sandbox clone per run, never a
+ * git worktree on the host. Concurrent runs in one repository rely on exactly this (contract README).
+ */
+export const SANDBOX_ISOLATION =
+  "Each run works in its own clone of the repository inside its own sandbox, made from a git bundle of the commit recorded at submit, and its commits return only to its own runs/<run_id> branch. This is a sandbox clone per run, not a host worktree: no git worktree is created on the host, and the host checkout and index are never written.";
+
+/**
+ * The block every harness reports the same way: the deferred capabilities unsupported; `reconnect`,
+ * which the core provides itself (runs/reattach.ts), and `worktree_isolation` (a sandbox clone per
+ * run; a harness without a sandbox overrides its caveat) supported. `answer` may be supported since
+ * API 3.0, but no driver builds it yet, so it is reported unsupported, with the reason.
  */
 export function deferredCapabilities(): Pick<
   CapabilitySet,
@@ -32,7 +40,7 @@ export function deferredCapabilities(): Pick<
     delegate: deferred("Agent-to-agent delegation is deferred beyond D1."),
     placement: deferred("D1 runs on a single host; placement on another node is deferred."),
     reconnect: supported("Live control is rebuilt over the worker's own control socket; a worker that does not answer is reported unknown."),
-    worktree_isolation: unsupported("One active run per repository in D1; concurrent runs in one repository are deferred."),
+    worktree_isolation: supported(SANDBOX_ISOLATION),
   };
 }
 
@@ -45,6 +53,8 @@ export interface CapabilityInput {
   version: string | null;
   transport: string;
   core: Pick<CapabilitySet, "submit" | "stream" | "steer" | "cancel">;
+  /** Replaces the default `worktree_isolation` (a sandbox clone per run) for a harness that runs elsewhere. */
+  isolation?: Capability;
   extension?: Record<string, unknown>;
 }
 
@@ -54,7 +64,7 @@ export function capabilityDocument(input: CapabilityInput): Capabilities {
     available: input.available,
     version: input.version === null ? null : input.version.slice(0, 128),
     transport: input.transport,
-    capabilities: { ...input.core, ...deferredCapabilities() },
+    capabilities: { ...input.core, ...deferredCapabilities(), ...(input.isolation && { worktree_isolation: input.isolation }) },
   };
   if (input.extension) doc.extension = input.extension;
   return doc;

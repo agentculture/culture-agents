@@ -177,7 +177,7 @@ and deprecation. D2 to D6 are not built.
   `contract/` (schema loader, validator, generated types), `daemon/` (Unix
   socket HTTP server, single-instance lock, allow-list), `store/` and
   `worker/` (on-disk run store; one detached worker process per run), `runs/`
-  (orchestration: busy refusal, control forwarding, restart reconciliation),
+  (orchestration: configured limits, control forwarding, restart reconciliation),
   `sandbox/` (OpenShell sandbox provider and git-bundle working-tree
   handoff), `harness/` (Claude Code driver over the Vercel AI SDK, OpenCode v2
   driver over its server API, a stub driver, the registry). `core/policy/`

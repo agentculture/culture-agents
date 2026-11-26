@@ -8,7 +8,7 @@ export type ErrorResponse = {
   error: ErrorBody;
 };
 
-export type ErrorCode = "invalid" | "denied" | "not_found" | "busy" | "conflict" | "limit_reached" | "unsupported" | "incompatible_version" | "unavailable" | "internal";
+export type ErrorCode = "invalid" | "denied" | "not_found" | "conflict" | "limit_reached" | "unsupported" | "incompatible_version" | "unavailable" | "internal";
 
 export type ErrorBody = {
   code: ErrorCode;
@@ -21,10 +21,6 @@ export type ErrorBody = {
   field?: string;
   /** The run the error concerns, when there is one. Required for conflict. */
   run_id?: RunId;
-  /** busy only: the active run holding the repository. */
-  active_run_id?: RunId;
-  /** busy only: the canonical repository path that is busy. */
-  repo?: RepoPath;
   client_api_version?: ApiVersion;
   server_api_version?: ApiVersion;
   /** conflict only: present when the conflict is an idempotency key that was already used with a different request. `run_id` is then the run the key belongs to. */

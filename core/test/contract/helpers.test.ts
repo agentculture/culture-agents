@@ -191,7 +191,6 @@ const ERRORS: Record<ErrorCode, [number, number, boolean | null]> = {
   invalid: [400, 1, false],
   denied: [403, 1, false],
   not_found: [404, 1, false],
-  busy: [409, 1, true],
   conflict: [409, 1, null],
   limit_reached: [429, 1, true],
   unsupported: [422, 1, false],

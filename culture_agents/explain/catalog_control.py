@@ -11,8 +11,8 @@ else `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock`). On
 connect the CLI checks the
 core's API version and refuses an incompatible one (exit 2, naming both
 versions). With no socket, or a refused connection, it exits 2 with a hint to
-start the core. A refusal by the core (`denied`, `unsupported`, `busy`,
-`conflict`, `invalid`, `not_found`) exits 1 and keeps its typed code; `--json`
+start the core. A refusal by the core (`denied`, `unsupported`,
+`limit_reached`, `conflict`, `invalid`, `not_found`) exits 1 and keeps its typed code; `--json`
 errors carry it as `error_code`.
 """
 
@@ -71,7 +71,10 @@ _SUBMIT = f"""\
 Submits a task. Required: `--agent`, `--harness`, `--repo`, `--task`. The task
 text is data and is sent verbatim. Dispatch is deny-by-default: the core needs
 an allow-list entry matching agent, harness and repo, and answers `denied`
-otherwise. A repository with an active run answers `busy`.
+otherwise. A repository may have several active runs at once, each steered
+on its own. No limit applies unless the operator configured one in the
+core's config file; a submit past it answers `limit_reached`, naming the
+limit and its value, and nothing is queued.
 
 Optional: `--deadline <UTC time>`, `--idempotency-key` (a repeat with the
 same request returns the first run; a changed request is `conflict`),

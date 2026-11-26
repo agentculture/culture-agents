@@ -189,10 +189,14 @@ def test_retry_shortly_is_an_unavailable_error_with_a_wait():
     assert error["retry_after_ms"] >= 0 and error["run_id"]
 
 
-def test_the_busy_refusal_stays_until_concurrent_runs_are_built():
-    assert "busy" in API["errors"]
-    assert "busy" in SCHEMAS["error.json"]["$defs"]["code"]["enum"]
-    assert re.search(r"`busy`[^\n]*\bt8\b", README), "README must say which task removes busy"
+def test_the_busy_refusal_is_gone_now_that_concurrent_runs_are_built():
+    assert "busy" not in API["errors"]
+    assert "busy" not in SCHEMAS["error.json"]["$defs"]["code"]["enum"]
+    props = SCHEMAS["error.json"]["$defs"]["error"]["properties"]
+    assert "active_run_id" not in props and "repo" not in props
+    assert all("busy" not in route["errors"] for route in API["routes"])
+    assert re.search(r"`busy` is removed[^\n]*\bt8\b", README), "README must say t8 removed busy"
+    assert "limit_reached" in next(r for r in API["routes"] if r["id"] == "runs.submit")["errors"]
 
 
 # --- questions and answers ----------------------------------------------------

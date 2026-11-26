@@ -29,6 +29,8 @@ export interface FakeHarness {
   id: string;
   steps: FakeStep[];
   steer?: boolean;
+  /** Run the real stub harness driver (a host temp clone, commits collected into `runs/<id>`) instead of the fake driver; `steps` is then unused. */
+  stub?: boolean;
 }
 
 export const HANG: FakeHarness = { id: "fake", steps: [{ op: "started" }, { op: "output", data: { channel: "text", text: "Working" } }, { op: "hang" }] };
@@ -245,4 +247,9 @@ export function commitedRepo(dir: string): void {
   const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: hostEnv() });
   git("init", "-q", "-b", "main");
   git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "--allow-empty", "-m", "one");
+}
+
+/** Write the core's config file (`harness.json` under the env's config home) with these limits; the daemon reads it at start. */
+export function writeLimits(env: Env, limits: Record<string, unknown>): void {
+  writeFileSync(join(env.vars["XDG_CONFIG_HOME"] as string, "culture-agents", "harness.json"), JSON.stringify({ limits }));
 }

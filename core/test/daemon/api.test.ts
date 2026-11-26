@@ -189,9 +189,11 @@ test("allow-list matches agent, harness and repo exactly; a symlinked repo path 
 test("service refusals surface as typed errors", async () => {
   const original = service.submit.bind(service);
   const { ControlError } = await import("../../src/daemon/errors.js");
-  service.submit = () => Promise.reject(new ControlError("busy", "The repository already has an active run.", { active_run_id: RUN, repo }));
-  const busy = expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "busy");
-  assert.equal(busy.active_run_id, RUN);
+  const limit = { name: "runs_per_repository" as const, value: 1, active: 1, repo };
+  service.submit = () => Promise.reject(new ControlError("limit_reached", "The repository's configured limit runs_per_repository is 1.", { limit }));
+  const limited = expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "limit_reached");
+  assert.deepEqual(limited.limit, limit);
+  assert.equal(limited.retryable, true);
   service.submit = () => Promise.reject(new Error("boom with /secret/path"));
   const internal = expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "internal");
   assert.doesNotMatch(internal.message, /secret/);
