@@ -36,10 +36,16 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 to t18, t29 | merged |
+| t1 to t19, t29 (all of part one) | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t19 documents (Claude Code, sonnet) | running, dispatched 23:33 UTC, run `spark-culture-agents.run.01M8D3AN0ZC3XW6NJSEB79114R` |
 | part two (t20 to t26, t28) | not started; t20 needs the owner's approval before t21 to t26 |
+
+Version bumped to 0.16.0 with its changelog entry (commit `76ba4cf`). The
+pre-PR review runs in OpenCode with `gateway/cortex` (started 23:57 UTC,
+session title "D2 part one pre-PR review", output in the scratchpad
+`logs/prepr-review.log`). Next: read its findings, fix what is real, open the
+pull request with the `cicd` skill, then `/validate-delivery` and
+`/summarize-delivery`.
 
 The live stage of the part one acceptance suite was run on the host for
 Claude Code only (timing check measured; see
@@ -48,10 +54,6 @@ Claude Code only (timing check measured; see
 live stage: source the scratchpad `core-env.sh` in a subshell, put the
 OpenShell binary's directory on `PATH`, set
 `CULTURE_AGENTS_ACCEPTANCE_LIVE=1`.
-
-After t19: bump the version, write the changelog, pre-PR review in OpenCode,
-open the pull request with the `cicd` skill, then `/validate-delivery` and
-`/summarize-delivery`.
 
 Deviation `d3` (proposed, waits for the owner): t13 built operator questions
 for the stub driver only; the Claude Code and OpenCode drivers have no ask
@@ -63,8 +65,8 @@ call as text and the turn ended. Its only commit is a stray
 `core/node_modules` symlink; do not merge that branch. Recorded as plan risk
 r15.
 
-Last merge gate (after t18, 23:32 UTC), on the merged tree: core 652 passed
-and 8 skipped, Python 1693 passed and 13 skipped, lint, contract types and the
+Last merge gate (after t19, 23:53 UTC), on the merged tree: core 652 passed
+and 8 skipped, Python 1694 passed and 13 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
 merge, the gate, the commit and the dispatch.
