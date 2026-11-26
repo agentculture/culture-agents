@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-26T17:07:54Z",
-  "updated": "2026-11-26T19:05:33Z",
+  "updated": "2026-11-26T19:40:46Z",
   "targets": [
     {
       "id": "c1",
@@ -1276,7 +1276,7 @@
       "id": "t29",
       "summary": "Observability: export run traces to a local Langfuse over OTLP, with content off by default",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "With an endpoint configured, each run produces one trace with spans for submit, sandbox setup, the harness turn, each tool call, each operator question, result collection and the terminal state, each with run id, harness, model and duration; proven against a local OTLP receiver started by the test",
         "With the endpoint stopped or unset, a run reaches the same terminal state and event log, and no call to the core waits on the exporter",

@@ -284,6 +284,19 @@ slug: `d2-fleet-and-recovery` · status: `exported` · from frame: `d2-fleet-and
   - docs/d2/part-two-acceptance.md names hosts by role only (host A, host B), separates measured, seen and not verified, and states the architecture of each host; an ARM host that was not verified is reported as such
   - The five prompt files and CLAUDE.md describe D2 as built, and each sentence of the announcement is tied to a passing check or marked not verified
 
+### t29 — Observability: export run traces to a local Langfuse over OTLP, with content off by default
+
+- instruction: New module core/src/trace/ fed by the same log follower the broker publisher uses, so it also survives a core restart. Langfuse accepts OTLP over HTTP on its public OpenTelemetry endpoint with basic auth from its public and secret key; confirm the path against Langfuse's current self-hosting documentation before coding. Do not add a compose file for Langfuse to this repository; link to its own.
+- depends on: t14
+- covers: c67, h52, c68, h53, c69, h54, c70, h55
+- acceptance:
+  - With an endpoint configured, each run produces one trace with spans for submit, sandbox setup, the harness turn, each tool call, each operator question, result collection and the terminal state, each with run id, harness, model and duration; proven against a local OTLP receiver started by the test
+  - With the endpoint stopped or unset, a run reaches the same terminal state and event log, and no call to the core waits on the exporter
+  - By default no span carries prompt text, harness output or tool results; a test runs a run whose events contain marked text and finds none of it in the exported payloads; a setting turns content on
+  - With 3 runs active on 2 harnesses, the exported spans give 3 active runs split correctly by harness and model, matching the capability report's active run count
+  - The exporter uses Node's fetch and adds no dependency; the Langfuse keys are read once at start and are absent from every worker's environment
+  - docs/d2/observability.md says how to start Langfuse locally with its own compose file, how to point the core at it, and what an operator can read there; a live check against a real local Langfuse is recorded as measured or NOT VERIFIED
+
 ## Risks
 
 - [unknown_nonblocking] What makes two checkouts the same repository across hosts, and which commit a remote run starts from when the hosts' checkouts differ, is not decided. The owner said a repository can exist on more than one host. The part two design record must answer it before the remote submit task. (task t20)
@@ -298,3 +311,5 @@ slug: `d2-fleet-and-recovery` · status: `exported` · from frame: `d2-fleet-and
 - [unknown_nonblocking] Rollback from 3.0 to 2.0 after a 3.0 core has written run records is not planned and not tested. (task t4)
 - [unknown_nonblocking] OpenShell is alpha and pinned; a change in its CLI or SDK can break sandbox handling in any task that touches it.
 - [follow_up] Not covered by this plan: a test that a retained sandbox is deleted after its 7 days, and the OpenCode retention path.
+- [follow_up] Found by dispatching through agents on 2026-11-26: when a harness reads a repository file containing the OpenShell credential placeholder text, the gateway's egress proxy refuses the next model request (provider.auth: a credential placeholder in the request body cannot be forwarded) and the run fails. Five tracked files here contain it. Any repository text with that marker can end a run; not handled by any D2 task.
+- [follow_up] Found the same way: a run whose turn fails collects nothing. Ten minutes of an agent's work, including any commits it made in the sandbox, was lost with the sandbox. D1 keeps the sandbox only when the turn completed and collection failed.
