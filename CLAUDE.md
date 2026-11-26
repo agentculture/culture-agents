@@ -11,8 +11,8 @@ TypeScript core `@culture.dev/agents` (`core/`, Node 22 or newer) and the
 Python CLI `agents` (package `culture_agents`, PyPI dist `culture-agents`),
 which is a client of the core.
 
-**Current state (be honest about this):** this is the D1 slice, a
-single-host control plane without chat. On disk:
+**Current state (be honest about this):** this is the D1 slice plus D2 part
+one, a single-host control plane without chat. On disk:
 
 - a core daemon that serves the control API over a Unix socket, stores runs
   on disk (one detached worker process per run), and runs harnesses inside an
@@ -26,7 +26,7 @@ single-host control plane without chat. On disk:
 - the JSON Schemas in `contract/`, the source of truth for the control API,
   tested from both the core and the CLI against the same fixtures;
 - the `agents` CLI: `agents agents list|status` and `agents runs
-  submit|list|show|attach|steer|cancel|logs|result`, plus the agent-first
+  submit|list|show|attach|steer|cancel|logs|result|answer`, `agents branches list|remove`, plus the agent-first
   baseline (`whoami`, `learn`, `explain`, `overview`, `doctor`, `cli
   overview`);
 - the D0 record in `docs/d0/` (inventory, compatibility matrix, decisions,
@@ -36,13 +36,33 @@ single-host control plane without chat. On disk:
   runs (real CLI, real core, stub harness) and an opt-in live stage
   (`CULTURE_AGENTS_ACCEPTANCE_LIVE=1`) that reports NOT VERIFIED when a
   harness is unavailable.
+- D2 part one (single host; `docs/d2/part-one.md` says what a calling agent may
+  rely on): the core takes back live control of surviving workers after a
+  restart; several runs may be active in one repository (no limit unless the
+  operator configures one, then `limit_reached`); a repeated idempotency key on
+  submit, steer or cancel takes effect once, and the CLI retries with the same
+  key; a run's question waits on disk and `agents runs answer` answers it once;
+  run branches can be listed and removed; the capability report carries limits,
+  active runs and the heat signal; tracing to a local Langfuse. Gaps: questions
+  work end to end only with the stub harness (Claude Code and OpenCode report
+  `answer` unsupported; owner decision pending); no hold of 12 hours was
+  measured (longest 5 minutes); the model gateway's admission is reported as not
+  consulted; a run directory the core cannot read is skipped by listing;
+  `succeeded` means the turn ended cleanly, not that the task was done; enabling
+  broker publishing on a store with history replays it (loopback URL only); the
+  Langfuse endpoint path was not confirmed live. Steer is **not preemption**: it
+  lands in the running turn.
+- the D2 part one acceptance suite in `tests/acceptance/d2/` (mock stage always
+  runs; opt-in live stage) and the record `docs/d2/part-one-acceptance.md`, whose
+  live rows are NOT VERIFIED until filled in.
 
-**Not built:** D2 (fleet and recovery) through D6, `pause`, `resume`,
-the `agents runs answer` verb (the core's answer route and the worker's
-question path are built, t13, and only the stub harness asks; Claude Code and
-OpenCode report `answer` unsupported until their drivers ask), `artifacts`,
-Codex, and any chat integration. Nothing is archived
-(`agent-lifecycle` and `cultureagent` stay as they are). Issue
+**Not built:** D2 part two (more than one host: fleet view, placement,
+fetching a run's commits from another host) (planned), D3 through D6, `pause`
+and `resume` (both answer `unsupported`, as does delegation), `artifacts` (no
+route or verb) (planned), an ask path in the Claude Code and OpenCode drivers,
+Codex, and any chat integration. Nothing is archived: recovery is the condition
+for archiving `agent-lifecycle` and `cultureagent`, and part one supplies
+evidence, not the decision. Issue
 [#2](https://github.com/agentculture/culture-agents/issues/2) remains the
 authoritative plan; read it before designing anything. `docs/d0/decisions.md`
 lists which decisions are closed and which are still open.
@@ -145,7 +165,9 @@ CLI surface (agreed in #1/#2; the verbs marked built exist), which will register
 ```text
 agents agents list | status
 agents runs submit | list | show | attach | steer | cancel | logs | result   (built)
-agents runs pause | resume | answer | artifacts                              (planned)
+agents runs answer                                                           (built, stub harness only)
+agents branches list | remove                                                (built)
+agents runs pause | resume | artifacts                                       (planned)
 ```
 
 Contract requirements from #2: typed request/response/event schemas with
@@ -172,7 +194,7 @@ core plus Python CLI seam is decided, see `docs/d0/decisions.md`) → **D1** a
 single-host spike: dispatch, inspect, steer and cancel without chat (the
 current slice) → **D2** fleet and recovery → **D3** chat split → **D4**
 culture-rules integration → **D5** embodiment integration → **D6** migration
-and deprecation. D2 to D6 are not built.
+and deprecation. D2 part one is built; D2 part two to D6 are not (planned).
 
 ## Code architecture (what exists today)
 

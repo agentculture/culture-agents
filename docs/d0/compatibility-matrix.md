@@ -31,9 +31,9 @@ How to read the cells:
 | colleague | not in D1 | none probed | colleague |
 | qwen (Qwen Code) | not in D1 | none probed | cultureagent (qwen bridge, ACP) |
 
-D1 harness 2 is one decision with two candidate paths; see
-[`decisions.md`](decisions.md#d1-opencode-path-open). Do not read the two
-OpenCode rows as a ranking.
+D1 harness 2 was one decision with two candidate paths; it is settled, see
+[`decisions.md`](decisions.md#d1-opencode-path-settled): the core drives OpenCode v2
+through its own server API. Do not read the two OpenCode rows as a ranking.
 
 ## Capability cells
 
