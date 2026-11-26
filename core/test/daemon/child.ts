@@ -11,7 +11,11 @@ process.on("SIGUSR1", () => void Promise.reject(new Error("rejected and never ha
 
 const code = await main(new FakeRunService(), {
   node: "thor",
-  stderr: (line) => process.stderr.write(`${line}\n`),
+  stderr: (line) => {
+    process.stderr.write(`${line}\n`);
+    // Lets a test signal the daemon at the very moment it reports that it is listening.
+    if (process.env["CHILD_SIGNAL_AT_LISTENING"] && line.includes("listening on")) process.kill(process.pid, process.env["CHILD_SIGNAL_AT_LISTENING"]);
+  },
   fatalHandlers: true,
 });
 process.exit(code);

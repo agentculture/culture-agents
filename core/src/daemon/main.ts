@@ -90,7 +90,41 @@ export async function main(service?: RunService, options: MainOptions = {}): Pro
   }
 }
 
+/**
+ * SIGTERM and SIGINT as one promise. Installed before the daemon reports that it is listening, so a
+ * signal sent the moment a client sees that report is a stop, not the default action that ends the
+ * process by signal. `dispose` removes the handlers.
+ */
+function watchStop(): { stopped: Promise<void>; dispose: () => void } {
+  let stop: () => void = () => undefined;
+  const stopped = new Promise<void>((resolve) => (stop = resolve));
+  process.once("SIGTERM", stop);
+  process.once("SIGINT", stop);
+  return {
+    stopped,
+    dispose: () => {
+      process.off("SIGTERM", stop);
+      process.off("SIGINT", stop);
+    },
+  };
+}
+
 async function serve(service: RunService | undefined, options: MainOptions, err: (line: string) => void, fatal: Promise<void> | null): Promise<number> {
+  const stop = watchStop();
+  try {
+    return await serveUntilStopped(service, options, err, fatal, stop.stopped);
+  } finally {
+    stop.dispose();
+  }
+}
+
+async function serveUntilStopped(
+  service: RunService | undefined,
+  options: MainOptions,
+  err: (line: string) => void,
+  fatal: Promise<void> | null,
+  signalled: Promise<void>,
+): Promise<number> {
   const node = options.node ?? readNodeName(options.env ?? process.env);
   if (!node) {
     err(`culture-agents core: no node name; set server.name in ${resolveServerYamlPath(options.env ?? process.env)} or ${join(homedir(), ".culture", "server.yaml")}.`);
@@ -137,25 +171,23 @@ async function serve(service: RunService | undefined, options: MainOptions, err:
   const state = daemon.allowlistState();
   err(`culture-agents core: listening on ${daemon.paths.socket} (pid ${process.pid}); allow-list ${state.status}, ${state.entries.length} entries`);
   const code = await new Promise<number>((resolve) => {
-    const done = (): void => resolve(0);
-    process.once("SIGTERM", done);
-    process.once("SIGINT", done);
+    void signalled.then(() => resolve(0));
     void fatal?.then(() => resolve(2));
   });
   clearInterval(reclaimTimer);
-  const stop = (async () => {
+  const stopping = (async () => {
     await publishing?.stop();
     await daemon.stop();
     await stateLock?.release();
   })();
   if (code === 0) {
-    await stop;
+    await stopping;
     return 0;
   }
   // After a fatal error the stop is best effort and bounded: the process exits 2 either way.
   let timer: NodeJS.Timeout | undefined;
   const stopped = await Promise.race([
-    stop.then(
+    stopping.then(
       () => true,
       (e: unknown) => {
         err(`culture-agents core: could not stop cleanly: ${e instanceof Error ? e.message : String(e)}`);
