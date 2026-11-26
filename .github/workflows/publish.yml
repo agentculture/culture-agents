@@ -12,6 +12,9 @@ name: Publish to npm and PyPI
 #   stages the real version: main could not publish it afterwards. CI cannot
 #   approve or reject a staged version (both need the maintainer's 2FA), so
 #   staged development versions stay until the maintainer rejects them.
+#   A re-run of the same workflow run: npm-stage stages a new version (the
+#   run attempt is part of it); test-publish reuses `<version>.dev<run number>`
+#   and relies on `uv publish --check-url` to skip files already on TestPyPI.
 # Push to main: test + version-gate -> publish-npm (provenance) -> publish (PyPI).
 #   The PyPI job `needs` the npm job, so a failed npm publish leaves nothing
 #   on PyPI.
@@ -133,8 +136,10 @@ jobs:
     # Trusted publishing: the npm trusted publisher for @culture.dev/agents
     # names this workflow file (publish.yml) and the `npm` environment, and
     # allows `npm stage publish`.
+    # It waits for version-gate too: a pull request whose two version files
+    # disagree fails the gate and must not leave a staged version behind.
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
-    needs: test
+    needs: [test, version-gate]
     runs-on: ubuntu-latest
     environment: npm
     permissions:
@@ -182,6 +187,7 @@ jobs:
 
       - name: Print what was staged
         run: |
+          : "${DEV_VERSION:?the version step did not export DEV_VERSION}"
           echo "::notice::Staged @culture.dev/agents@${DEV_VERSION} (not publicly installable). The maintainer can inspect it with 'npm stage list @culture.dev/agents' and remove it with 'npm stage reject <stage-id>'."
 
   test-publish:

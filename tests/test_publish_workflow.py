@@ -38,15 +38,39 @@ def _needs(job: dict) -> list[str]:
     return [needs] if isinstance(needs, str) else list(needs)
 
 
+def _publishes_for_real(step: dict) -> bool:
+    """True when the step runs `npm publish` without `--dry-run`, wherever the flag sits."""
+    # Join backslash-continued lines first, so a flag on a later line still counts.
+    joined = {"run": re.sub(r"\\\n\s*", " ", _run_text(step))}
+    return any(
+        re.match(r"npm publish\b", ln) and "--dry-run" not in ln.split()
+        for ln in _code_lines(joined)
+    )
+
+
 def _npm_publish_jobs(doc: dict) -> dict:
     return {
         name: job
         for name, job in doc["jobs"].items()
-        if any(
-            re.search(r"^\s*npm publish\s+\S+(?!.*--dry-run)", _run_text(s), re.M)
-            for s in _steps(job)
-        )
+        if any(_publishes_for_real(s) for s in _steps(job))
     }
+
+
+@pytest.mark.parametrize(
+    ("run", "real"),
+    [
+        ('npm publish "$TARBALL" --provenance --access public', True),
+        ("npm publish", True),
+        ('npm publish "$TARBALL" --dry-run --access public', False),
+        ('npm publish --dry-run "$TARBALL"', False),
+        ('npm publish "$TARBALL" \\\n  --access public \\\n  --dry-run', False),
+        ('npm publish "$TARBALL" \\\n  --access public', True),
+        ('# npm publish "$TARBALL"\necho done', False),
+        ('npm stage publish "$TARBALL" --tag dev', False),
+    ],
+)
+def test_real_publish_matcher_ignores_flag_position(run: str, real: bool) -> None:
+    assert _publishes_for_real({"run": run}) is real
 
 
 def test_workflow_parses_with_expected_triggers() -> None:
@@ -137,7 +161,8 @@ def test_npm_stage_runs_on_same_repo_pull_requests_only() -> None:
     # The whole condition, not a substring: an added `|| ...` would let the job
     # run on a push or on a fork, where it must not.
     assert " ".join(str(job.get("if", "")).split()) == STAGE_IF
-    assert "test" in _needs(job)
+    # version-gate too: mismatched version files must not leave a staged version.
+    assert set(_needs(job)) == {"test", "version-gate"}
 
 
 def test_npm_publish_runs_on_push_only() -> None:

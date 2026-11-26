@@ -10,6 +10,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - Release workflow: a same-repository pull request now stages a development version of the core on npm (`<version>-dev.<run number>.<run attempt>`, tag `dev`) with `npm stage publish` through the trusted publisher. A staged version is not publicly installable, and only the maintainer can approve or reject it. The fork-safe `npm publish --dry-run` job stays, and `main` still publishes the real version.
+- The staging job waits for the version gate, so a pull request whose `core/package.json` and `pyproject.toml` versions differ no longer leaves a staged version behind.
+- `AGENTS.md`, `AGENTS.colleague.md` and `AGENTS.override.md` describe the pull-request staging, as `CLAUDE.md` and `QWEN.md` already did.
 
 ## [0.15.0] - 2026-11-25
 

@@ -181,7 +181,7 @@ spikes/                   throwaway probe code (never built or checked)
 .claude/skills/           vendored guildmaster skill kit (cite-don't-import)
 docs/skill-sources.md     skill provenance ledger
 culture.yaml              mesh identity (suffix + backend)
-.github/workflows/        tests (python + core jobs) + deploy (npm, then PyPI)
+.github/workflows/        tests (python + core jobs) + deploy (npm, then PyPI); PRs stage a dev version on npm
 ```
 
 This file describes the repository **as it exists on disk today**. When you
