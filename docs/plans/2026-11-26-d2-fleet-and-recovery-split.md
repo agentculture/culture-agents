@@ -30,13 +30,13 @@ Edit the Owner/Model columns before approving gate 2 — the default Model is a 
 | `t2` | Claude subagent on the host (three `agents` runs on OpenCode failed) | session model |
 | `t27` | Claude subagent on the host | session model |
 | `t3` | Claude subagent on the host (moved from `agents`, see plan risk r13) | session model |
-| `t4` | agents run, opencode harness | local gateway, cortex role |
+| `t4` | agents run, claude-code harness (moved from OpenCode: critical path, one OpenCode run at a time) | sonnet |
 | `t9` | agents run, claude-code harness | sonnet |
 | `t14` | Claude subagent on the host (adds an npm dependency; the sandbox has no registry) | session model |
 | `t15` | agents run, opencode harness | local gateway, cortex role |
 | `t5` | agents run, opencode harness | local gateway, cortex role |
 | `t6` | agents run, claude-code harness | sonnet |
-| `t10` | agents run, opencode harness | local gateway, cortex role |
+| `t10` | agents run, claude-code harness (moved from OpenCode: one OpenCode run at a time) | sonnet |
 | `t7` | agents run, opencode harness | local gateway, cortex role |
 | `t11` | agents run, claude-code harness | sonnet |
 | `t12` | agents run, opencode harness | local gateway, cortex role |
