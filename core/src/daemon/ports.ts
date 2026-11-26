@@ -15,6 +15,7 @@ import type {
   RunState,
   SteerRequest,
   SubmitRequest,
+  Submitter,
   SubmitResponse,
 } from "../contract/index.js";
 
@@ -46,7 +47,8 @@ export interface RunService {
    * Create a run and its worker; resolves once the run is durable, in state `queued`. A repeated
    * idempotency key resolves to the first run with `replayed: true` and creates nothing.
    */
-  submit(request: SubmitRequest): Promise<SubmitResponse>;
+  /** `submitter` is what the core established about the caller, never a request field. */
+  submit(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse>;
   listRuns(query: RunListQuery): Promise<Run[]>;
   /** `null` when the id is well-formed but unknown. */
   getRun(runId: string): Promise<Run | null>;

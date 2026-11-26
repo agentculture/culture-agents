@@ -9,6 +9,7 @@ import {
   type RunState,
   type SchemaName,
   type SubmitRequest,
+  type Submitter,
 } from "../contract/index.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
@@ -25,6 +26,8 @@ export interface RouteContext {
   keepaliveMs: number;
   /** Aborted when the daemon shuts down, so open streams end. */
   shutdown: AbortSignal;
+  /** Who the core established for requests on its control socket; set once the socket is bound. */
+  submitter: Submitter | null;
 }
 
 interface Match {
@@ -136,6 +139,11 @@ async function requireRun(ctx: RouteContext, runId: string) {
   const run = await ctx.service.getRun(runId);
   if (!run) throw notFound(`No run ${runId}.`, { run_id: runId });
   return run;
+}
+
+function requireSubmitter(ctx: RouteContext): Submitter {
+  if (ctx.submitter === null) throw new ControlError("internal", "The core has not established who owns its control socket.");
+  return ctx.submitter;
 }
 
 function checkSubmit(ctx: RouteContext, body: unknown): SubmitRequest {
@@ -269,7 +277,7 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return harnessShow(call);
     case "runs.submit": {
       const request = checkSubmit(ctx, await readJsonBody(req));
-      return sendJson(res, 201, "control-action#submit_response", await svc.submit(request));
+      return sendJson(res, 201, "control-action#submit_response", await svc.submit(request, requireSubmitter(ctx)));
     }
     case "runs.list":
       return runsList(call);

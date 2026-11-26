@@ -4,6 +4,7 @@ import { createServer, type Server } from "node:http";
 import { apiVersion } from "../contract/index.js";
 import { version as coreVersion } from "../index.js";
 import { loadAllowlist, type AllowlistState } from "./allowlist.js";
+import { socketSubmitter } from "./submitter.js";
 import { sendError } from "./http.js";
 import { acquireLock, removeInstanceInfo, writeInstanceInfo, type HeldLock } from "./lock.js";
 import { resolveAllowlistPath, resolvePaths, type DaemonPaths } from "./paths.js";
@@ -37,8 +38,12 @@ function prepareDirectory(paths: DaemonPaths): void {
   const st = lstatSync(paths.dir);
   if (!st.isDirectory()) throw new Error(`${paths.dir} is not a directory; remove it or set CULTURE_AGENTS_SOCKET.`);
   if (uid !== undefined && st.uid !== uid) throw new Error(`${paths.dir} is owned by another user; refusing to place the control socket there.`);
-  // Only tighten directories this daemon derives itself; an overridden location may be shared on purpose.
-  if (!paths.overridden && (st.mode & 0o077) !== 0) chmodSync(paths.dir, 0o700);
+  // Tighten a directory this daemon derives itself; refuse an overridden one that others can use.
+  if ((st.mode & 0o077) !== 0) {
+    if (paths.overridden) throw new Error(`${paths.dir} is accessible to other users (mode ${(st.mode & 0o777).toString(8)}); refusing to place the control socket there. Use mode 0700.`);
+    chmodSync(paths.dir, 0o700);
+  }
+  if ((statSync(paths.dir).mode & 0o077) !== 0) throw new Error(`could not set ${paths.dir} to mode 0700`);
 }
 
 /** Remove a leftover socket file. Call only while holding the lock: nothing else can be serving it. */
@@ -114,6 +119,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     now: options.now ?? (() => new Date()),
     keepaliveMs: Math.max(1, options.keepaliveMs ?? 15_000), // never a zero-delay interval
     shutdown: shutdown.signal,
+    submitter: null,
   };
   const server = createServer((req, res) => {
     handle(ctx, req, res).catch((e: unknown) => sendError(res, e));
@@ -129,6 +135,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     server.on("error", logServerError("the control socket server"));
     chmodSync(paths.socket, 0o600);
     if ((statSync(paths.socket).mode & 0o777) !== 0o600) throw new Error(`could not set ${paths.socket} to mode 0600`);
+    ctx.submitter = socketSubmitter(paths.socket);
     writeInstanceInfo(paths, { pid: process.pid, api_version: apiVersion, socket: paths.socket });
   } catch (e) {
     server.close();

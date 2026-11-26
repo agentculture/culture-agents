@@ -1,0 +1,23 @@
+# TASK-REPORT t11: submitter and local authentication
+
+## Built
+- `core/src/daemon/submitter.ts`: `socketSubmitter(path)` reads the owner uid (and account name when it matches the process user) from the bound control socket. Node cannot read peer credentials, so no native module.
+- `daemon.ts`: sets `ctx.submitter` once the socket is bound and verified 0600. The socket directory must now be 0700 and ours: a derived directory is tightened, an overridden (`CULTURE_AGENTS_SOCKET`) directory reachable by others is refused, and the mode is re-checked after chmod.
+- `routes.ts`: `runs.submit` passes `ctx.submitter` to `service.submit(request, submitter)`; the request body is never consulted. `ports.ts` and `runs/service.ts` take the optional `submitter` and store it in the run record (4 small edits; service.ts is 376 lines).
+- Tests: new `core/test/runs/submitter.test.ts` (real daemon, real worker).
+
+## Tests run
+- `cd core && npm run lint && npm run typecheck && npm run check:contract-types`: all clean.
+- `cd core && npm test`: 610 tests, 598 pass, 0 fail (the other 12 are skips that were already there).
+- `/usr/local/share/dogfood/venv/bin/python -m pytest -n auto`: 1606 passed, 9 skipped, 1 failed. The failure is `tests/test_contract_packaging.py::test_a_built_wheel_holds_the_schemas_byte_for_byte`, which needs the package registry (hatchling download) and fails the same way without my changes (checked with git stash).
+
+## Acceptance
+1. Proven. Test "a run submitted over the socket records the user that owns the socket...". It sends a forged `submitter` in the body, and the recorded value is still the socket owner's uid. The forged body is either refused or ignored. The test accepts both, and the schema already refuses it.
+2. Partly proven. The tests "the socket is mode 0600 in a 0700 directory it created" and "the daemon refuses to start with a socket directory that other users can reach" are proven. The failed-chmod branch (socket mode or directory mode not settable) is not exercised, because I cannot induce that failure without root tricks. The code throws there.
+3. Proven for TCP and for the allow-list routes. The test lists the daemon process's listening TCP sockets from /proc and finds none. GET/POST on three allow-list paths return not_found, and the allow-list file's digest is unchanged. Assumed reading: "no route reads or writes the allow-list" means no route exposes or modifies it. The submit check still reads it inside the core, as before. PUT/DELETE with a body against the same paths are not covered, because the shared test client threw on an empty response, which I did not investigate.
+
+## Changed existing test
+- `test/daemon/lifecycle.test.ts` "a regular file at the socket path is never removed": the directory is now created 0700, because an overridden directory open to others is refused.
+
+## Not done
+- Linux only (/proc) for the TCP test. The Python CLI was not changed. The `core/node_modules` symlink was removed.
