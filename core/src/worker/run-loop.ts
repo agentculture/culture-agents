@@ -230,7 +230,12 @@ export class RunWorker {
         const note = `the harness did not confirm the stop within ${grace} ms; the worker forced it down`;
         this.forcing = (this.driver?.dispose() ?? Promise.resolve())
           .catch(() => undefined)
-          .then(() => this.finishStop(note));
+          .then(() => {
+            // A driver still in its retention cleanup has kept the sandbox but not yet said so; the record goes before the terminal event.
+            const kept = this.driver?.retained?.() ?? null;
+            if (kept) writeRetained(this.dir, kept);
+            this.finishStop(note);
+          });
       }, grace),
     );
     void this.driver?.cancel(origin === "deadline" ? "deadline" : reason).catch((err: unknown) => {

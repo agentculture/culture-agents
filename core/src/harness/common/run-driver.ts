@@ -7,7 +7,7 @@
  */
 import type { ErrorBody } from "../../contract/index.js";
 import { again, finish, stepUntil } from "../../util/sequence.js";
-import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent } from "../../worker/driver.js";
+import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent, type Retained } from "../../worker/driver.js";
 import { describeProcs, newProcesses } from "./processes.js";
 import { EventQueue, errorMessage, sleep } from "./queue.js";
 import type {
@@ -78,6 +78,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   private turnOver = false;
   private cancelRequested = false;
   private disposed = false;
+  private keptRetention: Retained | null = null;
   private forceStop!: () => void;
   private readonly forced = new Promise<void>((resolve) => (this.forceStop = resolve));
   private destroying: Promise<boolean> | null = null;
@@ -124,6 +125,11 @@ export class RunDriver<W extends Workspace> implements Driver {
         this.forceStop();
       }
     }
+  }
+
+  /** The sandbox this driver kept, from the moment it decided to keep it (see `Driver.retained`). */
+  retained(): Retained | null {
+    return this.keptRetention;
   }
 
   async dispose(): Promise<void> {
@@ -259,18 +265,19 @@ export class RunDriver<W extends Workspace> implements Driver {
       return this.finish({ type: "failed", error: this.error("internal", why, false) });
     }
     this.kept = true; // from here no path of this driver deletes the workspace, a late dispose included
+    const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
+    this.keptRetention = { sandbox: retention.sandbox, until };
     // The harness was closed before the commit; what it left running is killed, since this sandbox is not deleted.
     const left = await this.settled(this.options.processSettleMs ?? 1500);
     if (left.failed === null && left.procs.length > 0) await this.workspace.kill(left.procs.map((p) => p.pid)).catch(() => undefined);
     await this.workspace.keep?.().catch(() => undefined);
-    const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
     // The recovery instructions are the point of the message, so the cause gives way to them.
     const tail =
       `. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
       `with the run's work in it. To get the work out: ${retention.recover}`;
     const room = Math.max(200, Math.min(900, ERROR_MESSAGE_LIMIT - tail.length));
     const message = (why.length > room ? `${why.slice(0, room - 3)}...` : why) + tail;
-    this.finish({ type: "failed", error: this.error("internal", message, false), retained: { sandbox: retention.sandbox, until } });
+    this.finish({ type: "failed", error: this.error("internal", message, false), retained: this.keptRetention });
   }
 
   /** Close the harness and destroy the workspace, swallowing errors (failure paths). */

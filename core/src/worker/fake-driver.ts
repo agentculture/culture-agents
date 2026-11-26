@@ -32,6 +32,8 @@ export interface FakeDriverOptions {
   steerDelayMs?: number;
   /** When set, `steer` fails with this message (the harness did not take the steer). */
   steerError?: string;
+  /** A sandbox the driver keeps once it is cancelled, while its stop is still in progress (retention cleanup). */
+  retainOnCancel?: { sandbox: string; until: string };
 }
 
 class Queue<T> {
@@ -54,6 +56,7 @@ export class FakeDriver implements Driver {
   private readonly queue = new Queue<Signal>();
   private readonly abort = new AbortController();
   private stopped = false;
+  private cancelled = false;
 
   constructor(private readonly options: FakeDriverOptions) {}
 
@@ -128,7 +131,12 @@ export class FakeDriver implements Driver {
     if (this.options.echoSteer ?? true) this.emit({ type: "output", data: { channel: "diagnostic", text: `steer: ${message}` } });
   }
 
+  retained(): { sandbox: string; until: string } | null {
+    return this.cancelled ? (this.options.retainOnCancel ?? null) : null;
+  }
+
   async cancel(): Promise<void> {
+    this.cancelled = true;
     if (this.options.ignoreCancel) return;
     const stopDelay = this.options.stopDelayMs ?? 0;
     this.abort.abort();
