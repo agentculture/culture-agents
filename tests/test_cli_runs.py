@@ -189,9 +189,7 @@ def test_cancel(core, capsys: pytest.CaptureFixture[str]) -> None:
     )
 
 
-def test_limit_reached_and_denied_are_user_errors(
-    core, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_limit_reached_and_denied_are_user_errors(core, capsys: pytest.CaptureFixture[str]) -> None:
     core.respond("POST /v1/runs", 429, fixture("error", "root.limit-reached"))
     limited = run(capsys, *SUBMIT, "--json")
     assert limited.rc == 1
