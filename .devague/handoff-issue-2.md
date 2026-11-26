@@ -36,14 +36,15 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1, t2, t3, t4, t5, t6, t7, t9, t10, t11, t12, t14, t29 | merged |
+| t1 to t12, t14, t15, t29 | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t8 concurrent runs with limits (Claude Code, opus core) | running, dispatched 20:15 UTC |
-| t15 branch cleanup (Claude Code, sonnet; moved from OpenCode) | running, dispatched 20:17 UTC |
-| t13, t16, t17, t18, t19 | blocked on the above; part two (t20 to t26, t28) after t18 |
+| t13 operator questions (Claude Code, opus core) | running, dispatched 20:35 UTC |
+| t17 capability report (Claude Code, sonnet) | running, dispatched 20:35 UTC |
+| t16 CLI keys and answer verb | blocked on t13 |
+| t18, t19 | blocked on t13, t16, t17; part two (t20 to t26, t28) after t18 |
 
-Run ids (prefix `spark-culture-agents.run.`): t8 `01M8CQYSWGB0XJVT3ADZ2VYS3F`
-(Opus core), t15 `01M8CQZEC9MHJ30CDNSE40RVWZ`.
+Run ids (prefix `spark-culture-agents.run.`): t13 `01M8CS37B5RGFZ02JX7T1KR0XE`
+(Opus core), t17 `01M8CS38263366CRT7PKRGVB0G`.
 
 The OpenCode run of t15 (`01M8CMGNK4T2NR1DTBFN42CDAD`) ended as succeeded
 after 82 minutes with no file written: the model printed a malformed tool
@@ -51,8 +52,8 @@ call as text and the turn ended. Its only commit is a stray
 `core/node_modules` symlink; do not merge that branch. Recorded as plan risk
 r15.
 
-Last merge gate (after t11, 20:14 UTC), on the merged tree: core 607 passed
-and 8 skipped, Python 1607 passed and 9 skipped, lint, contract types and the
+Last merge gate (after t15, 20:34 UTC), on the merged tree: core 631 passed
+and 8 skipped, Python 1671 passed and 9 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
 merge, the gate, the commit and the dispatch.
