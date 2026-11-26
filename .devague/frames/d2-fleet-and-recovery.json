@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "drafting",
   "created": "2026-11-25T21:59:31Z",
-  "updated": "2026-11-25T22:01:09Z",
+  "updated": "2026-11-26T01:35:17Z",
   "claims": [
     {
       "id": "c1",
@@ -566,7 +566,7 @@
     {
       "id": "s26",
       "surface": "core/src/daemon/allowlist.ts + daemon.ts:260-357",
-      "finding": "The allow-list is keyed on (agent_id, harness, canonical repo) with no wildcard, loaded from ${XDG_CONFIG_HOME:-~/.config}/culture-agents/allowlist.json and re-read on every call; a missing or invalid file counts as empty (allowlist.ts:456-500). The socket directory is 0700 and refused when owned by another uid; the socket is 0600 and verified. Old frame claim c45 confirmed deny by default, enforced by the core.",
+      "finding": "The allow-list is keyed on (agent_id, harness, canonical repo) with no wildcard, loaded from culture-agents/allowlist.json under the user's XDG config directory and re-read on every call; a missing or invalid file counts as empty (allowlist.ts:456-500). The socket directory is 0700 and refused when owned by another uid; the socket is 0600 and verified. Old frame claim c45 confirmed deny by default, enforced by the core.",
       "seeds": [
         "c21"
       ]
