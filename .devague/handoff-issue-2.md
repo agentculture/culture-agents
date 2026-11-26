@@ -36,18 +36,22 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 approvals probe, t2 rename to `thor`, t3 contract 3.0, t4 store version, t9 reattach, t10 three D1 gaps, t14 broker publishing | merged |
+| t1 approvals probe, t2 rename to `thor`, t3 contract 3.0, t4 store version, t5 store retention, t6 idempotency, t9 reattach, t10 three D1 gaps, t12 secret removal, t14 broker publishing, t29 tracing | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t5 store retention, t6 idempotency, t12 secret removal | run succeeded; result on a `runs/spark-culture-agents.run.<id>` branch; NOT yet gated or merged |
-| t15 branch cleanup (OpenCode), t29 tracing (Claude Code) | running |
-| t7, t8, t11, t13, t16, t17, t18, t19 | blocked on the above; part two (t20 to t26, t28) after t18 |
+| t15 branch cleanup (OpenCode) | running |
+| t7 base commit, t11 submitter (Claude Code, sonnet) | running, dispatched 20:20 UTC |
+| t8, t13, t16, t17, t18, t19 | blocked on the above; part two (t20 to t26, t28) after t18 |
 
-Run ids (prefix `spark-culture-agents.run.`): t5 `01M8CNK6QWBPT9S8877NH69WME`,
-t12 `01M8CNK7BCDHDNWM6TP612KMQA`, t6 `01M8CNK7YG5BKE6H1RPBFRDMPW` (Opus
-core), t15 `01M8CMGNK4T2NR1DTBFN42CDAD`, t29 `01M8CNZW9HF9QR9ZEJ3CS3F30W`.
+Run ids (prefix `spark-culture-agents.run.`): t15 `01M8CMGNK4T2NR1DTBFN42CDAD`,
+t7 `01M8CQ2NPKQNCR46NCZ894Y3WM`, t11 `01M8CQ2PC3HRDZD4C4XAC273FE`.
 
-Last merge gate, on the merged tree: core 573 passed and 8 skipped, Python
-1607 passed and 9 skipped, lint, contract types and the three scans clean.
+Last merge gate (after t29, 20:15 UTC), on the merged tree: core 598 passed
+and 8 skipped, Python 1607 passed and 9 skipped, lint, contract types and the
+three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
+`ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the
+merge, the gate, the commit and the dispatch.
+
+Not done for t29: the live check against a real Langfuse on the host.
 
 ### How dispatch works (dogfooding the `agents` CLI)
 
