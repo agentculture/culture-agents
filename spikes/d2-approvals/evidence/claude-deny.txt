@@ -1,0 +1,17 @@
+[0.1s] creating sandbox for run ccd-mwxtpy2s (image culture-agents-run:dev, providers claude-sub)
+[1.0s] sandbox t1q-1b39a9fa160f6d4 ready, working tree /sandbox/work
+[1.0s] createSession, model haiku, permissionMode allow-reads
+[3.6s] tool-call write {"file_path":"approved.txt","content":"yes"}
+[3.7s] tool-approval-request toolu_01EZg91m72djMke7d9DGr6sK for write
+[3.7s] stream ended: finishReason "tool-calls", session.turnState awaiting-approval, 1 approval(s) and 0 question(s) pending
+[3.7s] held, before the answer: files [README], claude processes in sandbox 3
+[3.7s] holding the turn for 20000 ms with no answer
+[23.7s] held, after the wait: files [README], claude processes in sandbox 2
+[23.7s] answering into the same turn: {"toolApprovalContinuations":[{"type":"tool-approval-response","approvalId":"toolu_01EZg91m72djMke7d9DGr6sK","approved":false,"reason":"The operator said no: probe-denial-7341."}],"toolResultContinuations":[]}
+[26.5s] stream ended: finishReason "stop", session.turnState idle, 0 approval(s) and 0 question(s) pending
+[26.5s] after the turn: files [README], claude processes in sandbox 2
+[26.6s] final text: "The write was blocked, so I didn't create `approved.txt`. The hook returned this exact reason:\n\n\"The operator said no: probe-denial-7341.\"\n\nI haven't tried any other way to create the file, as you asked."
+[26.6s] approved.txt: ""; colour.txt: ""
+[26.6s] checks: raised 1, answered 1, held with nothing written true
+[32.0s] sandbox t1q-1b39a9fa160f6d4 deleted
+[32.0s] RESULT claude-code deny (allow-reads): PASS

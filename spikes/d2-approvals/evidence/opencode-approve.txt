@@ -1,0 +1,21 @@
+[0.1s] creating sandbox for run oca-mwxttnx1 (image culture-agents-run:dev, providers lobes)
+[1.0s] sandbox t1q-f68d34a6468b480 ready, working tree /sandbox/work
+[1.2s] opencode serve is listening in the sandbox; model gateway/worker
+[1.3s] session ses_de718fbdbffeipgYd4hsq7SxBL created with permissions [{"action":"*","resource":"*","effect":"ask"}]
+[1.8s] prompt accepted; waiting for the model (no timeout)
+[9.1s] tool called: {"path":"/sandbox/work/approved.txt","content":"yes"}
+[9.1s] permission raised: {"id":"per_218e722bf001o4yB9EvdWnkUWw","sessionID":"ses_de718fbdbffeipgYd4hsq7SxBL","action":"edit","resources":["approved.txt"],"save":["*"],"metadata":{"files":[{"file":"approved.txt","patch":"Index: approved.txt\n===================================================================\n--- approved.txt\n+++ approved.txt\n@@ -0,0 +1,1 @@\n+yes\n\\ No newline at end of file\n","status":"added","additions":1,"deletions":0}]},"source":{"type":"tool","messageID":"msg_218e706a4001WmELOyxrdkOW7m","id":"chatcmpl-tool-85f15c49578f4836"}}
+[9.1s] held, before the answer: files [README], session active true, pending permissions 1, pending forms 0
+[9.1s] holding the turn for 20000 ms with no answer
+[29.1s] held, after the wait: files [README], session active true, pending permissions 1, pending forms 0
+[29.1s] answering into the same turn: POST /api/session/{id}/permission/per_218e722bf001o4yB9EvdWnkUWw/reply {"decision":"once"}
+[29.1s] permission.replied: {"sessionID":"ses_de718fbdbffeipgYd4hsq7SxBL","requestID":"per_218e722bf001o4yB9EvdWnkUWw","reply":"once"}
+[29.1s] session.tool.success: [{"type":"text","text":"Created file successfully: approved.txt"}]
+[35.6s] after the turn: files [README approved.txt], session active false, pending permissions 0, pending forms 0
+[35.6s] execution ended with session.execution.succeeded; session outcome "succeeded"
+[35.6s] tools the model called: write
+[35.6s] final text: "done"
+[35.6s] approved.txt: "yes"; colour.txt: ""
+[35.6s] checks: raised 1, answered 1, held with nothing written true
+[41.0s] sandbox t1q-f68d34a6468b480 deleted
+[41.0s] RESULT opencode approve: PASS
