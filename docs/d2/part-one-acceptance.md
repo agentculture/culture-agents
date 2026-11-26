@@ -52,14 +52,45 @@ merge host fills it in.
 The question check is NOT VERIFIED on both real harnesses even with the opt-in, by
 design: the live test always reports it so, and it is never a pass.
 
-### Live results (to be filled in by the main agent after the merge)
+### Live results (run by the main agent on the merge host, 2026-11-26 23:35 UTC)
 
-<!-- LIVE-RESULTS-START
-Command run:
-Host role (host A, no real names):
-Output of the pytest run:
-Contents of the report file (live.d2.timing lines):
-LIVE-RESULTS-END -->
+Command, with the OpenShell gateway registered and the run image set:
+
+```bash
+CULTURE_AGENTS_ACCEPTANCE_LIVE=1 uv run pytest tests/acceptance/d2/test_live.py -k "claude and third" -v -rs -p no:xdist
+```
+
+| Check | Harness | Result |
+| --- | --- | --- |
+| Third submit to another repository with 2 runs active in 1 repository | Claude Code | measured: 0.464 s (limit 2 s) |
+| Cancel of that run reaches `cancelled` | Claude Code | measured: 7.67 s (limit 10 s) |
+| The same 2 checks | OpenCode | NOT VERIFIED: not run. The check starts 3 runs at once on the local model, and the owner's rule for this build is 1 local-model run at a time |
+| Question survives a restart and is answered | Claude Code, OpenCode | NOT VERIFIED: both report `answer` as unsupported |
+
+Report file lines for the passing run:
+
+```json
+{"check": "live.d2.timing", "time": "2026-11-26T23:35:37Z", "harness": "claude-code", "submit_seconds": 0.464, "cancel_seconds": 7.67, "state": "cancelled"}
+{"check": "live.d2.timing.precondition", "time": "2026-11-26T23:35:38Z", "harness": "claude-code", "before": ["running", "running"], "after": ["running", "running"]}
+```
+
+The test was changed at the gate. As first written it took the times without
+checking that the 2 busy runs were still active, and it failed in its own
+cleanup because both had ended. It now waits for each busy run's first tool
+call, records their states at the submit and at the cancel, and reports NOT
+VERIFIED when either is not `running`. Of 3 runs on this host, 1 passed with
+the precondition held; 1 was taken before the check existed and proves
+nothing; 1 measured the same times (0.499 s and 7.72 s) but the busy runs
+were read after the cancel, when both had ended, so it was reported NOT
+VERIFIED.
+
+A finding from those runs: a Claude Code turn told to run `sleep 120` in the
+foreground ended as `succeeded` about 15 seconds later in 2 of 3 runs. Why
+was not investigated; the likeliest cause is the harness moving the command
+to the background. A live check that needs a long-running turn should not
+rely on this task text.
+
+The run image was the local dogfood image, not the published one.
 
 ## Defects found
 

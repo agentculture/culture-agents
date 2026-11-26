@@ -27,10 +27,15 @@ def test_live_third_submit_is_fast_and_cancel_is_under_10_seconds(live_core: Cor
     hang = TASKS[harness]["hang"]
     first, _ = live_core.submit(harness, busy, hang)
     second, _ = live_core.submit(harness, busy, hang)
+    for run in (first, second):
+        live_core.wait_outputs(run["id"], "tool_call", 1, TURN_TIMEOUT)
+    before = [live_core.show(run["id"])["state"] for run in (first, second)]
     third, submit_seconds = live_core.submit(harness, other, hang)
     live_core.wait_outputs(third["id"], "tool_call", 1, TURN_TIMEOUT)
     time.sleep(3)
 
+    # The state of the 2 busy runs when the cancel is sent: what the cancel time is measured under.
+    after = [live_core.show(run["id"])["state"] for run in (first, second)]
     start = time.monotonic()
     live_core.ok("runs", "cancel", third["id"], "--reason", "acceptance")
     done = live_core.wait_terminal(third["id"], 60)
@@ -43,7 +48,11 @@ def test_live_third_submit_is_fast_and_cancel_is_under_10_seconds(live_core: Cor
         state=done["state"],
     )
     for run in (first, second):
-        live_core.ok("runs", "cancel", run["id"])
+        live_core.cli("runs", "cancel", run["id"], "--json")  # cleanup; may already be over
+    record("live.d2.timing.precondition", harness=harness, before=before, after=after)
+    if before != ["running", "running"] or after != ["running", "running"]:
+        # The times were not taken with 2 runs active in 1 repository, so they prove nothing.
+        not_verified(f"{harness}: the 2 runs were {before} at the submit and {after} at the cancel")
     assert submit_seconds < 2.0, f"third submit took {submit_seconds:.2f} s"
     assert done["state"] == "cancelled"
     assert cancel_seconds < 10.0, f"cancel took {cancel_seconds:.1f} s"
