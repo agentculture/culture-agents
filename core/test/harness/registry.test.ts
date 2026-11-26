@@ -21,6 +21,10 @@ import {
 } from "../../src/harness/index.js";
 import type { Driver } from "../../src/worker/driver.js";
 
+// The placeholder marker is assembled here so this file never contains it: a harness that reads the
+// literal text inside a sandbox has its next model request refused by the egress proxy.
+const CREDENTIAL_SHAPED = new RegExp(`${["openshell", "resolve"].join(":")}|sk-|secret`, "i");
+
 function scratch(t: TestContext): string {
   const dir = mkdtempSync(join(tmpdir(), "ca-harness-reg-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -102,7 +106,7 @@ test("registry shape: ids, absolute driver modules exporting createDriver, JSON 
   const oc = getHarness(config, "opencode");
   assert.equal((oc?.driver.options["opencode"] as { model: string }).model, "gateway/worker");
   assert.deepEqual((oc?.driver.options["sandbox"] as { providers: string[] }).providers, ["lobes"]);
-  assert.ok(!JSON.stringify(entries.map((e) => e.driver.options)).match(/openshell:resolve|sk-|secret/i), "no credential in options");
+  assert.ok(!JSON.stringify(entries.map((e) => e.driver.options)).match(CREDENTIAL_SHAPED), "no credential in options");
 });
 
 test("capability documents validate against the contract, available or not", async (t) => {

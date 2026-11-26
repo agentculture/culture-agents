@@ -1,0 +1,24 @@
+{
+  "plan_slug": "d2-fleet-and-recovery",
+  "schema_version": 2,
+  "created": "2026-11-26T18:20:06Z",
+  "updated": "2026-11-26T18:20:06Z",
+  "deviations": [
+    {
+      "id": "d1",
+      "what": "An unplanned fix was added ahead of the remaining waves: the literal OpenShell credential placeholder marker was reworded out of five tracked files, and scripts/scan-secrets.py now fails on it. Tasks t2 and t3 moved from agents runs to Claude subagents on the host.",
+      "task_ref": "t2",
+      "reason": "Three agents runs of t2 on the OpenCode harness failed: two because the harness read the marker and the egress proxy refused its next model request, one because of the 1 MiB write chunk. The owner chose 'Fix it first' on 2026-11-26.",
+      "affects": [
+        "t3"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 1
+    }
+  ],
+  "evidence": [],
+  "deltas": [],
+  "supersessions": []
+}
