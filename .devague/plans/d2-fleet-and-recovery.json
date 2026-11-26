@@ -3,9 +3,9 @@
   "title": "D2 fleet and recovery",
   "frame_slug": "d2-fleet-and-recovery",
   "schema_version": 5,
-  "status": "drafting",
+  "status": "exported",
   "created": "2026-11-26T17:07:54Z",
-  "updated": "2026-11-26T17:10:29Z",
+  "updated": "2026-11-26T17:18:13Z",
   "targets": [
     {
       "id": "c1",
@@ -643,7 +643,7 @@
       "id": "t1",
       "summary": "Probe: can each harness ask its operator a question and wait, without allow-all",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "spikes/d2-approvals/ holds a runnable probe per harness (Claude Code through the AI SDK adapter, OpenCode v2 through its server API) that tries to raise one question, hold the turn, and deliver one answer into the same turn",
         "docs/d2/probe-approvals.md records, per harness, one of: works (with the call used), does not work (with the error), or NOT VERIFIED (with the reason); no result is written without a run behind it",
@@ -657,7 +657,7 @@
       "id": "t2",
       "summary": "Rename the example node from spark to thor in fixtures, tests and documents",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "No tracked file outside CHANGELOG.md history, spikes/, vendored skills and .devague/ uses spark as a node name; contract fixtures, core tests, Python tests and documents use thor",
         "A new check in scripts/ (run by the CI lint job) fails when a tracked file names a node other than the example node in a run id, agent id or node field; it has tests for a passing and a failing file",
@@ -674,7 +674,7 @@
       "id": "t3",
       "summary": "Contract 3.0: schemas, fixtures and generated types for every D2 part one change",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "contract/version.json and api.json say 3.0; a core test and a CLI test prove a 2.0 client against a 3.0 core is refused with exit 2 and a message naming both versions",
         "The schemas gain, with one fixture each: the submitter and base commit on a run, the idempotency conflict error, the typed limit error naming the limit, the question and answer events and the answer action, the terminal state for an unanswered question, retry-shortly for a control request during reattach, and limits plus active count plus per-signal admission state in the capability report",
@@ -694,7 +694,7 @@
       "id": "t4",
       "summary": "Run store: schema version, reading 2.0 run directories, startup cleanup",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "Every run directory written by 3.0 carries a store schema version; a test loads a directory written by the 2.0 code (a committed fixture directory) and the run is listed with its true state",
         "A run directory the core cannot fully read is listed as unreadable with its id, never dropped, never counted as active for a limit, and its worker is never signalled",
@@ -714,7 +714,7 @@
       "id": "t5",
       "summary": "Run store: retention of finished run directories and constant-cost reads",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A test with 500 finished runs on disk shows submit, list and attach for a new run do not read the event logs of the finished runs (count file opens through an injected reader)",
         "A finished run directory is removed only after a stated, configurable retention period and never while its sandbox is retained or its state is unknown; the rule is in contract/README.md",
@@ -733,7 +733,7 @@
       "id": "t6",
       "summary": "Idempotent submit, steer and cancel with an on-disk key index and crash-safe submit order",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "The key and a digest of the request are on disk before the submit is acknowledged; the same key and request returns the first run id and creates nothing; the same key with a different request returns conflict; both hold after a core restart",
         "Steer and cancel deduplicate on their keys the same way, proven by sending each 2 times and counting 1 effect in the event log",
@@ -754,7 +754,7 @@
       "id": "t7",
       "summary": "Record the base commit when a submit is accepted and build the sandbox from it",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "The run record holds the commit resolved at accept time; a test moves the host HEAD after the submit and before the sandbox is ready, and the bundle is built from the recorded commit",
         "A submit to a repository with no commits or an unresolvable HEAD is refused at submit with a typed error, not failed later"
@@ -772,7 +772,7 @@
       "id": "t8",
       "summary": "Concurrent runs in one repository with operator-configured limits and no implicit limit",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "With no limit configured, 3 submits to 1 repository are all accepted and each is steered independently; the busy refusal and its error are gone from code, contract and explain text",
         "With a per-repository or per-host limit configured, a submit past it is refused at submit with the typed error naming the limit and its value; nothing is queued",
@@ -796,7 +796,7 @@
       "id": "t9",
       "summary": "Reattach to surviving workers after a core restart, before answering control requests",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "After a core restart with 2 live workers, steer, cancel and attach each take effect on the right run; the reconnect capability is reported as supported",
         "A control request that arrives before a run's reattach attempt has finished waits or gets retry-shortly, never live control unavailable; a test holds the reattach open to prove it",
@@ -820,7 +820,7 @@
       "id": "t10",
       "summary": "Close the three recovery gaps recorded after D1",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A cancel whose grace period ends during retention cleanup leaves a retention record, proven by a test that delays cleanup past the grace period",
         "The worker's conflict reply on a refused append has a test",
@@ -839,7 +839,7 @@
       "id": "t11",
       "summary": "Record the submitter of each run as the core established it; state local authentication",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A run submitted over the Unix socket records the user that owns the control socket; no request field can set or change it, proven by a test that sends one",
         "A test asserts the socket is mode 0600 in a 0700 directory and the daemon refuses to start when it cannot make it so",
@@ -862,7 +862,7 @@
       "id": "t12",
       "summary": "Remove injected secrets from the environment before any worker or host command starts",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A test starts the core with a marked secret variable and reads the environment of the spawned worker, a host command and the sandbox: the variable is absent in all three",
         "The list of variables the core reads and removes at start is declared in one place and documented"
@@ -881,7 +881,7 @@
       "id": "t13",
       "summary": "Operator questions: ask, wait on disk, answer once, 12 hour limit with a paused deadline",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A question is appended to the run's event log before the run starts waiting; after a core restart it is listed as pending; an answer is delivered exactly once into the same run, and a second answer is refused",
         "The question limit defaults to 12 hours and can be configured lower, never higher; the run's deadline does not advance while the question is pending (test with an injected clock)",
@@ -905,7 +905,7 @@
       "id": "t14",
       "summary": "Publish run events to the broker from the core, lifecycle facts only",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "The core follows each run log and publishes each event after its append, in the broker's existing envelope, under a type prefix of its own with at most 4 segments, with an id derived from run id and cursor and the cursor in the envelope",
         "A message holds only run id, event type, state, cursor and time; a test publishes a run whose events contain prompt text, output, tool results and an answer, and none of that text is in any message",
@@ -931,7 +931,7 @@
       "id": "t15",
       "summary": "List and remove finished run branches, with evidence",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A core route and a CLI verb list every runs branch of a repository with its run's state",
         "Removal deletes a branch only when git shows its commits reachable from another ref, never forces a delete, and skips and reports a branch whose run is active, unknown or unreadable",
@@ -950,7 +950,7 @@
       "id": "t16",
       "summary": "CLI: idempotency keys on every submit, steer and cancel, retry with the same key, and the answer verb",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "Every submit, steer and cancel sends a key, generated when the user gives none and printed in --json output; after a timeout the CLI retries with the same key and the test counts 1 run",
         "agents runs answer delivers an answer, shows the typed errors in text and --json, has an explain catalog entry and passes the strict rubric",
@@ -971,7 +971,7 @@
       "id": "t17",
       "summary": "Capability report: configured limits, active runs and admission state per signal",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "The report states each configured limit or that none is set, the number of active runs, and per signal one of admit, hold or unknown",
         "The heat signal is read as its publisher writes it; a missing or stale reading is unknown, and a local submit under unknown is admitted with a warning in the response",
@@ -990,7 +990,7 @@
       "id": "t18",
       "summary": "D2 part one acceptance suite and record",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "tests/acceptance/d2/ has a mock stage that always runs (real CLI, real core, stub harness) with the five checks of the success signal: restart with 2 runs in 1 repository then steer one and cancel the other; 1 key sent 2 times gives 1 run and a changed request gives conflict; a question survives a restart and is answered; a submit past a configured limit is refused with the typed error; 0 runs report succeeded without a worker's terminal event",
         "With 2 runs active in 1 repository, a third submit to another repository returns its run id in under 2 seconds and a cancel reaches cancelled in under 10 seconds; measured in the mock stage, and on both harnesses in the opt-in live stage, which reports NOT VERIFIED when a harness is unavailable",
@@ -1019,7 +1019,7 @@
       "id": "t19",
       "summary": "Documents for part one: what exists, who it is for, and corrections to stale records",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "CLAUDE.md, AGENTS.md, AGENTS.colleague.md, AGENTS.override.md and QWEN.md describe the part one state on disk and mark part two as planned; the harness-smoke config stage passes",
         "docs/d2/ states the D1 state this replaced with file references, why recovery is the condition for archiving agent-lifecycle and cultureagent, and what a calling agent may rely on after a restart or a retry",
@@ -1042,7 +1042,7 @@
       "id": "t20",
       "summary": "Part two design record: transport, announcement, key handling and repository identity",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "docs/d2/part-two-design.md chooses, with a probe behind each choice: how two cores make an encrypted, mutually authenticated connection from key pairs using Node's standard library; where a core's private key lives and how it reaches the core; how a core announces itself and is dropped when silent, without the chat mesh; and the stated number of seconds for each detection",
         "It answers what makes two checkouts the same repository across hosts and which commit a remote run starts from, with the options and a recommendation for the owner",
@@ -1058,7 +1058,7 @@
       "id": "t21",
       "summary": "Network transport beside the Unix socket: key pairs, mutual authentication, off by default",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "Two cores connect over an encrypted channel authenticated in both directions by key; a core with an unknown or removed key is refused before any request is read; no private key or reusable secret crosses the network (asserted on captured bytes in a test)",
         "Adding a member is adding its public key and removing the key revokes it, effective on the next connection; one member's key gives no access to another's private key",
@@ -1081,7 +1081,7 @@
       "id": "t22",
       "summary": "Fleet members: announcement, the member list and unique node names",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A core appears in the member list after it announces itself and leaves it within the stated time after it stops or goes silent; the list is built from announcements only",
         "An announcement from a core whose node name is already held by a different key is refused and reported to the operator",
@@ -1102,7 +1102,7 @@
       "id": "t23",
       "summary": "Remote control calls: submit, steer, cancel and attach on another member",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A submit from one core runs on another and is steered, cancelled and attached from the caller; the run's submitter is the authenticated member",
         "A deadline is sent as a duration and evaluated on the executing core's clock; a test with the two clocks 1 hour apart gets the same run length",
@@ -1124,7 +1124,7 @@
       "id": "t24",
       "summary": "Admission across hosts: harness, limits and signals decide at the executing core",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A remote submit is admitted only when the harness is available, a configured limit has room and the heat signal does not say hold; a hold yields a typed refusal naming the signal",
         "A missing or stale signal reads unknown: a remote submit is refused and a local one is admitted with a warning; an unknown signal never fails the control plane",
@@ -1144,7 +1144,7 @@
       "id": "t25",
       "summary": "Unreachable members: a view on the caller, never a stored state",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "When a member stops answering, every run that was active on it reads unreachable to every caller within the stated number of seconds, and 0 read succeeded",
         "The caller writes nothing: a test compares the caller's and the owner's state directories before and after; only the owning core writes unknown, with evidence the worker is gone",
@@ -1165,7 +1165,7 @@
       "id": "t26",
       "summary": "Fetch a run's commits from the executing core as a git bundle; restrict cross-host reads",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "agents runs result on a remote run brings its runs branch into the caller's repository from a bundle served through the control API, with no shell access to the executing host",
         "The bundle holds only that run's ref and is served only to a caller allowed to read the run; logs and attach across hosts follow the same rule and are not redacted",
@@ -1184,7 +1184,7 @@
       "id": "t27",
       "summary": "Implement lobes-cli issue 346 in lobes-cli: an admit field with a timestamp on the gateway status",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "A pull request on lobes-cli, from a branch there, adds the field with tests and is linked from issue 346; it is opened only with the owner's go-ahead for that repository",
         "No file of lobes-cli is edited from the culture-agents checkout"
@@ -1197,7 +1197,7 @@
       "id": "t28",
       "summary": "D2 part two acceptance on at least 2 real hosts, and the closing record",
       "origin": "llm",
-      "status": "proposed",
+      "status": "confirmed",
       "acceptance_criteria": [
         "On 2 real hosts: a submit from host A runs on host B and is steered and cancelled from A; with host B halted every run active on it reads unreachable on A within the stated seconds and 0 read succeeded; a submit to a host whose signal says hold is refused and a missing signal reads unknown",
         "docs/d2/part-two-acceptance.md names hosts by role only (host A, host B), separates measured, seen and not verified, and states the architecture of each host; an ARM host that was not verified is reported as such",
