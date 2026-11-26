@@ -191,8 +191,11 @@ def test_pypi_publish_runs_on_push_only() -> None:
 
 def test_npm_stage_uses_the_trusted_publisher() -> None:
     job = _stage_job(_load())
-    # The trusted publisher on npm names this workflow and the `npm` environment.
-    assert job["environment"] == "npm"
+    # Staging has its own environment and its own staging-only trusted publisher,
+    # so a pull request never runs under the environment that may publish.
+    assert job["environment"] == "npm-stage"
+    (release,) = _npm_publish_jobs(_load()).values()
+    assert release["environment"] == "npm"
     assert job["permissions"] == {"contents": "read", "id-token": "write"}
     lines = [ln for s in _steps(job) for ln in _code_lines(s)]
     # Staging needs npm 11.15.0 or later; an exact pin, never a floating tag.

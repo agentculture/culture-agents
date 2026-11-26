@@ -134,14 +134,16 @@ jobs:
   npm-stage:
     # Same-repo pull requests only: a fork has no OIDC or environment context.
     # Trusted publishing: the npm trusted publisher for @culture.dev/agents
-    # names this workflow file (publish.yml) and the `npm` environment, and
-    # allows `npm stage publish`.
+    # for staging names this workflow file (publish.yml) and the `npm-stage`
+    # environment, and allows `npm stage publish` only. The release job uses
+    # a different environment (`npm`), so a pull request never runs under the
+    # identity that may publish.
     # It waits for version-gate too: a pull request whose two version files
     # disagree fails the gate and must not leave a staged version behind.
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     needs: [test, version-gate]
     runs-on: ubuntu-latest
-    environment: npm
+    environment: npm-stage
     permissions:
       contents: read
       id-token: write
