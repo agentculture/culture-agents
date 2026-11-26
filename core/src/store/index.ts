@@ -46,7 +46,7 @@ export {
 } from "./run-store.js";
 export type { EventsPage, FollowOptions, ListOptions, ShowOptions, ShownRun } from "./run-store.js";
 export { STORE_SCHEMA_VERSION, StoreVersionError, readStoreVersion, writeStoreVersion } from "./version.js";
-export { activeRuns, listRunEntries } from "./entries.js";
+export { activeRunList, activeRuns, listRunEntries } from "./entries.js";
 export type { EntryOptions, RunEntry } from "./entries.js";
 export { cleanupStore, isTempName } from "./startup.js";
 export type { CleanupReport } from "./startup.js";

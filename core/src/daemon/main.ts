@@ -172,7 +172,7 @@ async function serveUntilStopped(
       err(`culture-agents core: startup cleanup failed, continuing: ${(e as Error).message}`);
     }
   }
-  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(limits && { limits }), ...(options.submitFault && { submitFault: options.submitFault }) });
+  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(limits && { limits }), env, ...(options.submitFault && { submitFault: options.submitFault }) });
   let daemon;
   try {
     daemon = await startDaemon({ ...options, service: service ?? (runs as RunService), node });

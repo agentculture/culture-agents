@@ -42,3 +42,8 @@ export function listRunEntries(stateDir: string, options: EntryOptions = {}): Ru
 export function activeRuns(entries: RunEntry[]): Run[] {
   return entries.flatMap((entry) => (entry.kind === "run" && isActive(entry.run.state) ? [entry.run] : []));
 }
+
+/** Every active run in the store, read once. The capability report and the tracing gauge both count through this. */
+export function activeRunList(stateDir: string): Run[] {
+  return activeRuns(listRunEntries(stateDir, { limit: Number.MAX_SAFE_INTEGER }));
+}
