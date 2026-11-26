@@ -36,15 +36,14 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 to t12, t14, t15, t17, t29 | merged |
+| t1 to t15, t17, t29 | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t13 operator questions (Claude Code, opus core) | running, dispatched again 22:14 UTC after the first run failed on the subscription's 5-hour limit |
-| t16 CLI keys and answer verb | blocked on t13 |
-| t18, t19 | blocked on t13 and t16; part two (t20 to t26, t28) after t18 |
+| t16 CLI keys, retry and the answer verb (Claude Code, sonnet) | running, dispatched 22:58 UTC |
+| t18, t19 | blocked on t16; part two (t20 to t26, t28) after t18 |
 
-Run id (prefix `spark-culture-agents.run.`): t13 `01M8CYPXRV6NSXPSQ49CRJ13FV`
-(Opus core). `dispatch.sh` fails when the worktree already exists; submit
-directly with `ag-opus runs submit` in that case.
+Deviation `d3` (proposed, waits for the owner): t13 built operator questions
+for the stub driver only; the Claude Code and OpenCode drivers have no ask
+path and report `answer` as unsupported.
 
 The OpenCode run of t15 (`01M8CMGNK4T2NR1DTBFN42CDAD`) ended as succeeded
 after 82 minutes with no file written: the model printed a malformed tool
@@ -52,7 +51,7 @@ call as text and the turn ended. Its only commit is a stray
 `core/node_modules` symlink; do not merge that branch. Recorded as plan risk
 r15.
 
-Last merge gate (after t17, 22:12 UTC), on the merged tree: core 636 passed
+Last merge gate (after t13, 22:56 UTC), on the merged tree: core 652 passed
 and 8 skipped, Python 1673 passed and 9 skipped, lint, contract types and the
 three scans clean. The scratchpad scripts `mg.sh <run ULID>`, `gate.sh <task>`,
 `ci.sh <message file>` and `dispatch.sh <task> <ag|ag-opus> [note file]` do the

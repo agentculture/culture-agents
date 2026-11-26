@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-26T19:05:33Z",
+  "updated": "2026-11-26T22:54:15Z",
   "deviations": [
     {
       "id": "d1",
@@ -30,6 +30,21 @@
       "status": "approved",
       "classification": "acceptable",
       "seq": 2
+    },
+    {
+      "id": "d3",
+      "what": "Task t13 built operator questions end to end for the stub driver only. The Claude Code and OpenCode drivers got no ask path and still report the answer capability as unsupported, although the t1 probe found both harnesses can ask.",
+      "task_ref": "t13",
+      "reason": "The task instruction says to build exactly what the probe record says each harness supports. The agent had no sandbox or credentials to run either real harness, and the contract allows a capability to be reported supported only once measured as this core drives it, so it left both unsupported and said so in its report. All four acceptance criteria of t13 are met as written; the spec's claim that an operator can answer a real harness's question is not delivered.",
+      "affects": [
+        "t16",
+        "t18",
+        "t19"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "needs-follow-up",
+      "seq": 3
     }
   ],
   "evidence": [],
