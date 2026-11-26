@@ -27,9 +27,9 @@ Edit the Owner/Model columns before approving gate 2 — the default Model is a 
 | Task | Owner | Model |
 | --- | --- | --- |
 | `t1` | Claude subagent on the host | session model |
-| `t2` | agents run, opencode harness | local gateway, cortex role |
+| `t2` | Claude subagent on the host (three `agents` runs on OpenCode failed) | session model |
 | `t27` | Claude subagent on the host | session model |
-| `t3` | agents run, claude-code harness | sonnet |
+| `t3` | Claude subagent on the host (moved from `agents`, see plan risk r13) | session model |
 | `t4` | agents run, opencode harness | local gateway, cortex role |
 | `t9` | agents run, claude-code harness | sonnet |
 | `t14` | agents run, claude-code harness | sonnet |
