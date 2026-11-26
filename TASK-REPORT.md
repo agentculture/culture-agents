@@ -1,0 +1,21 @@
+# TASK-REPORT t10: close the three recovery gaps
+
+## Built
+- **Retention on a forced cancel.** `Driver` has an optional `retained()`. `RunDriver` sets it as soon as it decides to keep the sandbox, before its settle wait. When the cancel grace timer forces the harness down, `run-loop.ts` calls `retained()` after `dispose()` and writes `retained.json` before the terminal event. `fake-driver.ts` gained `retainOnCancel` to model this.
+- **Signal handlers.** `daemon/main.ts` now installs SIGTERM and SIGINT handlers (`watchStop`) when `serve` starts, before startup work and the "listening" line. `serve` is split in two to do this.
+- **Tests.** New `core/test/worker/recovery-gaps.test.ts`, two new cases in `core/test/daemon/lifecycle.test.ts`, and `core/test/daemon/child.ts` can now signal itself at the "listening" line (env `CHILD_SIGNAL_AT_LISTENING`).
+
+## Commands and results
+- `cd core && npm run build && npm test`: 577 tests, 565 pass, 0 fail, 12 skipped.
+- `npm run lint`, `npm run typecheck` and `npm run check:contract-types`: clean.
+- `python -m pytest -n auto` from the repository root: 1606 passed, 9 skipped, 1 failed. The failure is `tests/test_contract_packaging.py::test_a_built_wheel_holds_the_schemas_byte_for_byte`. It needs to download hatchling from the package index, which this sandbox has no access to. I did not check whether it passes on main.
+
+## Acceptance
+1. **Proven.** "a cancel whose grace period ends during retention cleanup leaves a retention record": the stop takes 3 s, the grace period is 150 ms, and the test asserts `retained.json` exists. I checked the test fails when the `writeRetained` call is disabled. A second test shows no record is written when the driver kept nothing.
+2. **Partly proven.** The conflict reply has tests for a refusal on an ended run (in-process worker, `already succeeded`, not retryable, run id named) and for a steer whose run ends during delivery. The specific line `run-loop.ts` "The run ended before the refusal was recorded." cannot be reached, because the state check and the append are synchronous in one tick. I did not test it.
+3. **Proven.** The lifecycle tests for SIGTERM and SIGINT signal the child inside its stderr callback at the "listening on" line. Both failed before the fix (the process died by signal) and pass after it: exit 0, socket and info file removed.
+
+## Assumptions and notes
+- `Driver.retained()` and `run-driver.ts` changed although the plan names only retained.ts, control.ts and main.ts. A driver's retention cannot reach the worker otherwise, so I chose this. `retained.ts` and `control.ts` are unchanged.
+- The mutation check for criterion 1 was done once by hand. I did not run it for the signal tests, but they failed before the fix.
+- The live harness stage was not run.
