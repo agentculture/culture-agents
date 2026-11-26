@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-26T18:20:06Z",
+  "updated": "2026-11-26T19:02:27Z",
   "deviations": [
     {
       "id": "d1",
@@ -16,6 +16,20 @@
       "status": "proposed",
       "classification": "acceptable",
       "seq": 1
+    },
+    {
+      "id": "d2",
+      "what": "Observability was added to the D2 design mid-run: a new decision (c66), four proposed claims (c67 to c70), one assumption (c71) and one proposed plan task for run tracing to a local Langfuse.",
+      "task_ref": "t14",
+      "reason": "The owner asked for it on 2026-11-26 after three OpenCode runs shared one local model with no way to see the load: 'We should have observability and it should be part of the design. We can run langfuse locally.'",
+      "affects": [
+        "t17",
+        "t18"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "classification": "acceptable",
+      "seq": 2
     }
   ],
   "evidence": [],
