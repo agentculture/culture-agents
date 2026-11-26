@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { startPublishing } from "../publish/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
+import { cleanupStore } from "../store/startup.js";
 import { loadAllowlist } from "./allowlist.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
 import { unavailable } from "./errors.js";
@@ -140,6 +141,14 @@ async function serveUntilStopped(
     } catch (e) {
       err(`culture-agents core: cannot start: ${(e as Error).message}`);
       return 2;
+    }
+  }
+  if (!service) {
+    try {
+      const swept = cleanupStore(stateDir, err);
+      if (swept.removedRuns.length + swept.removedTemps.length > 0) err(`culture-agents core: startup cleanup removed ${swept.removedRuns.length} run directories without a first event and ${swept.removedTemps.length} temporary files`);
+    } catch (e) {
+      err(`culture-agents core: startup cleanup failed, continuing: ${(e as Error).message}`);
     }
   }
   const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath) });

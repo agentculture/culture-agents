@@ -11,6 +11,7 @@ import { assertValid, isRunId, isTerminal, type Run, type RunEvent, type RunId, 
 import { deriveRun, ORPHANED_REASON, type DerivedRun } from "./derive.js";
 import { EventLogWriter, checkNext, readLog, type LogTail } from "./event-log.js";
 import { FILE_MODE, atomicWriteJson, ensureDir, fsyncDir, nowIso, runDir, runFile, runsDir } from "./files.js";
+import { writeStoreVersion, assertReadableVersion } from "./version.js";
 import { LivenessUnknownError, checkLiveness, type Liveness, type LivenessOptions } from "./liveness.js";
 
 /** Create a run's directory (0700) and its record (0600). Ids are never reused: an existing run is an error. */
@@ -19,6 +20,7 @@ export function createRun(stateDir: string, record: Run): string {
   const dir = runDir(stateDir, run.id);
   ensureDir(runsDir(stateDir));
   ensureDir(dir);
+  writeStoreVersion(dir);
   writeFileSync(runFile(dir, "record"), `${JSON.stringify(run)}\n`, { mode: FILE_MODE, flag: "wx" });
   fsyncDir(dir);
   return dir;
@@ -77,6 +79,7 @@ export function settleOrphan(dir: string, runId: RunId, options: LivenessOptions
  * unreadable for that request, and nothing is settled.
  */
 export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | null {
+  assertReadableVersion(dir);
   const record = readRecord(dir);
   let liveness = checkLiveness(dir, options);
   let log = readLog(dir, record.id);
