@@ -130,7 +130,8 @@ behaviour inside 3.0, without another bump.
 | `base_commit`: the commit the run starts from | Run | optional; absent on a run recorded before the core set it | t7 (built) |
 | `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13, *shape only* |
 | `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13, *shape only* |
-| `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8, *shape only* |
+| `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8 (built) |
+| `busy` is removed, with its `active_run_id` and `repo` fields and the one-active-run-per-repository rule | error, `runs.submit` | gone: a 3.0 core never answers it | t8 (built) |
 | `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel`, `runs.answer` | optional; `retryable` is then false; forbidden with any other code | t6 (built) |
 | `question_id` on an error that concerns a question | error | optional | t13, *shape only* |
 | `unavailable` may carry `retry_after_ms`: retry shortly, for a control request that arrives while the core reattaches to the run's worker | error | optional; forbidden with any other code | t9, *shape only* |
@@ -140,11 +141,11 @@ behaviour inside 3.0, without another bump.
 | `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13; until then it is refused as `unsupported` |
 | `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`, built), t17 (`warnings`, *shape only*) |
 | `replayed` on the accepted action response | `accepted_response` | optional | t6 (built) |
-| `runs.submit` may answer `conflict` and `limit_reached` | route | | t6 (`conflict`, built), t8 |
-| `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | every harness still reports them unsupported | t13, t9, t8 |
-| `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17 (`limits` are read from the configuration t8 adds), *shape only* |
+| `runs.submit` may answer `conflict` and `limit_reached` | route | | t6 (`conflict`, built), t8 (`limit_reached`, built) |
+| `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | `reconnect` and `worktree_isolation` are reported supported; `answer` is still reported unsupported | t13, t9 (built), t8 (built) |
+| `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17 (`limits` are read from the configuration t8 added, built), *shape only* |
 
-`busy` is unchanged in the 3.0 schemas and the core still answers it: one active run per repository holds until task t8 builds concurrent runs. t8 then removes `busy`, its `active_run_id` and `repo` fields and the busy rule from the schemas, this file and the CLI, as part of 3.0.
+`busy` is removed in 3.0 (t8, built): the error code, its `active_run_id` and `repo` fields and the one-active-run-per-repository rule are gone from the schemas, this file and the CLI. Two or more runs may be active in one repository; no limit applies unless the operator configures one, and a submit past a configured limit gets `limit_reached`.
 
 Rules that change with these shapes, each when its task lands:
 
@@ -231,21 +232,22 @@ Clients and tests may rely on the order.
    `unsupported`, `delegate`.
 6. An `idempotency_key` that the core has on record. The same request → 201
    with `replayed: true` and the first run as it is now; nothing is created
-   and the busy check is skipped. A different request → `conflict` with
+   and the limit check is skipped. A different request → `conflict` with
    `idempotency_key` and the `run_id` the key belongs to. A key whose first
    submit is still being established → `unavailable` with `retry_after_ms`.
-7. The repository already has an active run → `busy` (until t8).
+7. A limit the operator configured has no room → `limit_reached` with
+   `limit` (built, t8). `runs_per_repository` is checked before
+   `runs_per_host`. With no limit configured nothing is checked and no submit
+   is refused here. Nothing is queued. See
+   [Limits, load and admission](#limits-load-and-admission).
 8. The core writes the key (when there is one), then creates the session and
    run directory, then starts the worker. The worker writes its PID, its
    event log with event 1 (`run.state`, `null` → `queued`) and its cursor to
    disk. Only after that does the core answer 201 with the run in state
    `queued`.
 
-**(planned)** Two checks join `runs.submit` between steps 5 and 8. The
-task that builds each one fixes its exact place and writes it here.
+One more check is part of `runs.submit` between steps 5 and 8:
 
-- A configured limit that has no room (t8) → `limit_reached` with `limit`.
-  This replaces step 7. Nothing is queued.
 - The repository's commit to start from cannot be resolved (built, t7) → an `invalid`
   refusal with `field: repo` at submit, not a failed run later. On success the commit is the
   run's `base_commit`.
@@ -541,23 +543,39 @@ supportable is a MAJOR bump.
 ### Capabilities that 3.0 allows and no harness supports yet
 
 In 2.0 these three were deferred. In 3.0 the schema lets a harness report
-them as supported. Every harness still reports them unsupported, with the
-reason, until the task that builds each one lands.
+them as supported. A harness reports each one unsupported, with the reason,
+until the task that builds it lands.
 
 | Capability | How a client meets the refusal today | Built by |
 | --- | --- | --- |
 | `answer` (operator questions) | `POST .../answer` → `unsupported` | t13 |
-| `reconnect` (live control after a core restart) | steer or cancel a run with `live_control: false` → `unsupported` | t9 |
-| `worktree_isolation` (concurrent runs in one repository) | a second submit for a repository with an active run → `busy` | t8 |
+| `reconnect` (live control after a core restart) | steer or cancel a run with `live_control: false` → `unsupported` | t9 (built) |
+| `worktree_isolation` (concurrent runs in one repository) | reported supported by every harness; there is no refusal | t8 (built) |
 
-`worktree_isolation`, once supported, means one sandbox clone per run with its
-own `runs/<run_id>` branch. It never means a git worktree on the host.
+`worktree_isolation` means one clone of the repository per run, made from the
+run's `base_commit`, with its own `runs/<run_id>` branch: a sandbox clone per
+run for a sandboxed harness (the stub harness uses a temporary clone on the
+host). It never means a git worktree on the host, and the host checkout and
+index are never written. Its caveat in the capability document says this.
+Two runs in one repository share nothing else that is fixed: each fetch back
+into the host writes only its own `runs/<run_id>` ref.
 
 ### Limits, load and admission
 
-**(planned, t17; the limits themselves by t8.)** A capability document may
-carry three optional fields about the core's own host. They never describe
-another host.
+The limits themselves are built (t8). The operator sets them in the core's
+config file, the harness config file
+(`${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/harness.json`, or the file
+named by `CULTURE_AGENTS_HARNESS_CONFIG`), as
+`{"limits": {"runsPerRepository": 2, "runsPerHost": 8}}`. Each value is a
+whole number of at least 1, or null or absent for no limit; any other value or
+key stops the core at start. The core reads the file when it starts. A run
+counts as active while its state is active, including a run whose worker
+survived a core restart; a run whose stored state cannot be read but whose
+worker may be alive also counts, against every repository when its record
+cannot be read either.
+
+**(planned, t17.)** A capability document may carry three optional fields
+about the core's own host. They never describe another host.
 
 - `limits`: every limit by name, `runs_per_repository` and `runs_per_host`.
   `null` means the operator configured none, and then no submit is refused
@@ -626,10 +644,10 @@ read the event logs of finished runs.
 - `base_commit` is the commit of the repository the run starts from, resolved
   by the core when it accepts the submit **(built, t7)**; the worker builds the sandbox from it, not from the host's HEAD at that later time. It is absent on a
   run recorded before that.
-- **Busy rule (until t8):** at most one active run per canonical repository
-  path. A second submit gets `busy`, which carries `active_run_id` and `repo`.
-  A run with `live_control: false` that is still active also holds its
-  repository.
+- **Concurrent runs (t8):** any number of runs may be active in one
+  canonical repository at once, each steered and cancelled on its own. There
+  is no implicit limit: only a limit the operator configured refuses a submit,
+  with `limit_reached`.
 
 ## Errors and CLI exit codes
 
@@ -641,7 +659,6 @@ sentence. For environment errors, the message includes a remediation hint.
 | `invalid` | 400 | 1 | false | `field` (optional) | The request breaks the schema or a rule in this README |
 | `denied` | 403 | 1 | false | none | No allow-list entry matches |
 | `not_found` | 404 | 1 | false | `run_id` (optional) | Unknown agent, harness, run or path |
-| `busy` | 409 | 1 | true | `active_run_id`, `repo` | The repository already has an active run (until t8) |
 | `conflict` | 409 | 1 | varies (see above) | `run_id`; `idempotency_key` or `question_id` (optional) | The run's state does not allow the action, or an idempotency key was used with a different request |
 | `limit_reached` | 429 | 1 | true | `limit` (`name`, `value`, `active`, and `repo` for a repository limit) | A limit the operator configured has no room; nothing is queued |
 | `unsupported` | 422 | 1 | false | `capability` | The capability is not supported (see above) |

@@ -112,7 +112,9 @@ def test_cancel_reaches_cancelled_in_under_10_seconds(core: Core) -> None:
     record("mock.cancel", seconds=round(seconds, 3))
 
 
-def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Core) -> None:
+def test_dispatch_is_denied_by_default_and_a_second_run_in_a_repository_is_accepted(
+    core: Core,
+) -> None:
     repo = core.add_repo()
     stranger = core.cli(
         *("runs", "submit", "--agent", f"{AGENT}2", "--harness", "stub"),
@@ -127,8 +129,10 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         *("runs", "submit", "--agent", AGENT, "--harness", "stub"),
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
-    assert second.rc == 1
-    assert second.error_code() == "busy"
+    # t8 removed the busy rule: with no limit configured a second run in one repository is accepted.
+    assert second.rc == 0, second.err
+    second_run = second.json()["run"]
+    assert second_run["id"] != run["id"] and second_run["repo"] == run["repo"]
     other_harness = core.cli(
         *("runs", "submit", "--agent", AGENT, "--harness", "claude-code"),
         *("--repo", str(repo), "--task", "hang", "--json"),
@@ -140,6 +144,7 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         other_harness.error_code() == "denied"
     ), "the allow-list names the harness too: an entry for stub does not permit claude-code"
     core.ok("runs", "cancel", run["id"])
+    core.ok("runs", "cancel", second_run["id"])
 
 
 def test_a_run_needs_no_chat_server_and_no_network(core: Core) -> None:

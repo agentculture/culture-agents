@@ -39,7 +39,6 @@ EXIT_FOR_CODE = {
     "invalid": EXIT_USER_ERROR,
     "denied": EXIT_USER_ERROR,
     "not_found": EXIT_USER_ERROR,
-    "busy": EXIT_USER_ERROR,
     "conflict": EXIT_USER_ERROR,
     "limit_reached": EXIT_USER_ERROR,
     "unsupported": EXIT_USER_ERROR,
@@ -55,7 +54,6 @@ _HINTS = {
         "entry to the allow-list file; the CLI cannot grant it"
     ),
     "not_found": "list what exists with 'agents agents list' or 'agents runs list'",
-    "busy": "wait for the active run to end, or cancel it with 'agents runs cancel <run_id>'",
     "conflict": "inspect the run with 'agents runs show <run_id>', then retry when it allows",
     "limit_reached": (
         "the operator configured this limit on the core and nothing was queued: wait for an "

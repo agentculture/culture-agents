@@ -42,7 +42,7 @@ use `agents explain agents list` and `agents explain agents status`.
 
 - `0` success
 - `1` user-input error, including a request the core refuses (`denied`,
-  `unsupported`, `busy`, `conflict`, `invalid`, `not_found`)
+  `unsupported`, `limit_reached`, `conflict`, `invalid`, `not_found`)
 - `2` environment / setup error (core not running, incompatible API version,
   core failure)
 - `3+` reserved
