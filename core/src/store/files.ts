@@ -14,6 +14,8 @@ export const DIR_MODE = 0o700;
 
 /** File names inside `<stateDir>/runs/<run-id>/`. */
 export const RUN_FILES = {
+  /** The store schema version this directory was written under. Absent in a directory written by 2.0. */
+  version: "store.json",
   /** The run record (contract `run.json` shape), a cache; state is derived from the event log. */
   record: "run.json",
   /** Append-only event log: one contract event per line, cursor 1, 2, 3, ... */
