@@ -30,7 +30,7 @@ export function capabilitiesOf(harness: FakeHarness): Capabilities {
       cancel: yes,
       pause: deferred,
       resume: deferred,
-      answer: deferred,
+      answer: harness.ask === true ? yes : no("this fake's driver has no ask path"),
       continue_session: deferred,
       delegate: deferred,
       placement: deferred,

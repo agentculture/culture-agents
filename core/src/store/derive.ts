@@ -11,6 +11,7 @@
  * Pure: no I/O, the clock is a parameter.
  */
 import { assertValid, isTerminal, type Run, type RunEvent, type RunState, type StateData } from "../contract/index.js";
+import { pendingQuestions } from "./questions.js";
 
 export interface DeriveInput {
   /** The run record as stored (identity, task, owner, deadline, ...). Its state fields are ignored. */
@@ -88,6 +89,8 @@ export function deriveRun(input: DeriveInput): DerivedRun | null {
     started_at: startedAt,
     ended_at: terminal ? endedAt : null,
     cursor: last.cursor,
+    // Read from the log, so a question is still pending after a core restart; none on a terminal run.
+    pending_questions: terminal ? [] : pendingQuestions(events),
     live_control: !terminal && input.alive && input.controllable,
   };
   return { run: assertValid("run", run), orphaned };

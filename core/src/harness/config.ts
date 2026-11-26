@@ -28,6 +28,7 @@
  * | retainFailedSandboxDays | CULTURE_AGENTS_RETAIN_FAILED_SANDBOX_DAYS | 7 (days a sandbox is kept when a completed turn's work could not be brought to the host; 0 to 90, 0 keeps nothing) |
  * | stub                   | CULTURE_AGENTS_HARNESS_STUB          | false; "1"/"true" lists the harness-neutral `stub` harness |
  * | limits.runsPerRepository / .runsPerHost | (file only)         | none: no limit applies unless one is set (read by daemon/limits.ts) |
+ * | questions.limitSeconds | (file only)                          | 43200 (12 hours): an operator question's time limit; 1 to 43200, never more (daemon/limits.ts) |
  *
  * No credential value is ever read here: providers are referenced by name and keys by the
  * name of the variable that holds OpenShell's placeholder inside the sandbox.

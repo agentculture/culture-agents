@@ -12,7 +12,7 @@ import { retentionFromEnv, pruneFinishedRuns } from "../store/retention.js";
 import type { SubmitFault } from "../runs/keys.js";
 import { cleanupStore } from "../store/startup.js";
 import { loadAllowlist } from "./allowlist.js";
-import { loadLimits } from "./limits.js";
+import { loadLimits, loadQuestionLimit } from "./limits.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
 import { unavailable } from "./errors.js";
 import { acquireStateLock, LockHeldError, type HeldLock } from "./lock.js";
@@ -44,6 +44,8 @@ export interface MainOptions extends Partial<Omit<DaemonOptions, "service">> {
   submitFault?: SubmitFault;
   /** The operator's limits. Default: read from the core's config file at start (limits.ts); a bad one stops startup with exit 2. */
   limits?: Limits;
+  /** The time limit of each operator question, in ms. Default: read from the core's config file (12 hours when unset, never more). */
+  questionLimitMs?: number;
   /** How often sandboxes of finished runs are reclaimed. Default: 5 minutes. */
   reclaimIntervalMs?: number;
   /**
@@ -149,8 +151,10 @@ async function serveUntilStopped(
   const allowlistPath = options.allowlistPath ?? resolveAllowlistPath(env);
   const stateDir = options.stateDir ?? defaultStateDir(env);
   let limits: Limits | undefined;
+  let questionLimitMs: number | undefined;
   try {
     limits = service ? undefined : (options.limits ?? loadLimits(env));
+    questionLimitMs = service ? undefined : (options.questionLimitMs ?? loadQuestionLimit(env));
   } catch (e) {
     err(`culture-agents core: cannot start: limits configuration: ${(e as Error).message}`);
     return 2;
@@ -172,7 +176,7 @@ async function serveUntilStopped(
       err(`culture-agents core: startup cleanup failed, continuing: ${(e as Error).message}`);
     }
   }
-  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(limits && { limits }), env, ...(options.submitFault && { submitFault: options.submitFault }) });
+  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(limits && { limits }), ...(questionLimitMs !== undefined && { worker: { questionLimitMs } }), env, ...(options.submitFault && { submitFault: options.submitFault }) });
   let daemon;
   try {
     daemon = await startDaemon({ ...options, service: service ?? (runs as RunService), node });
@@ -262,6 +266,7 @@ export const unwiredService: RunService = (() => {
     getResult: no,
     steer: no,
     cancel: no,
+    answer: no,
     recordRefusal: no,
     listAgents: no,
     getAgent: no,

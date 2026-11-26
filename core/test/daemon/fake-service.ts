@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   isTerminal,
   type AcceptedResponse,
+  type AnswerRequest,
   type Agent,
   type AgentList,
   type CancelRequest,
@@ -138,6 +139,11 @@ export class FakeRunService implements RunService {
   cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse> {
     this.calls.push("cancel");
     return Promise.resolve({ action: { ...fixture<AcceptedResponse>("valid/control-action/accepted_response.cancel.json").action, run_id: runId, caller: request.caller } });
+  }
+
+  answer(runId: string, request: AnswerRequest): Promise<AcceptedResponse> {
+    this.calls.push("answer");
+    return Promise.resolve({ action: { ...fixture<AcceptedResponse>("valid/control-action/accepted_response.answer.json").action, run_id: runId, caller: request.caller } });
   }
 
   recordRefusal(runId: string, kind: DeferredKind, request: DeferredRequest, error: ErrorBody): Promise<void> {

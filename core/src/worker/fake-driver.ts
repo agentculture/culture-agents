@@ -6,7 +6,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import type { ErrorBody, OutputData } from "../contract/index.js";
-import type { Driver, DriverContext, DriverEvent } from "./driver.js";
+import type { AnswerReply, AskedQuestion, Driver, DriverContext, DriverEvent } from "./driver.js";
 
 export type FakeStep =
   | { op: "sleep"; ms: number }
@@ -18,7 +18,9 @@ export type FakeStep =
   /** Throw from the event stream (an unexpected driver crash). */
   | { op: "throw"; message: string }
   /** Wait until cancelled, or forever when cancel is ignored. */
-  | { op: "hang" };
+  | { op: "hang" }
+  /** Ask the operator and wait for the answer (or a cancel); the answer is echoed as `run.output`. */
+  | { op: "ask"; question: AskedQuestion };
 
 export interface FakeDriverOptions {
   steps: FakeStep[];
@@ -32,6 +34,10 @@ export interface FakeDriverOptions {
   steerDelayMs?: number;
   /** When set, `steer` fails with this message (the harness did not take the steer). */
   steerError?: string;
+  /** When true the driver has no ask path (no `answer` method), like a harness that cannot ask. */
+  noAnswer?: boolean;
+  /** When set, delivering an answer fails with this message. */
+  answerError?: string;
   /** A sandbox the driver keeps once it is cancelled, while its stop is still in progress (retention cleanup). */
   retainOnCancel?: { sandbox: string; until: string };
 }
@@ -57,8 +63,21 @@ export class FakeDriver implements Driver {
   private readonly abort = new AbortController();
   private stopped = false;
   private cancelled = false;
+  private waiting: { ref: string; resolve: () => void } | null = null;
+  answer?: (ref: string, reply: AnswerReply) => Promise<void>;
 
-  constructor(private readonly options: FakeDriverOptions) {}
+  constructor(private readonly options: FakeDriverOptions) {
+    if (!options.noAnswer) this.answer = (ref, reply) => this.takeAnswer(ref, reply);
+  }
+
+  private async takeAnswer(ref: string, reply: AnswerReply): Promise<void> {
+    if (this.options.answerError !== undefined) throw new Error(this.options.answerError);
+    if (this.waiting?.ref !== ref) throw new Error(`no pending request ${ref}`);
+    const { resolve } = this.waiting;
+    this.waiting = null;
+    this.emit({ type: "output", data: { channel: "diagnostic", text: `answer: ${JSON.stringify(reply)}` } });
+    resolve();
+  }
 
   start(): AsyncIterable<DriverEvent> {
     void this.play();
@@ -90,6 +109,13 @@ export class FakeDriver implements Driver {
             break;
           case "hang":
             await new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("aborted"))));
+            break;
+          case "ask":
+            await new Promise<void>((resolve, reject) => {
+              this.waiting = { ref: step.question.ref, resolve };
+              signal.addEventListener("abort", () => reject(new Error("aborted")));
+              this.emit({ type: "question", question: step.question });
+            });
             break;
           case "throw":
             this.queue.push({ kind: "throw", message: step.message });

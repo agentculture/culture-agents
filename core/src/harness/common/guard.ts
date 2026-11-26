@@ -2,10 +2,11 @@
  * A driver wrapper that enforces a capability document: a control action the document does not
  * support is refused with `UnsupportedCapabilityError` (an `unsupported` error naming the
  * capability) and is not forwarded to the wrapped driver. The deferred control actions (pause,
- * resume, answer) have no driver method at all, so they are always refused here.
+ * resume) have no driver method at all, so they are always refused here; `answer` forwards only
+ * when the document supports it and the wrapped driver has an ask path.
  */
 import type { Capabilities } from "../../contract/index.js";
-import type { Driver, DriverEvent } from "../../worker/driver.js";
+import type { AnswerReply, Driver, DriverEvent } from "../../worker/driver.js";
 import { assertSupported, type ControlCapability } from "./capabilities.js";
 
 export interface GuardedDriver extends Driver {
@@ -32,6 +33,11 @@ export function guardDriver(inner: Driver, doc: Capabilities): GuardedDriver {
     async cancel(reason: string) {
       assertSupported(doc, "cancel");
       await inner.cancel(reason);
+    },
+    async answer(ref: string, reply: AnswerReply) {
+      assertSupported(doc, "answer");
+      if (!inner.answer) throw new Error("the driver has no ask path although its document supports answer");
+      await inner.answer(ref, reply);
     },
     dispose: () => inner.dispose(),
     async control(action, payload = "") {

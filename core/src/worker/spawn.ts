@@ -15,7 +15,7 @@ import { workerEnv } from "../trace/config.js";
 import { closeSync, openSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { ActionRecord, Run, RunId } from "../contract/index.js";
+import type { ActionRecord, AnswerRequest, Run, RunId } from "../contract/index.js";
 import { readCursorFile, readLog } from "../store/event-log.js";
 import { FILE_MODE, runDir, runFile, type RunFile } from "../store/files.js";
 import { checkLiveness, readWorkerIdentity, type Liveness } from "../store/liveness.js";
@@ -50,13 +50,17 @@ export class WorkerControl {
     const req = reason === undefined ? { op: "cancel" as const, action } : { op: "cancel" as const, action, reason };
     return this.deliver(req, "run.control");
   }
+  /** An answer is accepted only once the harness took it, like a steer. */
+  answer(action: ActionRecord, request: AnswerRequest): Promise<ControlReply> {
+    return this.deliver({ op: "answer", action, request }, "run.answer", this.steerTimeoutMs);
+  }
   /** Have the worker record a refusal the core decided (`run.refused`). */
   refuse(action: ActionRecord): Promise<ControlReply> {
     return this.deliver({ op: "refuse", action }, "run.refused");
   }
 
   /** Send an action; with no reply, settle its outcome from the run's log (see `settleFromLog`). */
-  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused", timeoutMs = this.timeoutMs): Promise<ControlReply> {
+  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused" | "run.answer", timeoutMs = this.timeoutMs): Promise<ControlReply> {
     try {
       return await controlRequest(this.runDir, request, timeoutMs);
     } catch (err) {
@@ -75,6 +79,8 @@ export interface SpawnWorkerOptions {
   readyTimeoutMs?: number;
   heartbeatMs?: number;
   cancelGraceMs?: number;
+  /** The time limit of each question the run asks, in ms; the worker caps it at 12 hours. Default 12 hours. */
+  questionLimitMs?: number;
   /** Environment of the worker process. Default: this process's environment. */
   env?: NodeJS.ProcessEnv;
   /** Called once the run directory and record exist, before the worker is started (a fault injection point). */
@@ -126,6 +132,7 @@ function workerArgs(options: SpawnWorkerOptions): string[] {
   const args = [WORKER_ENTRY, "--state-dir", options.stateDir, "--run-id", options.run.id];
   if (options.heartbeatMs !== undefined) args.push("--heartbeat-ms", String(options.heartbeatMs));
   if (options.cancelGraceMs !== undefined) args.push("--cancel-grace-ms", String(options.cancelGraceMs));
+  if (options.questionLimitMs !== undefined) args.push("--question-limit-ms", String(options.questionLimitMs));
   return args;
 }
 

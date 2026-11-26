@@ -65,7 +65,6 @@ const PATTERNS: readonly Pattern[] = [
 const DEFERRED = {
   "runs.pause": ["pause", "control-action#pause_request"],
   "runs.resume": ["resume", "control-action#resume_request"],
-  "runs.answer": ["answer", "control-action#answer_request"],
 } as const;
 
 const PARAM_SCHEMAS: Record<string, SchemaName> = {
@@ -224,7 +223,16 @@ async function steerOrCancel({ ctx, req, res, p }: RouteCall, steer: boolean): P
   return sendJson(res, 202, "control-action#accepted_response", await ctx.service.cancel(runId, body as never));
 }
 
-/** A deferred control route (pause, resume, answer): checked like any other, then refused as `unsupported`. */
+/** Answer one pending question of a run; the service runs steps 5 to 9 (runs/answer.ts). */
+async function runsAnswer({ ctx, req, res, p }: RouteCall): Promise<void> {
+  const runId = p["run_id"] ?? "";
+  await requireRun(ctx, runId);
+  const body = await readJsonBody(req);
+  checkBody("control-action#answer_request", body);
+  return sendJson(res, 202, "control-action#accepted_response", await ctx.service.answer(runId, body as never));
+}
+
+/** A deferred control route (pause, resume): checked like any other, then refused as `unsupported`. */
 async function refuseDeferred({ ctx, req, p }: RouteCall, routeId: string): Promise<never> {
   const deferred = DEFERRED[routeId as keyof typeof DEFERRED];
   if (!deferred) throw new ControlError("internal", "Route table and handlers disagree.");
@@ -297,6 +305,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return steerOrCancel(call, true);
     case "runs.cancel":
       return steerOrCancel(call, false);
+    case "runs.answer":
+      return runsAnswer(call);
     case "branches.list":
       return branchesList({ service: svc, allowlist: ctx.allowlist, req, res, url });
     case "branches.remove":

@@ -20,6 +20,7 @@ import {
   type ActionRecord,
   type Agent,
   type AgentList,
+  type AnswerRequest,
   type CancelRequest,
   type Capabilities,
   type ErrorBody,
@@ -47,7 +48,8 @@ import { readRetained } from "../worker/retained.js";
 import { WorkerSpawnError, reconnectWorker, spawnWorker, type WorkerControl } from "../worker/spawn.js";
 import { withHostReport, readAdmission, submitWarnings, type HostReport } from "./admission.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
-import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
+import { answer as answerRun } from "./answer.js";
+import { control, recordDeferredRefusal, type ControlKind, type ControlTarget } from "./control.js";
 import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
 import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
@@ -64,7 +66,7 @@ export interface RunServiceOptions {
   allowlist: () => AllowlistState;
   now?: () => Date;
   /** Passed to every worker. */
-  worker?: { heartbeatMs?: number; cancelGraceMs?: number; readyTimeoutMs?: number; env?: NodeJS.ProcessEnv };
+  worker?: { heartbeatMs?: number; cancelGraceMs?: number; readyTimeoutMs?: number; questionLimitMs?: number; env?: NodeJS.ProcessEnv };
   /** Poll interval of a live event stream. Default 20 ms. */
   followPollMs?: number;
   warn?: (line: string) => void;
@@ -101,11 +103,7 @@ export class StoreRunService implements RunService {
   constructor(private readonly options: RunServiceOptions) {
     this.now = options.now ?? (() => new Date());
     this.keys = new KeyIndex(options.stateDir);
-    const warn =
-      options.warn ??
-      ((line) => {
-        process.stderr.write(`${line}\n`);
-      });
+    const warn = options.warn ?? ((line: string): void => void process.stderr.write(`${line}\n`));
     this.reattacher = new Reattacher({ stateDir: options.stateDir, controls: this.controls, reconnect: options.reconnect ?? ((dir, id) => reconnectWorker(dir, id)), warn });
     this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), unresponsive: (id) => this.reattacher.unresponsive(id), warn, ...(options.readFile && { readFile: options.readFile }) };
   }
@@ -221,6 +219,7 @@ export class StoreRunService implements RunService {
         ...(w.heartbeatMs !== undefined && { heartbeatMs: w.heartbeatMs }),
         ...(w.cancelGraceMs !== undefined && { cancelGraceMs: w.cancelGraceMs }),
         ...(w.readyTimeoutMs !== undefined && { readyTimeoutMs: w.readyTimeoutMs }),
+        ...(w.questionLimitMs !== undefined && { questionLimitMs: w.questionLimitMs }),
         ...(w.env !== undefined && { env: w.env }),
         onCreated: () => fault("after-run-dir"),
       });
@@ -325,6 +324,17 @@ export class StoreRunService implements RunService {
   }
 
   private async act(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest, beforeDeliver?: (action: ActionRecord) => void): Promise<AcceptedResponse["action"]> {
+    return control(kind, await this.target(runId), request, beforeDeliver);
+  }
+
+  /** Steps 5 to 9 of an answer to one of the run's questions (answer.ts). */
+  async answer(runId: string, request: AnswerRequest): Promise<AcceptedResponse> {
+    const target = await this.target(runId);
+    return { action: await answerRun(target, request, runDir(this.options.stateDir, target.run.id)) };
+  }
+
+  /** The run as a control target, once its reattach attempt (after a core restart) has finished. */
+  private async target(runId: string): Promise<ControlTarget> {
     let run = this.read(runId);
     if (run === null) throw notFound(`No run ${runId}.`, { run_id: runId });
     if (!run.terminal && !run.live_control) {
@@ -338,7 +348,7 @@ export class StoreRunService implements RunService {
     const entry = this.options.catalog.get(run.harness);
     const capabilities = entry ? await entry.capabilities() : null;
     const worker = run.live_control ? (this.controls.get(run.id) ?? null) : null;
-    return control(kind, { run, capabilities, worker, now: this.now }, request, beforeDeliver);
+    return { run, capabilities, worker, now: this.now };
   }
 
   /** Step 4, decided by the server: write the refusal to the log of a live run this core controls. Never rejects. */

@@ -200,9 +200,9 @@ test("service refusals surface as typed errors", async () => {
   service.submit = original;
 });
 
-test("pause, resume and answer are always unsupported, after id, existence and body checks", async () => {
+test("pause and resume are always unsupported, after id, existence and body checks", async () => {
   const caller = { kind: "operator", id: "thor-operator" };
-  const bodies = { pause: { caller }, resume: { caller }, answer: { caller, question_id: "thor-culture-agents.qst.01JDQ5X0000000000000000001", answer: "yes" } };
+  const bodies = { pause: { caller }, resume: { caller } };
   for (const [verb, body] of Object.entries(bodies)) {
     const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body });
     const refusal = expectError(reply, "unsupported");
@@ -213,12 +213,26 @@ test("pause, resume and answer are always unsupported, after id, existence and b
     expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body: { nope: true } }), "invalid");
     expectError(await call(env.socket, "POST", `/v1/runs/bad/${verb}`, { body }), "invalid");
   }
-  assert.equal(service.refusals.length, 3, "only a refusal at step 4 is handed over, never an earlier one");
+  assert.equal(service.refusals.length, 2, "only a refusal at step 4 is handed over, never an earlier one");
   // A service that fails to record changes nothing for the caller.
   const original = service.recordRefusal.bind(service);
   service.recordRefusal = () => Promise.reject(new Error("the worker is gone"));
   assert.equal(expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/pause`, { body: bodies.pause }), "unsupported").capability, "pause");
   service.recordRefusal = original;
+});
+
+test("answer is no longer refused at step 4: it validates, then reaches the service (t13)", async () => {
+  const caller = { kind: "operator", id: "thor-operator" };
+  const body = { caller, question_id: "thor-culture-agents.qst.01JDQ5X0000000000000000001", answer: "yes" };
+  const before = service.refusals.length;
+  const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/answer`, { body });
+  expectOk(reply, 202, "control-action#accepted_response");
+  assert.equal((reply.json as { action: { kind: string } }).action.kind, "answer");
+  assert.equal(service.calls.at(-1), "answer");
+  expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/answer`, { body: { caller, question_id: "not-a-question" } }), "invalid");
+  expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/answer`, { body: { caller } }), "invalid");
+  expectError(await call(env.socket, "POST", `/v1/runs/${OTHER_RUN}/answer`, { body }), "not_found");
+  assert.equal(service.refusals.length, before, "the server records no step-4 refusal for answer");
 });
 
 test("steer and cancel validate then reach the service", async () => {

@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 
-import type { ActionId, MeshId, RunId, SessionId } from "./generated/index.js";
+import type { ActionId, MeshId, QuestionId, RunId, SessionId } from "./generated/index.js";
 
 // Patterns mirror contract/common.json (the schemas stay authoritative: a test asserts
 // these agree with the `pattern` of the matching $defs on every documented example).
@@ -9,7 +9,7 @@ const SUFFIX = /^[a-z0-9_]+(-[a-z0-9_]+)*$/;
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
-export type ScopedKind = "run" | "ses" | "act";
+export type ScopedKind = "run" | "ses" | "act" | "qst";
 
 export interface MeshIdParts {
   node: string;
@@ -54,10 +54,12 @@ export const buildRunId = (agentId: string, ulid: string): RunId => build("run",
 export const buildSessionId = (agentId: string, ulid: string): SessionId => build("ses", agentId, ulid);
 /** `<node>-<agent>.act.<ULID>`, using the run's agent. */
 export const buildActionId = (agentId: string, ulid: string): ActionId => build("act", agentId, ulid);
+/** `<node>-<agent>.qst.<ULID>`, using the run's agent; assigned by the run's worker. */
+export const buildQuestionId = (agentId: string, ulid: string): QuestionId => build("qst", agentId, ulid);
 
-/** Parse a run, session or action id; null when it matches none of the documented forms. */
+/** Parse a run, session, action or question id; null when it matches none of the documented forms. */
 export function parseScopedId(id: string): ScopedIdParts | null {
-  const m = /^(.+)\.(run|ses|act)\.([^.]+)$/.exec(id);
+  const m = /^(.+)\.(run|ses|act|qst)\.([^.]+)$/.exec(id);
   if (!m) return null;
   const agentId = m[1] as string;
   const ulid = m[3] as string;
@@ -70,6 +72,7 @@ const isKind = (kind: ScopedKind) => (id: string) => parseScopedId(id)?.kind ===
 export const isRunId = (id: string): id is RunId => isKind("run")(id);
 export const isSessionId = (id: string): id is SessionId => isKind("ses")(id);
 export const isActionId = (id: string): id is ActionId => isKind("act")(id);
+export const isQuestionId = (id: string): id is QuestionId => isKind("qst")(id);
 
 /** A run's host branch: `runs/<run_id>`. */
 export function runBranch(runId: RunId): string {

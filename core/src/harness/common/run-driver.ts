@@ -7,7 +7,7 @@
  */
 import type { ErrorBody } from "../../contract/index.js";
 import { again, finish, stepUntil } from "../../util/sequence.js";
-import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent, type Retained } from "../../worker/driver.js";
+import { RETAIN_FAILED_SANDBOX_DAYS, type AnswerReply, type Driver, type DriverEvent, type Retained } from "../../worker/driver.js";
 import { describeProcs, newProcesses } from "./processes.js";
 import { EventQueue, errorMessage, sleep } from "./queue.js";
 import type {
@@ -110,6 +110,13 @@ export class RunDriver<W extends Workspace> implements Driver {
     await this.turn.steer(message);
   }
 
+  /** Deliver an answer into the running turn; the worker has checked that the request is pending. */
+  async answer(ref: string, reply: AnswerReply): Promise<void> {
+    if (!this.turn || this.turnOver || this.cancelRequested || this.disposed) throw new Error("The run has no running turn to answer.");
+    if (!this.turn.answer) throw new Error("This harness backend has no ask path.");
+    await this.turn.answer(ref, reply);
+  }
+
   async cancel(): Promise<void> {
     if (this.cancelRequested || this.disposed) return;
     this.cancelRequested = true;
@@ -152,7 +159,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   }
 
   private onTurnEvent(event: TurnEvent): void {
-    this.queue.push(event.type === "output" ? { type: "output", data: event.data } : { type: "error", error: event.error });
+    this.queue.push(event);
   }
 
   private finish(outcome: DriverEvent): void {

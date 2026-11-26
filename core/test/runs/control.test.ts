@@ -122,7 +122,7 @@ test("steer on a harness that declares it unsupported is refused, recorded, and 
   assert.equal((await waitRun(env, run.id, (r) => r.terminal, "terminal")).state, "cancelled");
 });
 
-test("pause, resume and answer are refused whatever the harness says, and recorded on a run this core controls", async (t) => {
+test("pause and resume are refused whatever the harness says, answer when the harness cannot ask (t13), all recorded on a run this core controls", async (t) => {
   const env = makeEnv(t, [HANG]);
   await startDaemon(t, env);
   const run = await submit(env, "fake", env.repoA);

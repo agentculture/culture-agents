@@ -38,7 +38,10 @@ single-host control plane without chat. On disk:
   harness is unavailable.
 
 **Not built:** D2 (fleet and recovery) through D6, `pause`, `resume`,
-`answer`, `artifacts`, Codex, and any chat integration. Nothing is archived
+the `agents runs answer` verb (the core's answer route and the worker's
+question path are built, t13, and only the stub harness asks; Claude Code and
+OpenCode report `answer` unsupported until their drivers ask), `artifacts`,
+Codex, and any chat integration. Nothing is archived
 (`agent-lifecycle` and `cultureagent` stay as they are). Issue
 [#2](https://github.com/agentculture/culture-agents/issues/2) remains the
 authoritative plan; read it before designing anything. `docs/d0/decisions.md`
