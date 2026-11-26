@@ -107,7 +107,7 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 
 test("a regular file at the socket path is never removed", async () => {
   const env = fresh();
-  mkdirSync(dirname(env.socket), { recursive: true });
+  mkdirSync(dirname(env.socket), { recursive: true, mode: 0o700 });
   writeFileSync(env.socket, "not a socket");
   const child = start(env);
   const exit = await child.exited;

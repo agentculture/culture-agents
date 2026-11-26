@@ -30,6 +30,7 @@ import {
   type RunResult,
   type SteerRequest,
   type SubmitRequest,
+  type Submitter,
   type SubmitResponse,
 } from "../contract/index.js";
 import type { AllowlistState } from "../daemon/allowlist.js";
@@ -137,13 +138,13 @@ export class StoreRunService implements RunService {
     return finished.length === 0 ? [] : reclaim.call(this.options.catalog, finished);
   }
 
-  submit(request: SubmitRequest): Promise<SubmitResponse> {
-    const next = this.submitChain.then(() => this.submitNow(request));
+  submit(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
+    const next = this.submitChain.then(() => this.submitNow(request, submitter));
     this.submitChain = next.catch(() => undefined);
     return next;
   }
 
-  private async submitNow(request: SubmitRequest): Promise<SubmitResponse> {
+  private async submitNow(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
     // Step 4: harness known, then available.
     const entry = this.options.catalog.get(request.harness);
     if (!entry) throw notFound(`No harness ${request.harness} is known to this core.`);
@@ -186,6 +187,7 @@ export class StoreRunService implements RunService {
       repo: request.repo,
       task: request.task,
       owner: request.caller,
+      ...(submitter !== undefined && { submitter }),
       idempotency_key: request.idempotency_key ?? null,
       deadline: request.deadline ?? null,
       state: "queued",
