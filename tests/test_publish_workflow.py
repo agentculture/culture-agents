@@ -194,7 +194,8 @@ def test_npm_stage_never_stages_the_real_version() -> None:
     version = steps.index(step)
     build = [i for i, s in enumerate(steps) if _code_lines(s) == ["npm run build"]]
     publish = [i for i, s in enumerate(steps) if STAGE_COMMAND in _code_lines(s)]
-    assert build and publish
+    assert build, "no build step"
+    assert publish, "no staging step"
     assert version < build[0], "set the dev version before the build"
     assert build[0] < publish[0], "build before staging"
 
