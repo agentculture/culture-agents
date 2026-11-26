@@ -43,6 +43,15 @@ The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
 is `${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/allowlist.json` and ships
 empty.
 
+Run events can also go to the workspace's events broker (events-cli: Mosquitto
+on loopback). Publishing is off unless `CULTURE_AGENTS_BROKER_URL` names a
+loopback broker, for example `mqtt://127.0.0.1:1883`. Each event is published
+after it is appended to the run's log, under a type `agents.run.<what>` and
+with the id `<run id>:<cursor>`. A message holds the run id, the event kind,
+the run's state, the cursor and the time, never the run's content. A broker
+that is down never blocks or fails a run: the events stay in the log and are
+published when the broker is back.
+
 Then, with the Python client:
 
 ```bash
