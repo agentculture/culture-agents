@@ -23,9 +23,12 @@ def test_submit_text_and_request_matches_the_contract(
 ) -> None:
     r = run(capsys, *SUBMIT)
     assert r.rc == 0
-    assert r.out.strip() == f"submitted {RUN_ID} (queued)"
+    assert r.out.splitlines()[0] == f"submitted {RUN_ID} (queued)"
+    assert r.out.splitlines()[1].startswith("idempotency key: cli-")
     sent = core.seen("POST", "/v1/runs")[0]
     assert_valid("control-action.json#/$defs/submit_request", sent["body"])
+    key = sent["body"].pop("idempotency_key")  # the CLI generates one when the user gives none
+    assert key.startswith("cli-")
     assert sent["body"] == fixture("control-action", "submit_request.minimal")
     assert sent["version_header"] == "3.0"
 
@@ -36,7 +39,10 @@ def test_submit_json_with_every_optional_field(core, capsys: pytest.CaptureFixtu
         "--caller", "thor-planner", "--caller-kind", "agent", "--json",
     )  # fmt: skip
     assert r.rc == 0
-    assert r.json() == fixture("control-action", "submit_response.queued")
+    assert r.json() == {
+        **fixture("control-action", "submit_response.queued"),
+        "idempotency_key": "ticket-1234",
+    }
     body = core.seen("POST", "/v1/runs")[0]["body"]
     assert_valid("control-action.json#/$defs/submit_request", body)
     assert body["caller"] == {"kind": "agent", "id": "thor-planner"}
@@ -147,9 +153,11 @@ def test_steer(core, capsys: pytest.CaptureFixture[str]) -> None:
     assert text.out.startswith(f"steer accepted for {RUN_ID}")
     body = core.seen("POST", f"/v1/runs/{RUN_ID}/steer")[0]["body"]
     assert_valid("control-action.json#/$defs/steer_request", body)
+    assert body.pop("idempotency_key").startswith("cli-")  # generated when none is given
     assert body == fixture("control-action", "steer_request.minimal")
-    j = run(capsys, "runs", "steer", RUN_ID, msg, "--json")
-    assert j.json() == fixture("control-action", "accepted_response.steer")
+    j = run(capsys, "runs", "steer", RUN_ID, msg, "--json").json()
+    assert j.pop("idempotency_key").startswith("cli-")
+    assert j == fixture("control-action", "accepted_response.steer")
 
 
 def test_steer_refused_as_unsupported_keeps_the_typed_error(core, capsys) -> None:
@@ -181,8 +189,9 @@ def test_cancel(core, capsys: pytest.CaptureFixture[str]) -> None:
     body = core.seen("POST", f"/v1/runs/{RUN_ID}/cancel")[0]["body"]
     assert_valid("control-action.json#/$defs/cancel_request", body)
     assert body == fixture("control-action", "cancel_request.with-reason-and-key")
-    j = run(capsys, "runs", "cancel", RUN_ID, "--json")
-    assert j.json() == fixture("control-action", "accepted_response.cancel")
+    j = run(capsys, "runs", "cancel", RUN_ID, "--json").json()
+    assert j.pop("idempotency_key").startswith("cli-")
+    assert j == fixture("control-action", "accepted_response.cancel")
     assert_valid(
         "control-action.json#/$defs/cancel_request",
         core.seen("POST", f"/v1/runs/{RUN_ID}/cancel")[-1]["body"],

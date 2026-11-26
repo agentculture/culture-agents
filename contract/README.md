@@ -194,7 +194,7 @@ possible errors and CLI verb.
 | `runs.result` | `GET /v1/runs/{run_id}/result` | 200 `run_result` | `agents runs result` |
 | `runs.steer` | `POST /v1/runs/{run_id}/steer` | 202 `accepted_response` | `agents runs steer` |
 | `runs.cancel` | `POST /v1/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` |
-| `runs.answer` | `POST /v1/runs/{run_id}/answer` | 202 `accepted_response` | `agents runs answer` (planned, t16) |
+| `runs.answer` | `POST /v1/runs/{run_id}/answer` | 202 `accepted_response` | `agents runs answer` |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:

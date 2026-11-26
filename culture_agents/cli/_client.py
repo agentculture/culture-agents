@@ -21,6 +21,7 @@ import json
 import os
 import re
 import socket
+import time
 from collections.abc import Iterator
 from typing import Any
 from urllib.parse import urlencode
@@ -74,6 +75,11 @@ _START_HINT = (
 )
 #: How long ``attach`` keeps trying to reconnect, with no reconnect succeeding, before it gives up.
 RECONNECT_WINDOW = 30.0
+#: Seconds one request may take before the CLI treats the core as not answering.
+DEFAULT_TIMEOUT = 10.0
+#: A keyed request is sent at most this many times in all, always with the same key.
+KEYED_ATTEMPTS = 3
+KEYED_PAUSE = 0.2
 
 
 def socket_path(env: dict[str, str] | None = None) -> str:
@@ -161,9 +167,9 @@ def error_from_body(status: int, body: Any) -> CoreError:
 class CoreClient:
     """One connection policy for every verb; connections themselves are per request."""
 
-    def __init__(self, path: str | None = None, timeout: float = 10.0) -> None:
+    def __init__(self, path: str | None = None, timeout: float | None = None) -> None:
         self.path = path or socket_path()
-        self.timeout = timeout
+        self.timeout = DEFAULT_TIMEOUT if timeout is None else timeout
         self._version: dict[str, Any] | None = None
 
     # -- transport ---------------------------------------------------------
@@ -241,6 +247,30 @@ class CoreClient:
     def post(self, route: str, shape: str, body: dict[str, Any]) -> Any:
         self.connect()
         return self._json("POST", route, shape, body)
+
+    def post_keyed(self, route: str, shape: str, body: dict[str, Any]) -> Any:
+        """POST a body that carries an ``idempotency_key``; retry it when the core did not answer.
+
+        A timeout, a refused or reset connection and an ``unavailable`` answer are retried with
+        the identical body, so the core takes effect once and replays the rest. Any other typed
+        error is final. After the last attempt the error says which key to reuse.
+        """
+        key = body["idempotency_key"]
+        for attempt in range(1, KEYED_ATTEMPTS + 1):
+            try:
+                return self.post(route, shape, body)
+            except CoreError as exc:
+                if exc.error_code != "unavailable":
+                    raise
+                if attempt == KEYED_ATTEMPTS:
+                    exc.remediation = (
+                        f"{exc.remediation}; the request may have taken effect: repeat it with "
+                        f"--idempotency-key {key} and the core returns the first result"
+                    )
+                    raise
+                after = exc.detail.get("retry_after_ms")
+                time.sleep(after / 1000 if isinstance(after, (int, float)) else KEYED_PAUSE)
+        raise AssertionError("unreachable")  # pragma: no cover
 
     # -- attach ------------------------------------------------------------
     def attach(
