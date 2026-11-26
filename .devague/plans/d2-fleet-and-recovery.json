@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-26T17:07:54Z",
-  "updated": "2026-11-26T19:40:46Z",
+  "updated": "2026-11-26T20:15:37Z",
   "targets": [
     {
       "id": "c1",
@@ -1409,6 +1409,14 @@
     {
       "id": "r14",
       "text": "Found the same way: a run whose turn fails collects nothing. Ten minutes of an agent's work, including any commits it made in the sandbox, was lost with the sandbox. D1 keeps the sandbox only when the turn completed and collection failed.",
+      "kind": "follow_up",
+      "task_id": null,
+      "resolved": false,
+      "resolution": ""
+    },
+    {
+      "id": "r15",
+      "text": "A run can end as succeeded with none of its task done: the t15 OpenCode run worked for 82 minutes on the local model, wrote no file, emitted a malformed tool call as plain text, and the turn ended; the core collected one commit holding only a stray core/node_modules symlink and reported succeeded. Run state says the turn ended cleanly, not that the task was done.",
       "kind": "follow_up",
       "task_id": null,
       "resolved": false,
