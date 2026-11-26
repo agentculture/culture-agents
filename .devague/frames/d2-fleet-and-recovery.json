@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "drafting",
   "created": "2026-11-25T21:59:31Z",
-  "updated": "2026-11-26T06:31:50Z",
+  "updated": "2026-11-26T06:46:45Z",
   "claims": [
     {
       "id": "c1",
@@ -266,9 +266,9 @@
         {
           "id": "q2",
           "text": "Which machines are the fleet for D2, and how do they reach each other? No record names them: the D0 and D1 documents describe one x86_64 host, and other repos' docs use spark, spark2, thor, odin and orin only as examples. I need the hosts, whether a repository exists on more than one of them, and the network between them (LAN, tailnet, ssh).",
-          "resolved": false,
+          "resolved": true,
           "blocking": true,
-          "resolution": ""
+          "resolution": "Owner, 2026-11-26: 'A daemon/docker/service would notify it's part of the fleet. Currently its the whole mesh, but not need to point them publically.' Read as: fleet membership is announced by each host's own core (running as a daemon, container or service); today the fleet is every machine of the mesh; the machines are not named in this public repository."
         }
       ],
       "links": [],
@@ -494,6 +494,70 @@
         {
           "id": "h19",
           "text": "The two hosts are real machines named by the owner (q2). Until they are named, part two has no success signal that can be run, and it is reported as not started.",
+          "status": "proposed",
+          "instruction": ""
+        },
+        {
+          "id": "h22",
+          "text": "The two hosts are mesh members that announced themselves. The acceptance record names them by role (host A, host B), never by host name; this replaces h19's 'named by the owner'.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c28",
+      "kind": "decision",
+      "text": "Fleet membership is announced by the host itself: a core running as a daemon, container or service notifies that it is part of the fleet. Today the fleet is the whole mesh. The machines are not named in this public repository.",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c29",
+      "kind": "requirement",
+      "text": "A core announces itself as a fleet member when it starts and stops being listed when it stops or goes silent. Callers discover members from those announcements; no list of hosts is kept in the repository or in a tracked file.",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h20",
+          "text": "A test starts two cores, sees each list the other after its announcement, stops one, and sees it leave the list within a stated number of seconds while its active runs read 'unknown' (c9), not removed.",
+          "status": "proposed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [
+        {
+          "id": "q6",
+          "text": "What does a core announce to, and over what network? Options: (a) the culture mesh the machines already share, (b) a small registry served by one of the cores, (c) local-network discovery, (d) the existing MQTT broker of events-cli, which would also answer q4. And who may announce: is any process that can reach the fleet trusted as a member, or does a member need a credential?",
+          "resolved": false,
+          "blocking": false,
+          "resolution": ""
+        }
+      ],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c30",
+      "kind": "boundary",
+      "text": "No host name, address or network detail of the fleet appears in a tracked file, a test fixture or a published record. Acceptance records name hosts by role (host A, host B).",
+      "origin": "llm",
+      "status": "proposed",
+      "honesty_conditions": [
+        {
+          "id": "h21",
+          "text": "scripts/scan-secrets.py already fails on non-localhost endpoints in tracked files; the D2 fixtures and acceptance records pass it without an exception being added.",
           "status": "proposed",
           "instruction": ""
         }

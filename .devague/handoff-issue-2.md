@@ -18,13 +18,15 @@ This is working state, not a design document. The authoritative records are:
    by the owner on 2026-11-25: a pull request stages a development version,
    `main` publishes the real one. The change is on branch
    `runs/npm-stage-on-pr` (0.15.1). See [The npm release](#the-npm-release).
-2. **D2 scoping** (fleet and recovery). The scope pass is recorded on the
-   frame `d2-fleet-and-recovery` (`devague scope --list`): 27 explored
-   surfaces and 21 proposed claims, none confirmed by the owner. The
-   announcement (`c1`) shows as confirmed only because `devague new` marks it
-   so; the agent wrote it and the owner has not reviewed it. Five hard
-   questions wait for the owner; `q2` (which machines are the fleet) is blocking. Next
-   leg: `/think`. See [Inputs for D2](#inputs-for-d2).
+2. **D2 framing** (fleet and recovery). Frame `d2-fleet-and-recovery`: 27
+   explored surfaces, 27 claims (26 proposed, none confirmed by the owner)
+   and 19 proposed honesty conditions. The announcement (`c1`) shows as
+   confirmed only because `devague new` marks it so; the agent wrote it and
+   the owner has not reviewed it. `/think` has added the before and after
+   state, two success signals and the honesty conditions. Five hard questions
+   wait for the owner; `q2` (which machines are the fleet) is blocking. Next:
+   the owner's answers and confirmations (`devague review` lists them), then
+   `converge` and `export`. See [Inputs for D2](#inputs-for-d2).
 
 ## What shipped
 
@@ -66,9 +68,12 @@ all as the contract says; they are not in `docs/d0/d1-acceptance.md`.
   `latest`. The owner may deprecate or remove it.
 - The owner then configured the trusted publisher on npmjs.com (repository
   `agentculture/culture-agents`, workflow `publish.yml`, environment `npm`)
-  and allowed both `npm publish` and `npm stage publish`. **No release has
-  gone through it yet.** The first merge that bumps the version is its first
-  test: if the npm step fails, PyPI is not published either.
+  and allowed both `npm publish` and `npm stage publish`. The first release
+  through it was 0.15.1 on 2026-11-26 (PR #11's merge): `publish-npm`
+  published with signed provenance, then PyPI published.
+- On 2026-11-26 the owner created a second trusted publisher for a new
+  `npm-stage` environment. The `npm-stage` job uses that environment, so a
+  pull request no longer runs under the environment that may publish.
 - `core/package.json`, the lockfile and `core/src/index.ts` now carry the
   same version as `pyproject.toml`. The version-bump script moves all of them
   together, and the release workflow fails when they differ.
@@ -106,7 +111,7 @@ stage the version that `main` will then publish. The two workable shapes are:
 The owner chose the first shape on 2026-11-25. The `npm-stage` job in
 `.github/workflows/publish.yml` implements it for same-repository pull
 requests: it stages `<version>-dev.<run number>.<run attempt>` with
-`--tag dev` through the trusted publisher (`environment: npm`,
+`--tag dev` through the staging trusted publisher (`environment: npm-stage`,
 `id-token: write`). The run attempt is in the version because a re-run cannot
 stage the same version twice. The fork-safe `npm-dry-run` job stays.
 
@@ -148,14 +153,19 @@ trusted publisher.
 
 - `t5`: agentculture/culture#532 (the workspace map) is open on the culture
   repository.
-- Whether to put a required reviewer on the repository's `npm` environment,
-  now that CI may publish directly.
+- The `npm`, `pypi` and `testpypi` environments have no protection rules and
+  no branch policy. Now that staging has its own environment, `npm` and
+  `pypi` can be limited to the `main` branch (the owner's setting).
+- Staged development versions wait for the owner's `npm stage reject`:
+  `0.15.1-dev.43.1` to `0.15.1-dev.47.1` from PR #11, plus one per push of
+  each later pull request.
 - `culture-agents-run:dev`, the core's default image, points at an untested
   rebuild. The tested image is tagged `:sonar`; `:dev-prev` is the image of
   the first four live runs.
 - The published explainer
-  (<https://claude.ai/artifact/RoWVa9am389rfeHhFxEpD7>) predates the OpenCode
-  and OpenShell decisions and everything after them.
+  (<https://claude.ai/artifact/RoWVa9am389rfeHhFxEpD7>) was rebuilt on
+  2026-11-26 with one tab per phase and pull request; its `Map` tab is the
+  2026-11-24 page, kept unchanged.
 - Local branches from this work that are merged and can be deleted:
   `runs/d0-d1-spec`, `runs/d0-d1-delivery`, `runs/d1-main-green`,
   `runs/d1-closeout`, `runs/d1-ledger-b5`, `runs/npm-bootstrap`. Three older

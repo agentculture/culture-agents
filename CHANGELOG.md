@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.15.2] - 2026-11-26
+
+### Changed
+
+- Release workflow: the pull-request staging job runs in its own `npm-stage` environment, with a trusted publisher on npm that may only stage. A pull request no longer runs under the `npm` environment that publishes releases.
+
 ## [0.15.1] - 2026-11-26
 
 ### Changed
