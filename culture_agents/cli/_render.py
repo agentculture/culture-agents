@@ -77,6 +77,27 @@ def capability_lines(doc: Any) -> list[str]:
             lines.append(f"  {_val(name)}: supported{note}")
         else:
             lines.append(f"  {_val(name)}: UNSUPPORTED - {_val(_get(cap, 'reason'))}")
+    return lines + host_lines(doc)
+
+
+def host_lines(doc: Any) -> list[str]:
+    """Limits, active runs and admission per signal, when the core reports them."""
+    lines: list[str] = []
+    limits = _get(doc, "limits")
+    if isinstance(limits, dict):
+        for name, value in limits.items():
+            text = "none set" if value is None else _val(value)
+            lines.append(f"  limit {_val(name)}: {text}")
+    if _get(doc, "active_runs") is not None:
+        lines.append(f"  active runs: {_val(_get(doc, 'active_runs'))}")
+    admission = _get(doc, "admission")
+    for name, sig in admission.items() if isinstance(admission, dict) else ():
+        note = "" if _get(sig, "consulted") is True else " (not consulted)"
+        reason = _get(sig, "reason")
+        why = f" - {_val(reason)}" if reason else ""
+        seen = _get(sig, "observed_at")
+        at = f" [observed {_val(seen)}]" if seen else ""
+        lines.append(f"  admission {_val(name)}: {_val(_get(sig, 'state'))}{note}{why}{at}")
     return lines
 
 

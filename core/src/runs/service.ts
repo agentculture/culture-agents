@@ -45,6 +45,7 @@ import { actionRecorded, KeyIndex, pruneKeys, recoverKeys, requestDigest, settle
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
 import { WorkerSpawnError, reconnectWorker, spawnWorker, type WorkerControl } from "../worker/spawn.js";
+import { withHostReport, readAdmission, submitWarnings, type HostReport } from "./admission.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
 import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
@@ -79,6 +80,10 @@ export interface RunServiceOptions {
   submitFault?: SubmitFault;
   /** The operator's limits from the core's config file (daemon/limits.ts). Default: none. */
   limits?: Limits;
+  /** The environment the heat signal's path is read from. Default: the process environment. */
+  env?: Readonly<Record<string, string | undefined>>;
+  /** How the heat state file is read (tests inject the payload). Default: `fs.readFileSync`. */
+  readHeatFile?: (path: string) => string;
 }
 
 /** Default `keyRetentionMs`: 7 days. */
@@ -169,6 +174,7 @@ export class StoreRunService implements RunService {
     }
     // Step 7: a limit the operator configured has room (none applies by default). The chain makes check and spawn one step.
     checkLimits(this.options.limits ?? NO_LIMITS, this.scan, request.repo);
+    const warnings = submitWarnings(readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile)); // a local submit under an unknown signal is admitted with a warning
     // Step 8: create the session and run, start the worker, acknowledge once durable.
     const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
     const created = this.now();
@@ -231,7 +237,7 @@ export class StoreRunService implements RunService {
     const first = readLog(spawned.runDir, run).events.slice(0, 1);
     const acknowledged = deriveRun({ record: { ...record, worker_pid: spawned.pid }, events: first, alive: true, controllable: true, now: created.toISOString() });
     if (acknowledged === null) throw new ControlError("internal", "The run was durable but its first event could not be read back.");
-    return { run: acknowledged.run };
+    return { run: acknowledged.run, ...(warnings.length > 0 && { warnings }) };
   }
 
   async listRuns(query: RunListQuery): Promise<Run[]> {
@@ -348,7 +354,7 @@ export class StoreRunService implements RunService {
   }
 
   async listAgents(): Promise<AgentList> {
-    const harnesses = await harnessDocuments(this.options.catalog);
+    const harnesses = await this.documents();
     const agents = buildAgents(this.options.allowlist().entries, scanRuns(this.scan), harnesses);
     return { node: this.options.node, agents, harnesses };
   }
@@ -358,12 +364,23 @@ export class StoreRunService implements RunService {
   }
 
   listHarnesses(): Promise<Capabilities[]> {
-    return harnessDocuments(this.options.catalog);
+    return this.documents();
+  }
+
+  private hostEnv(): NonNullable<RunServiceOptions["env"]> {
+    return this.options.env ?? process.env;
+  }
+
+  /** Every capability document with this host's limits, active runs and admission. */
+  private async documents(): Promise<Capabilities[]> {
+    const host: HostReport = { limits: this.options.limits ?? NO_LIMITS, stateDir: this.options.stateDir, env: this.hostEnv(), now: this.now(), ...(this.options.readHeatFile && { readHeatFile: this.options.readHeatFile }) };
+    return (await harnessDocuments(this.options.catalog)).map((doc) => withHostReport(doc, host));
   }
 
   async getHarness(harness: string): Promise<Capabilities | null> {
     const entry = this.options.catalog.get(harness);
-    return entry ? entry.capabilities() : null;
+    if (!entry) return null;
+    return (await this.documents()).find((doc) => doc.harness === harness) ?? entry.capabilities();
   }
 }
 

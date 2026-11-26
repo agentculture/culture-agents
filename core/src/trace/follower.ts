@@ -11,9 +11,9 @@ import { readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
-import { isActive, isTerminal } from "../contract/index.js";
+import { isTerminal } from "../contract/index.js";
 import { readLog } from "../store/event-log.js";
-import { listRunEntries } from "../store/entries.js";
+import { activeRunList } from "../store/entries.js";
 import { atomicWriteJson, nowIso, runDir, runFile } from "../store/files.js";
 import { listRunIds, readRecord } from "../store/run-store.js";
 import { payloadFor, postSpans, traceIdOf, type ExportSpan } from "./otlp.js";
@@ -109,11 +109,10 @@ export function createTraceFollower(o: TraceFollowerOptions): TraceFollower {
 
   async function fleet(): Promise<void> {
     const counts = new Map<string, { harness: string; model: string; n: number }>();
-    for (const entry of listRunEntries(o.stateDir, { limit: 100000 })) {
-      if (entry.kind !== "run" || !isActive(entry.run.state)) continue;
-      const model = o.modelOf(entry.run.harness);
-      const k = `${entry.run.harness}\u0000${model}`;
-      const c = counts.get(k) ?? { harness: entry.run.harness, model, n: 0 };
+    for (const run of activeRunList(o.stateDir)) {
+      const model = o.modelOf(run.harness);
+      const k = `${run.harness}\u0000${model}`;
+      const c = counts.get(k) ?? { harness: run.harness, model, n: 0 };
       c.n += 1;
       counts.set(k, c);
     }
