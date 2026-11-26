@@ -63,7 +63,7 @@ test("with 500 finished runs on disk, submit, list and attach for a new run read
   const entry = { id: "fake", capabilities: () => Promise.resolve(capabilities()), driver: { module: FAKE_DRIVER, options: { steps: HANG.steps } } };
   const service = createRunService({ stateDir: state, node: "thor", catalog: { list: () => [entry], get: () => entry }, allowlist: () => ({ status: "ok", entries: [] }) as never, readFile: reader.read, warn: () => undefined });
   const repo = tmp(t);
-  const run = await service.submit({ agent_id: "thor-culture-agents", harness: "fake", repo, task: "x", caller: CALLER } as never);
+  const { run } = await service.submit({ agent_id: "thor-culture-agents", harness: "fake", repo, task: "x", caller: CALLER } as never);
   const logsAfterSubmit = reader.logs();
   const listed = await service.listRuns({ limit: 1000 } as never);
   assert.equal(listed.length, 501);

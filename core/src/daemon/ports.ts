@@ -15,6 +15,7 @@ import type {
   RunState,
   SteerRequest,
   SubmitRequest,
+  SubmitResponse,
 } from "../contract/index.js";
 
 /** The control actions deferred beyond this API version: always refused with `unsupported` (step 4). */
@@ -35,14 +36,17 @@ export type DeferredRequest = PauseRequest | ResumeRequest | AnswerRequest;
  *   control routes, and the always-refused routes (pause, resume, answer). It decides that refusal
  *   itself (step 4) and hands it to `recordRefusal`, because only the run logic can write a run's log.
  * - `submit` receives a request that already passed the allow-list, with `repo` canonicalized
- *   (realpath). It performs steps 4 to 7 of the submit order (harness known and available,
- *   capabilities, busy, create session and run, start the worker).
+ *   (realpath). It performs steps 4 to 8 of the submit order (harness known and available,
+ *   capabilities, idempotency key, busy, write the key, create session and run, start the worker).
  * - `steer` and `cancel` perform steps 5 to 9 of the control order (capability, state, live
  *   control, delivery) and return the accepted action record.
  */
 export interface RunService {
-  /** Create a run and its worker; resolves once the run is durable, in state `queued`. */
-  submit(request: SubmitRequest): Promise<Run>;
+  /**
+   * Create a run and its worker; resolves once the run is durable, in state `queued`. A repeated
+   * idempotency key resolves to the first run with `replayed: true` and creates nothing.
+   */
+  submit(request: SubmitRequest): Promise<SubmitResponse>;
   listRuns(query: RunListQuery): Promise<Run[]>;
   /** `null` when the id is well-formed but unknown. */
   getRun(runId: string): Promise<Run | null>;
@@ -56,8 +60,9 @@ export interface RunService {
   streamEvents(runId: string, after: number, signal: AbortSignal): AsyncIterable<RunEvent>;
   /** Outcome of a terminal run; throws `conflict` (retryable) while the run is active. */
   getResult(runId: string): Promise<RunResult>;
-  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse["action"]>;
-  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse["action"]>;
+  /** The accepted action; a repeated idempotency key resolves to the first action with `replayed: true`. */
+  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse>;
+  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse>;
   /**
    * Record a refusal the server decided at step 4 (a deferred action) as `run.refused` in the run's
    * event log, when the run is not terminal and this core controls its worker; otherwise do

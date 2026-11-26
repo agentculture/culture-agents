@@ -4,7 +4,7 @@
  * `spawnWorker` resolves only after the durability condition holds: the worker's identity
  * (pid), its event log with event 1 (`null` -> `queued`) and its cursor are on disk, owner-only,
  * and its control socket answers. Only then may the daemon acknowledge the submit (README,
- * order of checks for runs.submit, step 7).
+ * order of checks for runs.submit, step 8).
  *
  * `reconnectWorker` finds a surviving worker after a daemon restart and reports whether its
  * control socket answers. It never signals or terminates the worker.
@@ -76,6 +76,8 @@ export interface SpawnWorkerOptions {
   cancelGraceMs?: number;
   /** Environment of the worker process. Default: this process's environment. */
   env?: NodeJS.ProcessEnv;
+  /** Called once the run directory and record exist, before the worker is started (a fault injection point). */
+  onCreated?: (dir: string) => void;
 }
 
 export interface SpawnedWorker {
@@ -156,6 +158,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
   if (run.state !== "queued" || run.worker_pid !== null) throw new RangeError("a new run must be queued with no worker");
   const dir = createRun(stateDir, run);
   writeFileSync(runFile(dir, "driver"), `${JSON.stringify(options.driver)}\n`, { mode: FILE_MODE, flag: "wx" });
+  options.onCreated?.(dir);
   const args = workerArgs(options);
   const logFd = openSync(runFile(dir, "log"), "a", FILE_MODE);
   let exited: string | null = null;

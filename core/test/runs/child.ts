@@ -1,7 +1,7 @@
 // Child process for run-service tests: the real `main` with the built-in run service. The harness
 // catalog is a fake built from FAKE_CATALOG (JSON list of FakeHarness); its entries point at the
 // worker's fake driver module. Without FAKE_CATALOG the daemon uses its default (empty) catalog.
-// SIGUSR2 throws from a callback, so a test can drive the fatal-error handlers.
+// SIGUSR2 throws from a callback, so a test can drive the fatal-error handlers. SUBMIT_FAULT is below.
 import { fileURLToPath } from "node:url";
 
 import type { Capabilities, Capability } from "../../src/contract/index.js";
@@ -52,10 +52,17 @@ process.on("SIGUSR2", () => {
 });
 
 const spec = process.env["FAKE_CATALOG"];
+// SUBMIT_FAULT=<step> kills this core (SIGKILL, no cleanup) when a submit reaches that step.
+const faultAt = process.env["SUBMIT_FAULT"];
 const code = await main(undefined, {
   node: "thor",
   stderr: (line) => process.stderr.write(`${line}\n`),
   fatalHandlers: true,
+  ...(faultAt !== undefined && {
+    submitFault: (step: string) => {
+      if (step === faultAt) process.kill(process.pid, "SIGKILL");
+    },
+  }),
   ...(spec !== undefined && { harnessCatalog: () => fakeCatalog(JSON.parse(spec) as FakeHarness[]) }),
 });
 process.exit(code);

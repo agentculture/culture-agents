@@ -6,6 +6,10 @@
  * empty, so a surviving worker's run reports `live_control: false` and its steer and cancel are
  * refused naming `reconnect`; the worker is never signalled. Every reported state is derived from
  * the store (scan.ts), and a run with neither a live worker nor a terminal event settles `unknown`.
+ *
+ * Idempotency keys (keys.ts, store/idempotency.ts): a submit writes its key, then the run
+ * directory, then spawns the worker, so a core killed at any step leaves evidence that the next
+ * core settles at startup (`reconcile`). Steer and cancel write their key before delivery.
  */
 import {
   buildRunId,
@@ -13,6 +17,7 @@ import {
   newUlid,
   parseMeshId,
   type AcceptedResponse,
+  type ActionRecord,
   type Agent,
   type AgentList,
   type CancelRequest,
@@ -25,6 +30,7 @@ import {
   type RunResult,
   type SteerRequest,
   type SubmitRequest,
+  type SubmitResponse,
 } from "../contract/index.js";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { ControlError, notFound, unavailable, unsupported } from "../daemon/errors.js";
@@ -32,11 +38,13 @@ import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "..
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
+import { actionRecorded, KeyIndex, pruneKeys, recoverKeys, requestDigest, settleKey, type KeyEntry } from "../store/idempotency.js";
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
 import { WorkerSpawnError, reconnectWorker, spawnWorker, type WorkerControl } from "../worker/spawn.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { control, recordDeferredRefusal, type ControlKind } from "./control.js";
+import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
 import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
 import { activeRunFor, readRun, resultOf, scanRuns, unreadableRunHolding, UnreadableRunError, type ScanOptions } from "./scan.js";
@@ -61,18 +69,27 @@ export interface RunServiceOptions {
   reconnect?: ReconnectFn;
   /** How store files are read (event logs, summaries). Default `fs.readFileSync`; tests inject a counting reader. */
   readFile?: (path: string) => Buffer;
+  /** How long an established key of a terminal run is remembered after the run ended. Default 7 days. */
+  keyRetentionMs?: number;
+  /** Fault injection at each step of a submit (tests only). */
+  submitFault?: SubmitFault;
 }
+
+/** Default `keyRetentionMs`: 7 days. */
+export const KEY_RETENTION_MS = 7 * 24 * 3600 * 1000;
 
 export class StoreRunService implements RunService {
   private readonly controls = new Map<RunId, WorkerControl>();
   private readonly scan: ScanOptions;
   private readonly reattacher: Reattacher;
   private readonly now: () => Date;
+  private readonly keys: KeyIndex;
   /** Serializes submits so the busy check and the spawn are one step per repository. */
   private submitChain: Promise<unknown> = Promise.resolve();
 
   constructor(private readonly options: RunServiceOptions) {
     this.now = options.now ?? (() => new Date());
+    this.keys = new KeyIndex(options.stateDir);
     const warn =
       options.warn ??
       ((line) => {
@@ -89,9 +106,22 @@ export class StoreRunService implements RunService {
    * request waits for its run's attempt). Existing events are never rewritten. Returns the runs.
    */
   reconcile(): Run[] {
+    // Keys first: a reserved key is settled from the store (run established, or released).
+    recoverKeys(this.keys);
     const runs = scanRuns(this.scan);
     for (const run of runs) if (!run.terminal) void this.reattacher.begin(run.id);
+    this.pruneKeys(runs);
     return runs;
+  }
+
+  /** Forget established keys whose run left the store, or ended longer ago than the retention. */
+  private pruneKeys(runs: Run[]): void {
+    const byId = new Map(runs.map((run) => [run.id as string, run]));
+    const cutoff = this.now().getTime() - (this.options.keyRetentionMs ?? KEY_RETENTION_MS);
+    pruneKeys(this.keys, (entry) => {
+      const run = byId.get(entry.run_id);
+      return run === undefined || (run.terminal && Date.parse(run.ended_at ?? run.updated_at) < cutoff);
+    });
   }
 
   /** Ask the harnesses to delete what finished runs of this store left behind (README: cancel, sandbox). */
@@ -106,13 +136,13 @@ export class StoreRunService implements RunService {
     return finished.length === 0 ? [] : reclaim.call(this.options.catalog, finished);
   }
 
-  submit(request: SubmitRequest): Promise<Run> {
+  submit(request: SubmitRequest): Promise<SubmitResponse> {
     const next = this.submitChain.then(() => this.submitNow(request));
     this.submitChain = next.catch(() => undefined);
     return next;
   }
 
-  private async submitNow(request: SubmitRequest): Promise<Run> {
+  private async submitNow(request: SubmitRequest): Promise<SubmitResponse> {
     // Step 4: harness known, then available.
     const entry = this.options.catalog.get(request.harness);
     if (!entry) throw notFound(`No harness ${request.harness} is known to this core.`);
@@ -124,7 +154,14 @@ export class StoreRunService implements RunService {
     }
     if (request.session_id !== undefined) throw unsupported("continue_session", "Continuing a session is not supported in this API version.");
     if (request.parent_run_id !== undefined) throw unsupported("delegate", "Delegating from a parent run is not supported in this API version.");
-    // Step 6: one active run per canonical repository (the server passes `repo` canonicalized).
+    // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the busy check.
+    const key = request.idempotency_key;
+    const digest = key === undefined ? null : requestDigest("submit", request);
+    if (key !== undefined && digest !== null) {
+      const replay = replaySubmit(this.keys, key, digest, (id) => this.read(id));
+      if (replay !== null) return replay;
+    }
+    // Step 7: one active run per canonical repository (the server passes `repo` canonicalized).
     const unreadable = unreadableRunHolding(this.scan, request.repo);
     if (unreadable !== null) {
       throw new ControlError("internal", `Run ${unreadable} has a live worker but its stored state cannot be read, so ${request.repo} may be in use; resolve that run before submitting here.`);
@@ -136,7 +173,7 @@ export class StoreRunService implements RunService {
         repo: request.repo,
       });
     }
-    // Step 7: create the session and run, start the worker, acknowledge once durable.
+    // Step 8: create the session and run, start the worker, acknowledge once durable.
     const created = this.now();
     const run = buildRunId(request.agent_id, newUlid(created.getTime()));
     const record: Run = {
@@ -161,6 +198,14 @@ export class StoreRunService implements RunService {
       worker_pid: null,
       branch: null,
     };
+    // On disk: the key, then the run directory, then the worker.
+    const fault = this.options.submitFault ?? (() => undefined);
+    let reserved: KeyEntry | null = null;
+    if (key !== undefined && digest !== null) {
+      reserved = { scope: "submit", key, digest, run_id: run, state: "reserved", action: null, recorded_at: created.toISOString() };
+      this.keys.put(reserved);
+    }
+    fault("after-key");
     const w = this.options.worker ?? {};
     let spawned;
     try {
@@ -172,17 +217,22 @@ export class StoreRunService implements RunService {
         ...(w.cancelGraceMs !== undefined && { cancelGraceMs: w.cancelGraceMs }),
         ...(w.readyTimeoutMs !== undefined && { readyTimeoutMs: w.readyTimeoutMs }),
         ...(w.env !== undefined && { env: w.env }),
+        onCreated: () => fault("after-run-dir"),
       });
     } catch (err) {
+      // A run that reached event 1 keeps its key; otherwise the key is released.
+      if (reserved !== null) settleKey(this.keys, reserved);
       if (err instanceof WorkerSpawnError) throw unavailable(`The run's worker could not be started: ${err.message}`);
       throw err;
     }
     this.controls.set(run, spawned.control);
+    fault("after-spawn");
+    if (reserved !== null) this.keys.establish(reserved);
     // The acknowledged run is the run as of event 1 (`null` -> `queued`): the durability point.
     const first = readLog(spawned.runDir, run).events.slice(0, 1);
     const acknowledged = deriveRun({ record: { ...record, worker_pid: spawned.pid }, events: first, alive: true, controllable: true, now: created.toISOString() });
     if (acknowledged === null) throw new ControlError("internal", "The run was durable but its first event could not be read back.");
-    return acknowledged.run;
+    return { run: acknowledged.run };
   }
 
   async listRuns(query: RunListQuery): Promise<Run[]> {
@@ -229,15 +279,47 @@ export class StoreRunService implements RunService {
     return resultOf(this.scan, run);
   }
 
-  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse["action"]> {
-    return this.act("steer", runId, request);
+  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse> {
+    return this.keyed("steer", runId, request);
   }
 
-  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse["action"]> {
-    return this.act("cancel", runId, request);
+  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse> {
+    return this.keyed("cancel", runId, request);
   }
 
-  private async act(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse["action"]> {
+  /**
+   * A steer or cancel under its idempotency key: a repeat returns the first action and delivers
+   * nothing; a new key is written (reserved, with the action id) just before delivery, established
+   * once the worker accepted, and released when the action was refused or never recorded.
+   */
+  private async keyed(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse> {
+    const key = request.idempotency_key;
+    if (key === undefined) return { action: await this.act(kind, runId, request) };
+    return this.keys.exclusive(kind, key, async () => {
+      const digest = requestDigest(kind, request, runId);
+      const replay = replayAction(this.keys, kind, key, digest);
+      if (replay !== null) return replay;
+      let reserved: KeyEntry | null = null;
+      try {
+        const action = await this.act(kind, runId, request, (pending) => {
+          reserved = { scope: kind, key, digest, run_id: pending.run_id, state: "reserved", action: pending, recorded_at: pending.requested_at };
+          this.keys.put(reserved);
+        });
+        if (reserved !== null) this.keys.establish(reserved, action);
+        return { action };
+      } catch (err) {
+        const held = reserved as KeyEntry | null;
+        if (held?.action) {
+          const recorded = actionRecorded(this.options.stateDir, held.run_id, held.action.id);
+          if (recorded === null) this.keys.release(kind, key);
+          else this.keys.establish(held, { ...held.action, outcome: "accepted" });
+        }
+        throw err;
+      }
+    });
+  }
+
+  private async act(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest, beforeDeliver?: (action: ActionRecord) => void): Promise<AcceptedResponse["action"]> {
     let run = this.read(runId);
     if (run === null) throw notFound(`No run ${runId}.`, { run_id: runId });
     if (!run.terminal && !run.live_control) {
@@ -251,7 +333,7 @@ export class StoreRunService implements RunService {
     const entry = this.options.catalog.get(run.harness);
     const capabilities = entry ? await entry.capabilities() : null;
     const worker = run.live_control ? (this.controls.get(run.id) ?? null) : null;
-    return control(kind, { run, capabilities, worker, now: this.now }, request);
+    return control(kind, { run, capabilities, worker, now: this.now }, request, beforeDeliver);
   }
 
   /** Step 4, decided by the server: write the refusal to the log of a live run this core controls. Never rejects. */

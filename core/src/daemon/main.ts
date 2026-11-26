@@ -8,6 +8,7 @@ import { startPublishing } from "../publish/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
 import { retentionFromEnv, pruneFinishedRuns } from "../store/retention.js";
+import type { SubmitFault } from "../runs/keys.js";
 import { cleanupStore } from "../store/startup.js";
 import { loadAllowlist } from "./allowlist.js";
 import { startDaemon, type DaemonOptions } from "./daemon.js";
@@ -36,6 +37,8 @@ export interface MainOptions extends Partial<Omit<DaemonOptions, "service">> {
   harnessCatalog?: () => HarnessCatalog;
   /** Run store directory of the built-in run service. Default: `defaultStateDir(env)`. */
   stateDir?: string;
+  /** Fault injection at each step of a submit of the built-in run service (tests only). */
+  submitFault?: SubmitFault;
   /** How often sandboxes of finished runs are reclaimed. Default: 5 minutes. */
   reclaimIntervalMs?: number;
   /**
@@ -157,7 +160,7 @@ async function serveUntilStopped(
       err(`culture-agents core: startup cleanup failed, continuing: ${(e as Error).message}`);
     }
   }
-  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath) });
+  const runs = service ? null : createRunService({ stateDir, node, catalog: (options.harnessCatalog ?? emptyCatalog)(), allowlist: () => loadAllowlist(allowlistPath), ...(options.submitFault && { submitFault: options.submitFault }) });
   let daemon;
   try {
     daemon = await startDaemon({ ...options, service: service ?? (runs as RunService), node });

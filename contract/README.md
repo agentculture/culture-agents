@@ -131,16 +131,16 @@ behaviour inside 3.0, without another bump.
 | `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13, *shape only* |
 | `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13, *shape only* |
 | `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8, *shape only* |
-| `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel`, `runs.answer` | optional; `retryable` is then false; forbidden with any other code | t6, *shape only* |
+| `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel`, `runs.answer` | optional; `retryable` is then false; forbidden with any other code | t6 (built) |
 | `question_id` on an error that concerns a question | error | optional | t13, *shape only* |
 | `unavailable` may carry `retry_after_ms`: retry shortly, for a control request that arrives while the core reattaches to the run's worker | error | optional; forbidden with any other code | t9, *shape only* |
 | `run.question` and `run.answer`: two new event kinds | event | each kind pins its `data` | t13, *shape only* |
 | `run.control` records a steer or a cancel only | event | tightened: an accepted answer is a `run.answer` | this change |
 | `answer_request`: `question_id` must be a question id; `answer` is optional; `choice_ids` and `decision` are new | `runs.answer` request | `caller` and `question_id` are required | t13 (core), t16 (CLI), *shape only* |
 | `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13; until then it is refused as `unsupported` |
-| `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`), t17 (`warnings`), *shape only* |
-| `replayed` on the accepted action response | `accepted_response` | optional | t6, *shape only* |
-| `runs.submit` may answer `conflict` and `limit_reached` | route | | t6, t8 |
+| `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`, built), t17 (`warnings`, *shape only*) |
+| `replayed` on the accepted action response | `accepted_response` | optional | t6 (built) |
+| `runs.submit` may answer `conflict` and `limit_reached` | route | | t6 (`conflict`, built), t8 |
 | `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | every harness still reports them unsupported | t13, t9, t8 |
 | `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17 (`limits` are read from the configuration t8 adds), *shape only* |
 
@@ -148,7 +148,7 @@ behaviour inside 3.0, without another bump.
 
 Rules that change with these shapes, each when its task lands:
 
-- An idempotency key is compared, not only recorded (t6). See
+- An idempotency key is compared, not only recorded (t6, built). See
   [Idempotency keys](#idempotency-keys).
 - A run's deadline stops advancing while one of its questions is pending
   (t13). See [Deadlines](#deadlines).
@@ -229,21 +229,23 @@ Clients and tests may rely on the order.
    node → `unsupported`, `placement`. A `session_id` is present →
    `unsupported`, `continue_session`. A `parent_run_id` is present →
    `unsupported`, `delegate`.
-6. The repository already has an active run → `busy` (until t8).
-7. The core creates the session and run, then starts the worker. The worker
-   writes its PID, its event log with event 1 (`run.state`, `null` →
-   `queued`) and its cursor to disk. Only after that does the core answer 201
-   with the run in state `queued`.
+6. An `idempotency_key` that the core has on record. The same request → 201
+   with `replayed: true` and the first run as it is now; nothing is created
+   and the busy check is skipped. A different request → `conflict` with
+   `idempotency_key` and the `run_id` the key belongs to. A key whose first
+   submit is still being established → `unavailable` with `retry_after_ms`.
+7. The repository already has an active run → `busy` (until t8).
+8. The core writes the key (when there is one), then creates the session and
+   run directory, then starts the worker. The worker writes its PID, its
+   event log with event 1 (`run.state`, `null` → `queued`) and its cursor to
+   disk. Only after that does the core answer 201 with the run in state
+   `queued`.
 
-**(planned)** Three checks join `runs.submit` between steps 5 and 7. The
+**(planned)** Two checks join `runs.submit` between steps 5 and 8. The
 task that builds each one fixes its exact place and writes it here.
 
-- An `idempotency_key` that the core has on record (t6). The same request
-  → the success status with `replayed: true` and the first run as it is now;
-  nothing is created. A different request → `conflict` with
-  `idempotency_key` and the `run_id` the key belongs to.
 - A configured limit that has no room (t8) → `limit_reached` with `limit`.
-  This replaces step 6. Nothing is queued.
+  This replaces step 7. Nothing is queued.
 - The repository's commit to start from cannot be resolved (t7) → a typed
   refusal at submit, not a failed run later. On success the commit is the
   run's `base_commit`.
@@ -284,10 +286,10 @@ already `cancelling` is accepted and recorded, but has no further effect.
   that arrives before the run's reattach attempt has finished waits for it or
   gets `unavailable` with `retry_after_ms` and the `run_id`. It never gets
   "live control unavailable".
-- A repeated `idempotency_key` on a control route (t6) → the same success
-  status with `replayed: true` and the first action record; nothing is
-  delivered again. The same key with a different request → `conflict` with
-  `idempotency_key`.
+- Built (t6): a repeated `idempotency_key` on `steer` or `cancel` is checked
+  before step 5 → 202 with `replayed: true` and the first action record;
+  nothing is delivered again, whatever the run's state is now. The same key
+  with a different request → `conflict` with `idempotency_key`.
 
 Refusals at steps 4 to 6 against a non-terminal run whose worker the core
 controls are also appended to the run's event log as `run.refused` events.
@@ -432,13 +434,8 @@ attempt for its run has finished waits or gets `unavailable` with
 `idempotency_key`. It appears on the run (`idempotency_key`) or on the action
 record, exactly as sent.
 
-**Today the key is recorded and returned, and that is all.** Two submits with
-the same key create two runs, and two steers with the same key deliver twice.
-The core neither compares keys nor rejects reuse. Until task t6 lands, clients
-must not treat a retry as safe: a client whose submit timed out should run
-`runs list` and look for the key before it resubmits.
-
-**(planned, t6)** The shapes for deduplication are in 3.0:
+Deduplication is built (t6) for `runs.submit`, `runs.steer` and
+`runs.cancel`:
 
 - A repeat of a key with the same request takes effect once. The response has
   the same status as the first one and `replayed: true`. For a submit, `run`
@@ -450,8 +447,23 @@ must not treat a retry as safe: a client whose submit timed out should run
 - The key is written to disk before the request is acknowledged, so it holds
   across a core restart.
 
-Two rules are not stated yet and t6 writes them here: the comparison that
-decides "the same request", and how long a key is remembered.
+- A key belongs to one route: the same key on a submit and on a steer are two
+  keys.
+- "The same request" is decided by a sha256 digest of the request body
+  without `idempotency_key`, with object keys sorted (field order does not
+  count), plus the route and, for steer and cancel, the `run_id` of the path.
+  Every other field counts, `caller` included. A submit's `repo` is compared
+  after canonicalization.
+- Order on disk for a submit: the key and digest, then the run directory, then
+  the worker. After a core restart, a key whose run reached event 1 is kept and
+  replays that run; a key whose run was never established is released, so a
+  repeat creates the run. A steer or cancel writes its key just before
+  delivery; it is kept when the worker recorded the action (`run.control`) and
+  released when the action was refused or never recorded, so a refusal does
+  not use up the key.
+- How long a key is remembered: as long as its run is in the store, and for 7
+  days after the run ended. Keys past that are removed when the core starts.
+  A repeat after that is a new request.
 
 ## Deadlines
 
