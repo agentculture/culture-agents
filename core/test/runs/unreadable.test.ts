@@ -5,10 +5,11 @@ import { join } from "node:path";
 import { test } from "node:test";
 
 import type { StateData } from "../../src/contract/index.js";
-import { CALLER, HANG, attach, events, getRun, makeEnv, ok, processExists, refused, startDaemon, submit, submitBody, waitFor, waitRun } from "./support.js";
+import { CALLER, HANG, attach, events, getRun, makeEnv, ok, processExists, refused, startDaemon, submit, submitBody, waitFor, waitRun, writeLimits } from "./support.js";
 
-test("an active run with a corrupt log keeps its repository busy and is not reported as missing", async (t) => {
+test("an active run with a corrupt log counts against a configured limit and is not reported as missing", async (t) => {
   const env = makeEnv(t, [HANG]);
+  writeLimits(env, { runsPerRepository: 1 });
   await startDaemon(t, env);
   const run = await submit(env, "fake", env.repoA);
   await waitRun(env, run.id, (r) => r.state === "running", "running");
@@ -21,10 +22,21 @@ test("an active run with a corrupt log keeps its repository busy and is not repo
   await refused(env, "GET", `/v1/runs/${run.id}/result`, "internal");
   await refused(env, "GET", `/v1/runs/${run.id}/attach`, "internal");
   assert.ok(processExists(run.worker_pid as number), "its worker is still running");
-  const second = await refused(env, "POST", "/v1/runs", "internal", submitBody("fake", env.repoA));
-  assert.match(second.message, /may be in use/);
+  // Its worker may still be working, so it counts as active against the configured limit.
+  const second = await refused(env, "POST", "/v1/runs", "limit_reached", submitBody("fake", env.repoA));
+  assert.deepEqual(second.limit, { name: "runs_per_repository", value: 1, active: 1, repo: env.repoA });
   // Another repository is unaffected: the unreadable run's record names its own repository.
   assert.equal((await submit(env, "fake", env.repoB)).state, "queued");
+});
+
+test("with no limit configured, an unreadable active run never blocks a submit to its repository", async (t) => {
+  const env = makeEnv(t, [HANG]);
+  await startDaemon(t, env);
+  const run = await submit(env, "fake", env.repoA);
+  await waitRun(env, run.id, (r) => r.state === "running", "running");
+  appendFileSync(join(env.stateDir, "runs", run.id, "events.jsonl"), "{not json}\n");
+  await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
+  assert.equal((await submit(env, "fake", env.repoA)).state, "queued");
 });
 
 test("a live worker whose liveness evidence cannot be read is never settled as unknown", async (t) => {
@@ -45,7 +57,6 @@ test("a live worker whose liveness evidence cannot be read is never settled as u
   const shown = await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
   assert.match(shown.message, /liveness cannot be established/);
   await refused(env, "POST", `/v1/runs/${run.id}/cancel`, "internal", { caller: CALLER });
-  await refused(env, "POST", "/v1/runs", "internal", submitBody("fake", env.repoA));
   await new Promise((resolve) => setTimeout(resolve, 600)); // several orphan checks of the attach follower
   assert.ok(processExists(run.worker_pid as number), "the worker is still running");
 

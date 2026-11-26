@@ -125,10 +125,18 @@ test("capability documents validate against the contract, available or not", asy
       assert.ok(result.ok, `${entry.id} (${label}): ${JSON.stringify(result.ok ? null : result.issues)}`);
       assert.equal(doc.harness, entry.id);
       if (entry.id !== "stub") assert.equal(doc.available, label === "available", `${entry.id} availability (${label})`);
-      for (const c of ["pause", "resume", "answer", "continue_session", "delegate", "placement", "worktree_isolation"] as const) {
+      for (const c of ["pause", "resume", "answer", "continue_session", "delegate", "placement"] as const) {
         assert.equal(doc.capabilities[c].supported, false, `${entry.id}: ${c} is deferred`);
       }
       assert.equal(doc.capabilities.reconnect.supported, true, `${entry.id}: reconnect is supported`);
+      // t8: worktree_isolation states what is guaranteed: a clone per run (a sandbox clone for a sandboxed harness), never a host worktree.
+      const isolation = doc.capabilities.worktree_isolation;
+      assert.equal(isolation.supported, true, `${entry.id}: worktree_isolation is supported`);
+      const said = isolation.caveats.join(" ");
+      assert.match(said, entry.id === "stub" ? /own temporary clone/ : /sandbox clone per run, not a host worktree/, entry.id);
+      assert.match(said, /runs\/<run_id> branch/);
+      assert.match(said, /no git worktree is created/i);
+      assert.match(said, /host checkout and index are never written/);
     }
   }
   const claude = await getHarness(ok, "claude-code")?.capabilities();
@@ -145,7 +153,7 @@ test("every undeclared capability of every harness is refused, typed, and never 
   for (const entry of listHarnesses(config)) {
     const doc = await entry.capabilities();
     const undeclared = (Object.keys(doc.capabilities) as CapabilityName[]).filter((c) => !doc.capabilities[c].supported);
-    assert.ok(undeclared.length >= 7);
+    assert.ok(undeclared.length >= 6); // the five deferred ones and answer; worktree_isolation is supported since t8
     for (const capability of undeclared) {
       const refusal = refusalFor(doc, capability);
       assert.ok(refusal, `${entry.id}: ${capability} refused`);

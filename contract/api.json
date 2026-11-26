@@ -71,11 +71,6 @@
       "exit_code": 1,
       "retryable": false
     },
-    "busy": {
-      "http_status": 409,
-      "exit_code": 1,
-      "retryable": true
-    },
     "conflict": {
       "http_status": 409,
       "exit_code": 1,
@@ -233,7 +228,6 @@
         "denied",
         "not_found",
         "unsupported",
-        "busy",
         "unavailable",
         "conflict",
         "limit_reached"

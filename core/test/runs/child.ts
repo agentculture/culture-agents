@@ -35,7 +35,7 @@ export function capabilitiesOf(harness: FakeHarness): Capabilities {
       delegate: deferred,
       placement: deferred,
       reconnect: yes,
-      worktree_isolation: deferred,
+      worktree_isolation: { supported: true, reason: null, caveats: ["a clone per run; never a host worktree"] },
     },
   };
 }
