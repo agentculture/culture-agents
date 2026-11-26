@@ -1,0 +1,21 @@
+{
+  "repo": "/home/thor/work/culture-agents",
+  "branches": [
+    {
+      "branch": "runs/thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "state": "succeeded",
+      "state_note": null,
+      "tip": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "merged_into": "main"
+    },
+    {
+      "branch": "runs/thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6",
+      "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6",
+      "state": "running",
+      "state_note": null,
+      "tip": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "merged_into": null
+    }
+  ]
+}

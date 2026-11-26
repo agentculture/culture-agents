@@ -12,6 +12,7 @@ import {
   type Submitter,
 } from "../contract/index.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
+import { branchesList, branchesRemove } from "./branch-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 import type { DeferredRequest, RunService } from "./ports.js";
@@ -56,6 +57,8 @@ const PATTERNS: readonly Pattern[] = [
   ["runs.pause", "POST", "v1", "runs", ":run_id", "pause"],
   ["runs.resume", "POST", "v1", "runs", ":run_id", "resume"],
   ["runs.answer", "POST", "v1", "runs", ":run_id", "answer"],
+  ["branches.list", "GET", "v1", "branches"],
+  ["branches.remove", "POST", "v1", "branches", "remove"],
 ];
 
 /** Deferred control routes: always `unsupported`, naming the capability. Value is the request schema. */
@@ -294,6 +297,10 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return steerOrCancel(call, true);
     case "runs.cancel":
       return steerOrCancel(call, false);
+    case "branches.list":
+      return branchesList({ service: svc, allowlist: ctx.allowlist, req, res, url });
+    case "branches.remove":
+      return branchesRemove({ service: svc, allowlist: ctx.allowlist, req, res, url });
     default:
       return refuseDeferred(call, match.id);
   }

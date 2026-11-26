@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-_CORE = """\
+CORE_NOTE = """\
 ## Needs the core
 
 These verbs talk to the core daemon over its Unix socket
@@ -28,7 +28,7 @@ unsupported one says so and why.
     agents agents list
     agents agents list --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _AGENTS_STATUS = f"""\
 # agents agents status <agent_id>
@@ -41,7 +41,7 @@ can see before dispatching whether a harness can steer or cancel.
     agents agents status thor-culture-agents
     agents agents status thor-culture-agents --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _RUNS = f"""\
 # agents runs
@@ -63,7 +63,7 @@ run state; the CLI only asks.
 placement are not verbs: the contract defers them and the core refuses them as
 `unsupported`.
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _SUBMIT = f"""\
 # agents runs submit
@@ -87,7 +87,7 @@ same request returns the first run; a changed request is `conflict`),
         --repo /srv/repos/demo --task "Add a unit test"
     agents runs submit ... --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _LIST = f"""\
 # agents runs list
@@ -100,7 +100,7 @@ default 50).
     agents runs list
     agents runs list --state running --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _SHOW = f"""\
 # agents runs show <run_id>
@@ -112,7 +112,7 @@ control is available (false after a core restart), and the task.
 
     agents runs show thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5 --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _ATTACH = f"""\
 # agents runs attach <run_id>
@@ -152,7 +152,7 @@ terminal; `--json` carries the exact data.
     agents runs attach thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5
     agents runs attach <run_id> --after 12 --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _STEER = f"""\
 # agents runs steer <run_id> <message>
@@ -166,7 +166,7 @@ not that the harness obeyed. A harness that cannot steer, a run that is not
 
     agents runs steer <run_id> "Stop writing files; write STEERED.txt."
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _CANCEL = f"""\
 # agents runs cancel <run_id>
@@ -179,7 +179,7 @@ already `cancelling` is accepted and has no further effect.
 
     agents runs cancel <run_id> --reason "wrong repository"
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _LOGS = f"""\
 # agents runs logs <run_id>
@@ -192,7 +192,7 @@ text output says so and `--json` carries `more: true` and `last_cursor`.
 
     agents runs logs <run_id> --after 6 --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 _RESULT = f"""\
 # agents runs result <run_id>
@@ -205,7 +205,7 @@ state `unknown` is never reported as succeeded.
 
     agents runs result <run_id> --json
 
-{_CORE}"""
+{CORE_NOTE}"""
 
 CONTROL_ENTRIES: dict[tuple[str, ...], str] = {
     ("agents", "list"): _AGENTS_LIST,

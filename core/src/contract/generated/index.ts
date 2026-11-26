@@ -2,6 +2,7 @@
 
 import type { Agent, AgentList } from "./agent.js";
 import type { Allowlist } from "./allowlist.js";
+import type { Branches, Branch, RemoveRequest, RemoveResponse, Skipped } from "./branches.js";
 import type { Capabilities, CapabilityName, Capability, Deferred, CapabilitySet, LimitName, Limits, SignalName, SignalState, Signal, Admission, CapabilitiesList } from "./capabilities.js";
 import type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId, QuestionId, HarnessId, Timestamp, NullableTimestamp, RepoPath, IdempotencyKey, Cursor, ApiVersion, CallerText, GitSha, Principal, Extension } from "./common.js";
 import type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
@@ -13,6 +14,7 @@ import type { Version } from "./version.js";
 
 export type { Agent, AgentList } from "./agent.js";
 export type { Allowlist } from "./allowlist.js";
+export type { Branches, Branch, RemoveRequest, RemoveResponse, Skipped } from "./branches.js";
 export type { Capabilities, CapabilityName, Capability, Deferred, CapabilitySet, LimitName, Limits, SignalName, SignalState, Signal, Admission, CapabilitiesList } from "./capabilities.js";
 export type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId, QuestionId, HarnessId, Timestamp, NullableTimestamp, RepoPath, IdempotencyKey, Cursor, ApiVersion, CallerText, GitSha, Principal, Extension } from "./common.js";
 export type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
@@ -27,6 +29,11 @@ export interface SchemaTypes {
   "agent": Agent;
   "agent#agent_list": AgentList;
   "allowlist": Allowlist;
+  "branches": Branches;
+  "branches#branch": Branch;
+  "branches#remove_request": RemoveRequest;
+  "branches#remove_response": RemoveResponse;
+  "branches#skipped": Skipped;
   "capabilities": Capabilities;
   "capabilities#capability_name": CapabilityName;
   "capabilities#capability": Capability;

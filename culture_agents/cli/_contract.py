@@ -39,6 +39,9 @@ TARGETS: dict[str, str] = {
     "event": "event.json",
     "event_page": "event.json#/$defs/event_page",
     "error": "error.json",
+    "branch_list": "branches.json",
+    "branch_remove_request": "branches.json#/$defs/remove_request",
+    "branch_remove": "branches.json#/$defs/remove_response",
 }
 
 _PACKAGE = Path(__file__).resolve().parent.parent

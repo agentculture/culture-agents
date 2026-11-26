@@ -9,6 +9,7 @@ context without chaining reads.
 
 from __future__ import annotations
 
+from culture_agents.explain.catalog_branches import BRANCH_ENTRIES
 from culture_agents.explain.catalog_control import CONTROL_ENTRIES
 
 _ROOT = """\
@@ -34,6 +35,7 @@ The CLI is built on agentfront: one registry of verbs and docs, so `learn`,
 - `agents cli overview` — describe the CLI surface.
 - `agents agents list|status` — the agents the core knows and their harnesses.
 - `agents runs submit|list|show|attach|steer|cancel|logs|result` — runs.
+- `agents branches list|remove` — the runs branches of a repository.
 
 `agents explain agents` is this root page. For the `agents agents` noun group
 use `agents explain agents list` and `agents explain agents status`.
@@ -151,4 +153,5 @@ ENTRIES: dict[tuple[str, ...], str] = {
     ("cli",): _CLI,
     ("cli", "overview"): _CLI,
     **CONTROL_ENTRIES,
+    **BRANCH_ENTRIES,
 }
