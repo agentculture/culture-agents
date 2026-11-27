@@ -1,0 +1,7 @@
+{"t":0.002,"event":"key_forms","one_line_length":72,"one_line_has_newline":false,"pem_lines":3}
+{"t":0.088,"event":"case_env_one_line","key_in_process_env_after_take":false,"key_in_own_proc_environ":true,"worker":{"inEnv":false,"varName":false,"inParentProcEnviron":true,"parentReadable":true},"signature_verifies":true}
+{"t":0.199,"event":"case_env_pem","key_in_process_env_after_take":false,"key_in_own_proc_environ":true,"worker":{"inEnv":false,"varName":false,"inParentProcEnviron":true,"parentReadable":true},"signature_verifies":true}
+{"t":0.304,"event":"case_pipe_fd3","key_in_process_env_after_take":false,"key_in_own_proc_environ":false,"worker":{"inEnv":false,"varName":false,"inParentProcEnviron":false,"parentReadable":true},"signature_verifies":true}
+{"t":0.392,"event":"case_file_0600","key_in_process_env_after_take":false,"key_in_own_proc_environ":false,"worker":{"inEnv":false,"varName":false,"inParentProcEnviron":false,"parentReadable":true},"signature_verifies":true}
+{"t":0.453,"event":"case_file_0644","refused":"key file mode 644 is readable by others"}
+{"t":0.46,"event":"grant_present","found":false,"note":"grant is not installed here: storing and injecting the key through grant is NOT VERIFIED"}

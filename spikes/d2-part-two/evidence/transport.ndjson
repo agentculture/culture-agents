@@ -1,0 +1,10 @@
+{"t":0.095,"event":"core_a_listening","address":"127.0.0.1","note":"loopback only"}
+{"t":0.226,"event":"case_trusted_pair","result":"call_ok","status":200,"peer_seen_by_b":"host-a","body":{"api_version":"3.0","node":"host-a"},"ms":31.4}
+{"t":0.226,"event":"case_trusted_pair_on_a","request_from":"thor","path":"/v1/version"}
+{"t":0.228,"event":"case_capture","bytes_captured":4416,"application_data_record_headers":13,"searched":[{"label":"A private key PKCS8 DER","found":false},{"label":"A private key seed (32 raw bytes)","found":false},{"label":"A private key text form","found":false},{"label":"A private key PEM","found":false},{"label":"A certificate DER (public; TLS 1.3 encrypts it)","found":false},{"label":"B private key PKCS8 DER","found":false},{"label":"B private key seed (32 raw bytes)","found":false},{"label":"B private key text form","found":false},{"label":"B private key PEM","found":false},{"label":"B certificate DER (public; TLS 1.3 encrypts it)","found":false},{"label":"plaintext request line","found":false},{"label":"plaintext response field","found":false}],"any_found":false}
+{"t":0.52,"event":"case_unknown_client","b_side":"call_refused","b_error":"ECONNRESET","a_refusal_reason":"DEPTH_ZERO_SELF_SIGNED_CERT","requests_served_before":1,"requests_served_after":1}
+{"t":0.596,"event":"case_unknown_server","b_side":"call_refused","b_error":"DEPTH_ZERO_SELF_SIGNED_CERT","requests_served_on_a":1}
+{"t":0.888,"event":"case_revoked","b_side":"call_refused","b_error":"ECONNRESET","a_refusal_reason":"DEPTH_ZERO_SELF_SIGNED_CERT"}
+{"t":1.01,"event":"case_session_ticket","node_default_server":{"session_offered_to_client":true,"resumed":true},"fleet_server_no_ticket":{"session_offered_to_client":true,"resumed":false}}
+{"t":1.182,"event":"case_handshake_cost","connections":50,"median_ms":2.87,"p90_ms":4.46,"note":"loopback, same machine; says nothing about a real network"}
+{"t":1.183,"event":"versions","node":"v22.23.5","openssl":"3.5.9","key":"ed25519","cert_subject":"CN=culture-agents member <fingerprint>","cert_valid_to":"Dec 31 23:59:59 9999 GMT"}

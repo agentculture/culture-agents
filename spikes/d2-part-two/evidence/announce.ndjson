@@ -1,0 +1,12 @@
+{"t":0,"event":"stated_numbers","interval_s":5,"silence_s":15,"sweep_s":1,"request_timeout_s":5,"silent_detection_bound_s":16,"leave_detection_bound_s":1}
+{"t":5.321,"event":"a_alone","member_events_on_a":0,"note":"no announcement yet, so A lists nobody"}
+{"t":5.457,"event":"case_appear","appeared_on_a_after_s":0.125,"a_appeared_on_b_after_s":0.134,"their_clock_as_announced":"2026-11-27T06:47:13.090Z"}
+{"t":5.467,"event":"case_stop_sigterm","signal":"SIGTERM","reason_on_a":"left","dropped_after_s":0.005,"silent_for_s_on_a":0,"within_bound":true}
+{"t":21.117,"event":"case_crash_sigkill","signal":"SIGKILL","reason_on_a":"silent","dropped_after_s":15.537,"silent_for_s_on_a":15.548,"within_bound":true}
+{"t":21.211,"event":"case_clock_offset","their_clock_as_announced":"2026-11-27T07:47:28.851Z","note":"B claims a time 1 hour ahead; A measures silence on its own monotonic clock"}
+{"t":37.132,"event":"case_halt_sigstop","signal":"SIGSTOP","reason_on_a":"silent","dropped_after_s":15.918,"silent_for_s_on_a":15.925,"within_bound":true}
+{"t":37.143,"event":"case_resume_sigcont","reappeared_on_a_after_s":0.006,"note":"listed again only by a new announcement"}
+{"t":52.147,"event":"case_peer_halt_seen_by_b","dropped_after_s":15.002,"reason_on_b":"silent","within_bound":true,"announce_errors":["ETIMEDOUT","ETIMEDOUT"]}
+{"t":52.761,"event":"case_duplicate_name","reported_on_a":"node name thor is held by another key","claimed":"thor","key_belongs_to":"host-c","c_told":409,"thor_still_held_by_b":true}
+{"t":53.355,"event":"case_untrusted_key","refused_on_a":"DEPTH_ZERO_SELF_SIGNED_CERT","listed":false}
+{"t":53.436,"event":"case_trust_list_duplicate_name","exit_code":2,"reason":"node name thor appears twice in the trust list"}
