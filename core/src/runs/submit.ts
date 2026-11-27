@@ -65,6 +65,7 @@ function workerSettings(w: WorkerSettings): Partial<SpawnWorkerOptions> {
     ...(w.cancelGraceMs !== undefined && { cancelGraceMs: w.cancelGraceMs }),
     ...(w.readyTimeoutMs !== undefined && { readyTimeoutMs: w.readyTimeoutMs }),
     ...(w.questionLimitMs !== undefined && { questionLimitMs: w.questionLimitMs }),
+    ...(w.steerTimeoutMs !== undefined && { steerTimeoutMs: w.steerTimeoutMs }),
     ...(w.env !== undefined && { env: w.env }),
   };
 }

@@ -7,7 +7,8 @@
  * request (`requestDigest`) and the run the key belongs to. It is `reserved` from the moment it is
  * written until its effect is established (the run's event 1 is on disk, or the worker recorded the
  * action as `run.control`), then `established`. A reserved key whose effect was never established
- * is released (deleted), so a repeat of it starts afresh.
+ * is released (deleted), so a repeat of it starts afresh. A key whose outcome is not known yet
+ * (a live worker may still be delivering its action) stays reserved, so it takes effect at most once.
  *
  * Crash-safe submit order: key, then run directory, then spawn. After a restart `recoverKeys`
  * settles every reserved key from the run store, which is the only evidence.
@@ -16,7 +17,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-import type { ActionRecord, RunId } from "../contract/index.js";
+import { isTerminal, type ActionRecord, type RunEvent, type RunId } from "../contract/index.js";
 import { readLog } from "./event-log.js";
 import { atomicWriteJson, ensureDir, fsyncDir, runDir } from "./files.js";
 import { checkLiveness } from "./liveness.js";
@@ -173,36 +174,76 @@ function runEstablished(stateDir: string, runId: RunId): "yes" | "no" | "pending
   }
 }
 
-/** Whether the run's log holds `run.control` for the action (the worker took it). */
-export function actionRecorded(stateDir: string, runId: RunId, actionId: string): ActionRecord | null {
-  const dir = runDir(stateDir, runId);
-  if (!existsSync(dir)) return null;
-  try {
-    for (const event of readLog(dir, runId).events) {
-      if (event.kind !== "run.control") continue;
-      const action = (event.data as { action?: ActionRecord }).action;
-      if (action?.id === actionId) return action;
-    }
-  } catch {
-    return null;
+/** The action's `run.control` in the log (the worker took it), or null. */
+function recordedAction(events: RunEvent[], actionId: string): ActionRecord | null {
+  for (const event of events) {
+    if (event.kind !== "run.control") continue;
+    const action = (event.data as { action?: ActionRecord }).action;
+    if (action?.id === actionId) return action;
   }
   return null;
 }
 
+/** Whether the worker logged that it did not take the action: `run.refused`, or the `run.error` of a steer the harness refused (its message names the action id). */
+function refusedInLog(events: RunEvent[], actionId: string): boolean {
+  return events.some((event) => {
+    if (event.kind === "run.refused") return (event.data as { action?: ActionRecord }).action?.id === actionId;
+    return event.kind === "run.error" && ((event.data as { error?: { message?: string } }).error?.message ?? "").includes(actionId);
+  });
+}
+
+/** What the store says about a steer or cancel. */
+export type ActionOutcome = { taken: "yes"; action: ActionRecord } | { taken: "no" } | { taken: "unknown" };
+
+/**
+ * Whether the worker took a delivered action, from the run's event log: yes when the log records it
+ * as `run.control`; no when the run directory is gone, the log records a refusal, the run is terminal
+ * without it, or its worker is gone; otherwise unknown (a live worker may still be delivering it).
+ * An unreadable log is unknown: it never counts as "not recorded".
+ */
+export function actionOutcome(stateDir: string, runId: RunId, actionId: string): ActionOutcome {
+  const dir = runDir(stateDir, runId);
+  if (!existsSync(dir)) return { taken: "no" };
+  let log: ReturnType<typeof readLog>;
+  try {
+    log = readLog(dir, runId);
+  } catch {
+    return { taken: "unknown" };
+  }
+  const action = recordedAction(log.events, actionId);
+  if (action !== null) return { taken: "yes", action };
+  if (refusedInLog(log.events, actionId)) return { taken: "no" };
+  const { state } = log.tail;
+  if (state !== null && isTerminal(state)) return { taken: "no" };
+  try {
+    return checkLiveness(dir).alive ? { taken: "unknown" } : { taken: "no" };
+  } catch {
+    return { taken: "unknown" }; // liveness unknown counts as alive
+  }
+}
+
+/** Settle a reserved steer or cancel key from its action's outcome. */
+function settleAction(index: KeyIndex, entry: KeyEntry, action: ActionRecord): { settlement: KeySettlement; entry: KeyEntry } {
+  const outcome = actionOutcome(index.stateDir, entry.run_id, action.id);
+  if (outcome.taken === "yes") return { settlement: "established", entry: index.establish(entry, { ...action, outcome: "accepted" }) };
+  if (outcome.taken === "unknown") return { settlement: "pending", entry };
+  index.release(entry.scope, entry.key);
+  return { settlement: "released", entry };
+}
+
 /**
  * Settle one reserved key from the store: established when its run has event 1 (submit) or its
- * action is in the log (steer, cancel); pending while a not-yet-durable worker is alive; otherwise
- * released. An established key is returned unchanged.
+ * action is in the log (steer, cancel); pending while a not-yet-durable worker is alive, or while
+ * a live worker of a non-terminal run may still be delivering the action; otherwise released. An
+ * established key is returned unchanged.
  */
 export function settleKey(index: KeyIndex, entry: KeyEntry): { settlement: KeySettlement; entry: KeyEntry } {
   if (entry.state === "established") return { settlement: "established", entry };
+  if (entry.scope !== "submit" && entry.action !== null) return settleAction(index, entry, entry.action);
   if (entry.scope === "submit") {
     const state = runEstablished(index.stateDir, entry.run_id);
     if (state === "yes") return { settlement: "established", entry: index.establish(entry) };
     if (state === "pending") return { settlement: "pending", entry };
-  } else if (entry.action !== null) {
-    const recorded = actionRecorded(index.stateDir, entry.run_id, entry.action.id);
-    if (recorded !== null) return { settlement: "established", entry: index.establish(entry, { ...entry.action, outcome: "accepted" }) };
   }
   index.release(entry.scope, entry.key);
   return { settlement: "released", entry };
@@ -223,6 +264,23 @@ export function recoverKeys(index: KeyIndex): RecoveryReport {
     report[settlement].push(`${entry.scope}:${entry.key}`);
   }
   return report;
+}
+
+/** `atomicWriteJson`'s temporary names: `<file>.tmp-<pid>-<n>`. */
+const TEMP_FILE = /\.tmp-\d+-\d+$/;
+
+/** Start-up: remove the temp files a crash between open and rename left in the keys directory. Returns their names. */
+export function sweepKeyTemps(index: KeyIndex): string[] {
+  let names: string[];
+  try {
+    names = readdirSync(keysDir(index.stateDir));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw err;
+  }
+  const removed = names.filter((name) => TEMP_FILE.test(name));
+  for (const name of removed) rmSync(join(keysDir(index.stateDir), name), { force: true });
+  return removed;
 }
 
 /** Remove established keys `expired` says are over (README: how long a key is remembered). */

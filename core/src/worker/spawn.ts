@@ -83,6 +83,8 @@ export interface SpawnWorkerOptions {
   questionLimitMs?: number;
   /** Environment of the worker process. Default: this process's environment. */
   env?: NodeJS.ProcessEnv;
+  /** How long a steer or answer waits for the worker's reply. Default 8000 ms (tests set it shorter). */
+  steerTimeoutMs?: number;
   /** Called once the run directory and record exist, before the worker is started (a fault injection point). */
   onCreated?: (dir: string) => void;
 }
@@ -198,7 +200,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
   } finally {
     child.off("exit", onExit);
   }
-  return { runId: run.id, runDir: dir, pid, control: new WorkerControl(dir) };
+  return { runId: run.id, runDir: dir, pid, control: new WorkerControl(dir, undefined, options.steerTimeoutMs) };
 }
 
 export type Reconnect =

@@ -92,12 +92,15 @@ export async function recordDeferredRefusal(kind: DeferredKind, target: Pick<Con
   await recordRefusal(target, record(target.run, kind, request, target.now), error);
 }
 
+/** The worker answered that it did not take the action: it did not take effect (the run service releases its key). */
+export class WorkerRefusedError extends ControlError {}
+
 function replyError(run: Run, reply: ControlReply): ControlError | null {
   if (reply.ok) return null;
   const body: ErrorBody = reply.error;
   // The worker re-checks state; a race (the run moved on) comes back as its own `conflict`.
-  if (body.code === "conflict") return new ControlError("conflict", body.message, { run_id: run.id, retryable: body.retryable });
-  return unavailable(`The worker of run ${run.id} did not accept the action: ${body.message}`);
+  if (body.code === "conflict") return new WorkerRefusedError("conflict", body.message, { run_id: run.id, retryable: body.retryable });
+  return new WorkerRefusedError("unavailable", `The worker of run ${run.id} did not accept the action: ${body.message}`);
 }
 
 /**
