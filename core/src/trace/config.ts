@@ -52,9 +52,22 @@ export function loadTraceConfig(env: Env = process.env): TraceConfig | null {
   }
   if (url.username !== "" || url.password !== "") throw new TraceConfigError(`${TRACE_ENDPOINT_ENV} must not hold a user name or password; use the key variables`);
   if ((pub === undefined) !== (second === undefined)) throw new TraceConfigError("set both the public and the secret trace key, or neither");
-  url.pathname = `${url.pathname.replace(/\/+$/, "")}/v1/traces`;
-  const authorization = pub === undefined || second === undefined ? null : `Basic ${Buffer.from(`${pub}:${second}`).toString("base64")}`;
-  return { url: url.toString(), authorization, content };
+  url.pathname = `${withoutTrailingSlashes(url.pathname)}/v1/traces`;
+  return { url: url.toString(), authorization: basicAuthorization(pub, second), content };
+}
+
+/** `path` without its trailing slashes; one pass from the end, no regular expression to backtrack. */
+function withoutTrailingSlashes(path: string): string {
+  let end = path.length;
+  while (end > 0 && path[end - 1] === "/") end--;
+  return path.slice(0, end);
+}
+
+/** The Basic Authorization header value for the two trace keys, or null unless both are set. */
+function basicAuthorization(pub: string | undefined, second: string | undefined): string | null {
+  if (pub === undefined || second === undefined) return null;
+  const credentials = Buffer.from(`${pub}:${second}`).toString("base64");
+  return `Basic ${credentials}`;
 }
 
 /** A copy of `env` without any trace variable: what a worker is started with. */

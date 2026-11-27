@@ -23,7 +23,7 @@ import { isTerminal, type RunState } from "../contract/index.js";
 import { runDir } from "../store/files.js";
 import { listRunIds } from "../store/run-store.js";
 import { EnvelopeError, buildMessage } from "./envelope.js";
-import { pendingFacts, readPosition, writePosition, type PublishPosition } from "./log-tail.js";
+import { pendingFacts, readPosition, writePosition, type PendingFact, type PublishPosition } from "./log-tail.js";
 
 /** The connection to the broker, as the follower needs it. */
 export interface BrokerTransport {
@@ -87,51 +87,78 @@ export function createPublisher(options: PublisherOptions): Publisher {
     warn(`culture-agents core: run ${runId} is not published past this point: ${reasonOf(err)}. Its log is unchanged.`);
   };
 
-  /** Publish what `runId` has pending. `refused` is true when the broker did not take an event. */
-  async function publishRun(runId: string): Promise<{ count: number; refused: boolean }> {
-    const dir = runDir(stateDir, runId);
-    let position = positions.get(runId) ?? readPosition(dir);
+  /** The envelope of one fact, or null after holding the run on a fact that has none. */
+  function messageFor(runId: string, item: PendingFact): ReturnType<typeof buildMessage> | null {
+    try {
+      return buildMessage(item.fact, source);
+    } catch (err) {
+      if (!(err instanceof EnvelopeError)) throw err;
+      hold(runId, err);
+      return null;
+    }
+  }
+
+  /** Offer one message to the broker; true once it acknowledged. Warns when the broker goes away or comes back. */
+  async function offer(message: ReturnType<typeof buildMessage>): Promise<boolean> {
+    try {
+      await transport.publish(message.topic, message.payload);
+    } catch (err) {
+      if (up !== false && !stopped) warn(`culture-agents core: the broker is not taking run events (${reasonOf(err)}); they stay in the run logs and are published when it is back.`);
+      up = false;
+      return false;
+    }
+    if (up === false) warn("culture-agents core: the broker takes run events again; publishing what was missed.");
+    up = true;
+    return true;
+  }
+
+  /** Record the position after an acknowledged event: in memory, then on disk. */
+  function record(runId: string, dir: string, position: PublishPosition): void {
+    positions.set(runId, position); // kept in memory first: a failed write below must not make this core publish the event again
+    try {
+      writePosition(dir, position);
+      unwritable.delete(runId);
+    } catch (err) {
+      if (!unwritable.has(runId)) warn(`culture-agents core: cannot record how far run ${runId} is published (${reasonOf(err)}); after a restart some of its events are published again with the same ids.`);
+      unwritable.add(runId);
+    }
+  }
+
+  /** Publish one pending event and record the position only once the broker acknowledged it. */
+  async function publishItem(runId: string, dir: string, item: PendingFact): Promise<"published" | "held" | "refused"> {
+    const message = messageFor(runId, item);
+    if (message === null) return "held";
+    if (!(await offer(message))) return "refused";
+    record(runId, dir, item.after);
+    return "published";
+  }
+
+  /** The events `runId` has pending, or null when it has none now or ever (finished) or is held. */
+  function pendingOf(runId: string, dir: string): PendingFact[] | null {
+    const position = positions.get(runId) ?? readPosition(dir);
     if (position.state !== null && isTerminal(position.state as RunState)) {
       finished.add(runId);
       positions.delete(runId);
-      return { count: 0, refused: false };
+      return null;
     }
     positions.set(runId, position);
-    let pending;
     try {
-      pending = pendingFacts(dir, runId, position, batch);
+      return pendingFacts(dir, runId, position, batch);
     } catch (err) {
       hold(runId, err);
-      return { count: 0, refused: false };
+      return null;
     }
+  }
+
+  /** Publish what `runId` has pending. `refused` is true when the broker did not take an event. */
+  async function publishRun(runId: string): Promise<{ count: number; refused: boolean }> {
+    const dir = runDir(stateDir, runId);
+    const pending = pendingOf(runId, dir);
+    if (pending === null) return { count: 0, refused: false };
     let count = 0;
     for (const item of pending) {
-      let message;
-      try {
-        message = buildMessage(item.fact, source);
-      } catch (err) {
-        if (!(err instanceof EnvelopeError)) throw err;
-        hold(runId, err);
-        return { count, refused: false };
-      }
-      try {
-        await transport.publish(message.topic, message.payload);
-      } catch (err) {
-        if (up !== false && !stopped) warn(`culture-agents core: the broker is not taking run events (${reasonOf(err)}); they stay in the run logs and are published when it is back.`);
-        up = false;
-        return { count, refused: true };
-      }
-      if (up === false) warn("culture-agents core: the broker takes run events again; publishing what was missed.");
-      up = true;
-      position = item.after;
-      positions.set(runId, position); // kept in memory first: a failed write below must not make this core publish the event again
-      try {
-        writePosition(dir, position);
-        unwritable.delete(runId);
-      } catch (err) {
-        if (!unwritable.has(runId)) warn(`culture-agents core: cannot record how far run ${runId} is published (${reasonOf(err)}); after a restart some of its events are published again with the same ids.`);
-        unwritable.add(runId);
-      }
+      const outcome = await publishItem(runId, dir, item);
+      if (outcome !== "published") return { count, refused: outcome === "refused" };
       count += 1;
       if (stopped) break;
     }
@@ -156,19 +183,34 @@ export function createPublisher(options: PublisherOptions): Publisher {
     return total;
   }
 
-  async function follow(): Promise<void> {
-    while (!stopped) {
-      let count = 0;
-      try {
-        count = await pass();
-      } catch (err) {
-        warn(`culture-agents core: publishing run events failed for this round: ${reasonOf(err)}`);
-      }
-      if (stopped) return;
-      // More may be waiting after a full batch: go on at once, but let other work in between.
-      const wait = up === false ? retryMs : count > 0 ? 0 : pollMs;
-      await delay(wait, undefined, { signal: abort.signal }).catch(() => undefined);
+  /** How long to sleep after a round that published `count` events. */
+  function waitAfter(count: number): number {
+    if (up === false) return retryMs;
+    // More may be waiting after a full batch: go on at once, but let other work in between.
+    return count > 0 ? 0 : pollMs;
+  }
+
+  /** One round of `follow`: a pass, then the sleep before the next one (none once stopped). */
+  async function round(): Promise<void> {
+    let count = 0;
+    try {
+      count = await pass();
+    } catch (err) {
+      warn(`culture-agents core: publishing run events failed for this round: ${reasonOf(err)}`);
     }
+    if (stopped) return;
+    await delay(waitAfter(count), undefined, { signal: abort.signal }).catch(() => undefined);
+  }
+
+  /** Rounds one after the other until `stop`; each round starts when the one before has finished. */
+  function follow(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const next = (): void => {
+        if (stopped) return resolve();
+        round().then(next, reject);
+      };
+      next();
+    });
   }
 
   return {
