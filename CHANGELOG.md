@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.1] - 2026-11-27
+
+### Added
+
+- Part two of D2 is validated and summarized: evidence e25 to e34, obligation o28 for the part two success signal and deltas b10 to b12 and b14, all proposed for the owner; the delivery summary now reads 26 delivered, 6 partial, 0 blocked over 32 tasks.
+- `docs/d2/reviews/pr-18-review.md`: the review of pull request 18 and how every finding was resolved before the merge.
+
+### Changed
+
+- The handoff note describes D2 as built and merged, with what is not verified and what it needs.
+
 ## [0.17.0] - 2026-11-27
 
 ### Added

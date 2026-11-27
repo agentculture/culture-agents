@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-25T21:59:31Z",
-  "updated": "2026-11-26T19:05:33Z",
+  "updated": "2026-11-27T17:29:18Z",
   "claims": [
     {
       "id": "c1",
@@ -2232,6 +2232,15 @@
       "source_text": "A remote submit names the repository as the executing host knows it (that host's allow-listed path, or an alias the host defines), and a run's commits can be fetched from the executing core through the control API as a git bundle, so a caller on another host can bring the `runs/<id>` branch home without shell access to that host.",
       "origin": "llm",
       "status": "approved"
+    },
+    {
+      "id": "o28",
+      "claim_id": "c27",
+      "seam": "host A <-> host B (two real hosts)",
+      "behavior": "A submit from host A runs on host B and is steered and cancelled from A; with host B halted every run on it reads unreachable on A within the stated seconds and 0 read succeeded; a hold signal refuses a submit and a missing one reads unknown",
+      "source_text": "Part two passes on at least 2 real hosts: a submit from host A runs on host B and is steered and cancelled from A; with host B halted, every run that was active on it reads 'unknown' on A within a stated number of seconds and 0 read 'succeeded'; a submit to a host whose heat or gateway signal says hold is refused, and a missing signal reads 'unknown'.",
+      "origin": "llm",
+      "status": "proposed"
     }
   ]
 }
