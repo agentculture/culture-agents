@@ -24,6 +24,7 @@ export interface GatewaySource {
   timeoutMs?: number;
 }
 
+export const GATEWAY_NO_FIELD = "not consulted: the gateway's status has no admission field (lobes-cli issue 346 not released)";
 export const GATEWAY_NOT_USED = "not consulted: this harness does not use the model gateway";
 
 const unknown = (reason: string, observedAt: string | null = null): Signal => ({ state: "unknown", consulted: true, reason, observed_at: observedAt });
@@ -38,6 +39,8 @@ export function gatewayFromPayload(text: string, now: Date): Signal {
     return unknown("the gateway's status is not valid JSON");
   }
   const root = doc !== null && typeof doc === "object" && !Array.isArray(doc) ? (doc as Record<string, unknown>) : null;
+  // The admit field of lobes-cli issue 346 is the only source: a status without it is not consulted.
+  if (root !== null && !("admission" in root)) return { state: "unknown", consulted: false, reason: GATEWAY_NO_FIELD, observed_at: null };
   const a = root?.["admission"];
   const o = a !== null && typeof a === "object" && !Array.isArray(a) ? (a as Record<string, unknown>) : null;
   const at = o?.["at"];

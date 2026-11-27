@@ -157,7 +157,7 @@ behaviour inside 3.0, without another bump.
 | `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | `reconnect` and `worktree_isolation` are reported supported; `answer` is reported supported by the stub harness only, whose driver asks | t13 (built), t9 (built), t8 (built) |
 | `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17, built |
 | `placement` may be reported as supported | capability document | every harness of this core reports it unsupported, with its reason | t30, *shape only* (planned, part two) |
-| `admission_held`: a new error code (HTTP 429, exit 1, retryable) with a required `signal` naming the signal (`heat` or `gateway`), its `state` (`hold` or `unknown`) and `observed_at` | error, `runs.submit` | `signal` is required with this code and forbidden with any other; no route returns it yet | t30, *shape only* (planned, part two) |
+| `admission_held`: a new error code (HTTP 429, exit 1, retryable) with a required `signal` naming the signal (`heat` or `gateway`), its `state` (`hold` or `unknown`) and `observed_at` | error, `runs.submit` | `signal` is required with this code and forbidden with any other; only the remote submit route returns it (t24) | t30, *shape only* (planned, part two) |
 
 `busy` is removed in 3.0 (t8, built): the error code, its `active_run_id` and `repo` fields and the one-active-run-per-repository rule are gone from the schemas, this file and the CLI. Two or more runs may be active in one repository; no limit applies unless the operator configures one, and a submit past a configured limit gets `limit_reached`.
 
@@ -449,9 +449,11 @@ Clients and tests may rely on the order.
    `runs_per_host`. With no limit configured nothing is checked and no submit
    is refused here. Nothing is queued. See
    [Limits, load and admission](#limits-load-and-admission).
-   **(planned, part two)** After the limits, a consulted admission signal
+   **(built, t24)** After the limits, a consulted admission signal
    that says `hold`, or that is `unknown` for a submit from another host →
-   `admission_held` with `signal`. Today no submit is refused here.
+   `admission_held` with `signal`. Built (t24): a submit from another member of the fleet
+   (`POST /v1/fleet/runs`) is refused this way, decided on the executing core; a local submit is
+   never refused here (an unknown signal adds a `signal_unknown` warning).
 8. The core writes the key (when there is one), then creates the session and
    run directory, then starts the worker. The worker writes its PID, its
    event log with event 1 (`run.state`, `null` → `queued`) and its cursor to
@@ -855,12 +857,15 @@ error status or a redirect away from loopback reads `unknown`. For any other har
 A local submit under an `unknown` consulted signal is admitted, and the submit response
 then carries a `warnings` entry with code `signal_unknown` naming the signal.
 
-**(planned, part two)** A submit that a consulted signal holds (`hold`, or
+**(built, t24)** A submit from another member that a consulted signal holds (`hold`, or
 `unknown` for a submit from another host) is refused with `admission_held`.
 Its `signal` names the signal (`heat` or `gateway`), the `state` that held the
 submit and the `observed_at` of the reading (null when there is none). It is
 retryable, and nothing is queued: the caller retries later or submits to
-another host. The shape is in 3.0 (t30); no route returns it yet.
+another host. The shape is in 3.0 (t30); the remote submit route returns it (t24). A signal that
+was not consulted never refuses: the gateway is read only from the `admission` object (with
+`admit` and a timestamp) that lobes-cli issue 346 asks for, and a status without that field leaves
+the gateway `consulted: false`.
 
 ## Retention of finished runs
 
@@ -943,7 +948,7 @@ sentence. For environment errors, the message includes a remediation hint.
 | `not_found` | 404 | 1 | false | `run_id` (optional) | Unknown agent, harness, run or path |
 | `conflict` | 409 | 1 | varies (see above) | `run_id`; `idempotency_key` or `question_id` (optional) | The run's state does not allow the action, or an idempotency key was used with a different request |
 | `limit_reached` | 429 | 1 | true | `limit` (`name`, `value`, `active`, and `repo` for a repository limit) | A limit the operator configured has no room; nothing is queued |
-| `admission_held` | 429 | 1 | true | `signal` (`name`, `state`, `observed_at`) | An admission signal holds the submit; nothing is queued. **(planned, part two)**: no route returns it yet |
+| `admission_held` | 429 | 1 | true | `signal` (`name`, `state`, `observed_at`) | An admission signal holds the submit; nothing is queued. Returned by the remote submit route (t24) |
 | `unsupported` | 422 | 1 | false | `capability` | The capability is not supported (see above) |
 | `incompatible_version` | 412 | 2 | false | `client_api_version`, `server_api_version` | The API versions are incompatible |
 | `unavailable` | 503 | 2 | true | `retry_after_ms`, `run_id` (both optional) | A dependency is not reachable (sandbox gateway, harness, worker). With `retry_after_ms`: retry shortly |
