@@ -104,8 +104,9 @@ def _dig(value: Any, path: tuple[Any, ...]) -> Any:
 
 
 def test_the_contract_is_version_3_3():
-    # 3.0 plus MINOR additions: the fleet member list (3.1, t22), and remote runs (t23) and the
-    # unreadable runs list (t32) in 3.2; every 3.0 shape is unchanged.
+    # 3.0 plus MINOR additions: the fleet member list (3.1, t22), remote runs (t23) and the
+    # unreadable runs list (t32) in 3.2, and the unreachable view (t25) and a remote run's
+    # result, logs and bundle (t26) in 3.3; every 3.0 shape is unchanged.
     assert API["api_version"] == "3.3"
     assert cs.load_json(_fixture("version/root.current"))["api_version"] == "3.3"
     assert "3.3" in SCHEMAS["version.json"]["description"]

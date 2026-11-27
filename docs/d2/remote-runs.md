@@ -6,8 +6,8 @@ Status: built in `core/src/fleet/` (`remote.ts`, `serve-runs.ts`,
 (`docs/d2/fleet-transport.md`). It is control API 3.2, a MINOR addition
 (`contract/README.md`, "Changes in 3.2"). It builds Decisions 4 and 5 of
 `docs/d2/part-two-design.md` as that record recommends. Admission across hosts
-(t24) and fetching a run's commits as a bundle
-(t26) are not built.
+(t24) and the unreachable view (t25) are documented in their own sections. A remote run's logs, result
+and commits as a git bundle are API 3.3 (t26, `docs/d2/run-bundles.md`).
 
 ## What it does
 

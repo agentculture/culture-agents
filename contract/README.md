@@ -17,8 +17,9 @@ part two shape, the fleet member list, as a MINOR addition (see
 submitted to and controlled on another fleet member, and the list of run
 directories the core cannot read, as another (see
 [Changes in 3.2](#changes-in-32)). Version 3.3 adds the unreachable view of a
-run on a member that does not answer (see [Changes in 3.3](#changes-in-33)). The
-shapes are fixed here.
+run on a member that does not answer, and a remote run's logs, result and
+commits as a git bundle (see [Changes in 3.3](#changes-in-33)). The shapes are
+fixed here.
 Some of the behaviour behind them is not built yet. Every such rule below is
 marked **(planned)** with the task of the D2 plan
 (`docs/plans/2026-11-26-d2-fleet-and-recovery.md`) that builds it, and
@@ -181,8 +182,8 @@ never reported as a success, and neither is `unanswered`.
 
 **Part two is not in 3.0.** Its own shapes come with their tasks as 3.x MINOR
 additions: the list of fleet members (3.1, t22, built), the unreachable view of a run on a host
-that does not answer (3.3, t25, built), and fetching a run's commits as a git bundle. Remote runs
-are 3.2 (t23, built). A MINOR
+that does not answer (3.3, t25, built), and fetching a run's commits as a git bundle (3.3, t26,
+built). Remote runs are 3.2 (t23, built). A MINOR
 addition is a new route with its own response shape, or a new optional request
 field. It must not add a field, an enum value or an event kind to a shape that
 exists in 3.0. Three part-two shapes that would be MAJOR later are in 3.0
@@ -374,6 +375,88 @@ is never mistaken for a run that does not exist.
   carries `unreadable_count` beside `runs`. The count is the CLI's own field,
   not a change to the `run_list` shape.
 
+## Changes in 3.3
+
+Version 3.3 is one MINOR addition to 3.2, built by plan tasks t25 and t26
+(spec c39, h28 for t26). No 3.0, 3.1 or 3.2 shape changed: four new routes
+reuse existing shapes, carry bytes or use the new file `reachability.json`, and
+no field, enum value, error code or event kind was added to an existing shape.
+A 3.0, 3.1 or 3.2 client works with a 3.3 core. A 3.3 client refuses a 3.2
+core, which has none of these routes (the client rule above).
+
+| Change | Where | Required in 3.3 | Built by |
+| --- | --- | --- | --- |
+| `fleet.runs.logs`: a page of a remote run's stored events | new route `GET /v1/fleet/runs/{run_id}/events?after=&limit=`, `event_page` | new in 3.3 | t26 (built) |
+| `fleet.runs.result`: the outcome of a terminal remote run | new route `GET /v1/fleet/runs/{run_id}/result`, `run_result` | new in 3.3 | t26 (built) |
+| `fleet.runs.bundle`: a terminal remote run's branch as a git bundle | new route `GET /v1/fleet/runs/{run_id}/bundle`, body `application/x-git-bundle` | new in 3.3 | t26 (built) |
+| `fleet.runs.view`: a run on another member as this caller sees it now, or `unreachable` | new route `GET /v1/fleet/runs/{run_id}/view`, new file `reachability.json` | new in 3.3; with the fleet transport off it answers `unsupported`, capability `placement` | t25 (built) |
+| the sensitivity mark on cross-host reads | HTTP response header `Agents-Content-Sensitivity: unredacted`; no schema field | new in 3.3 | t26 (built) |
+
+### A remote run's commits and reads (3.3)
+
+`docs/d2/run-bundles.md`.
+
+- **The bundle** holds exactly one ref, `refs/heads/runs/<run_id>`, and only
+  the commits after the run's `base_commit`, which is its one prerequisite
+  (`git bundle create <file> refs/heads/runs/<run_id> ^<base_commit>`). No other
+  branch, tag or commit of the executing host travels. The caller's checkout
+  must hold the base commit to fetch it. A run with no commits is `not_found`,
+  an active run `conflict` (retryable). A bundle over 64 MiB is refused with
+  `unsupported`, capability `placement`. The body is bytes; every refusal is an
+  ordinary JSON error.
+- **Who may read.** Over the fleet transport the executing core serves the
+  result, events and bundle of a run only to the member that submitted it
+  (`denied` otherwise, before anything of the run is read). On the control
+  socket the local operator reads them. This is the owner's answer to the
+  design record's question 8. Logs and attach across hosts follow this rule
+  and are not redacted.
+- **The mark.** Every cross-host response carrying a run's content as the
+  executing core stored it (`fleet.runs.logs`, `fleet.runs.attach`,
+  `fleet.runs.bundle`, and the member's `events` and `bundle` routes over the
+  fleet transport) carries the header `Agents-Content-Sensitivity: unredacted`.
+  It is a header, not a field, so it costs no schema change. A local read
+  carries no mark.
+- **Version rule.** The calling core sends these three routes only to a member
+  that announced 3.3 or later, and otherwise answers `unsupported`
+  (`placement`) without sending anything. The bundle call has a 60 second
+  timeout and a 64 MiB read cap; the others keep 5 seconds, and 1 MiB (result)
+  or 8 MiB (an event page, at most 50 events).
+- **The CLI.** `agents runs result` on a remote run fetches the branch into the
+  checkout it runs in, or `--into <checkout>`, after checking that the bundle
+  holds only that run's ref; `--no-fetch` fetches nothing.
+
+### The unreachable view (3.3)
+
+- **A view, never a state.** `fleet.runs.view` reads the run from the member
+  that the run id's node names, as `fleet.runs.show` does. When the member
+  answers, the response is `view: "reachable"` with its answer in `run`: the
+  true state, whatever it is. When it does not, the response is `view:
+  "unreachable"` with no `run`, so no state at all: never `succeeded`, never
+  `running`. The run state enum and the event kinds are unchanged; `unreachable`
+  is not a value of either.
+- **Computed on the caller, on each read.** Nothing is written for it: no run
+  state, event, file or cache on the calling core, and nothing on the member.
+  Every caller reaches the same view through its own core, so every caller sees
+  the run as unreachable while its core cannot reach the member. The stored
+  terminal state `unknown` is still written only by the core that owns the run,
+  when it has evidence that the worker is gone, as on one host.
+- **When it reads unreachable.** `reason: "not_listed"`: the member is in the
+  caller's trust list but not in its member list, because it never announced
+  itself or has been silent for more than 15 seconds (so within 16 seconds of
+  its last announcement). `reason: "no_answer"`: the member is listed but the
+  call failed or timed out (within 5 seconds of the call), or no address of the
+  caller's address list answered as that member. A member whose name the trust
+  list lacks is not a member: the read is `unavailable`, not a view. Any other
+  failure (a refusal such as `denied`, or an answer that does not match the
+  contract) is relayed as that error.
+- **A run shown unreachable can end in any terminal state.** It shows its true
+  state on the first read after the member answers again. The caller has not
+  stored the earlier state, so a run read as unreachable does not say whether it
+  was active; the view only says this caller cannot know.
+- `fleet.runs.show` is unchanged: it still answers `unavailable` while the
+  member does not answer. The CLI's `agents runs show <remote run id>` reads
+  the view.
+
 ## Routes
 
 The authoritative list is `api.json` → `routes`, which gives each route's
@@ -406,6 +489,9 @@ possible errors and CLI verb.
 | `fleet.runs.cancel` | `POST /v1/fleet/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` of a remote run (3.2) |
 | `fleet.aliases` | `GET /v1/fleet/aliases?member=` | 200 `remote.json#/$defs/alias_list` | `agents agents aliases` (3.2) |
 | `runs.unreadable` | `GET /v1/runs/unreadable` | 200 `unreadable.json` | `agents runs unreadable` (3.2) |
+| `fleet.runs.logs` | `GET /v1/fleet/runs/{run_id}/events?after=&limit=` | 200 `event_page` | `agents runs logs` of a remote run (3.3) |
+| `fleet.runs.result` | `GET /v1/fleet/runs/{run_id}/result` | 200 `run_result` | `agents runs result` of a remote run (3.3) |
+| `fleet.runs.bundle` | `GET /v1/fleet/runs/{run_id}/bundle` | 200 git bundle (bytes) | `agents runs result` of a remote run (3.3) |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:
@@ -1006,46 +1092,3 @@ The CLI also maps these cases, which produce no error body:
   break one of these rules, and the file name says which.
 - Fixtures are payloads exactly as sent on the wire, so a fake core may serve
   them as they are.
-
-## Changes in 3.3
-
-Version 3.3 is one MINOR addition to 3.2, built by plan task t25 (the other
-3.3 additions are listed by their own tasks). No 3.0, 3.1 or 3.2 shape
-changed. A 3.0, 3.1 or 3.2 client works with a 3.3 core; a 3.3 client refuses a
-3.2 core, which has no unreachable view (the client rule above).
-
-| Change | Where | Required in 3.3 | Built by |
-| --- | --- | --- | --- |
-| `fleet.runs.view`: a run on another member as this caller sees it now, or `unreachable` | new route `GET /v1/fleet/runs/{run_id}/view`, new file `reachability.json` | new in 3.3; with the fleet transport off it answers `unsupported`, capability `placement` | t25 (built) |
-
-### The unreachable view (3.3)
-
-- **A view, never a state.** `fleet.runs.view` reads the run from the member
-  that the run id's node names, as `fleet.runs.show` does. When the member
-  answers, the response is `view: "reachable"` with its answer in `run`: the
-  true state, whatever it is. When it does not, the response is `view:
-  "unreachable"` with no `run`, so no state at all: never `succeeded`, never
-  `running`. The run state enum and the event kinds are unchanged; `unreachable`
-  is not a value of either.
-- **Computed on the caller, on each read.** Nothing is written for it: no run
-  state, event, file or cache on the calling core, and nothing on the member.
-  Every caller reaches the same view through its own core, so every caller sees
-  the run as unreachable while its core cannot reach the member. The stored
-  terminal state `unknown` is still written only by the core that owns the run,
-  when it has evidence that the worker is gone, as on one host.
-- **When it reads unreachable.** `reason: "not_listed"`: the member is in the
-  caller's trust list but not in its member list, because it never announced
-  itself or has been silent for more than 15 seconds (so within 16 seconds of
-  its last announcement). `reason: "no_answer"`: the member is listed but the
-  call failed or timed out (within 5 seconds of the call), or no address of the
-  caller's address list answered as that member. A member whose name the trust
-  list lacks is not a member: the read is `unavailable`, not a view. Any other
-  failure (a refusal such as `denied`, or an answer that does not match the
-  contract) is relayed as that error.
-- **A run shown unreachable can end in any terminal state.** It shows its true
-  state on the first read after the member answers again. The caller has not
-  stored the earlier state, so a run read as unreachable does not say whether it
-  was active; the view only says this caller cannot know.
-- `fleet.runs.show` is unchanged: it still answers `unavailable` while the
-  member does not answer. The CLI's `agents runs show <remote run id>` reads
-  the view.

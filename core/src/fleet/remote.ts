@@ -53,6 +53,22 @@ export interface RemoteRequest {
   schema: SchemaName;
   /** Default: the transport's 1 MiB. */
   maxBytes?: number;
+  /** The MINOR the member must have announced (default: REMOTE_RUNS_SINCE), and what needs it, for the refusal. */
+  since?: string;
+  what?: string;
+  /** Default: the remote options' timeout (5 s). */
+  timeoutMs?: number;
+}
+
+/** A GET whose success body is bytes, not JSON (a run's bundle, 3.3); a refusal is still a typed JSON error. */
+export interface RemoteBytesRequest {
+  path: string;
+  maxBytes: number;
+  timeoutMs: number;
+  since: string;
+  what: string;
+  /** Whether a 200 body is what was asked for. */
+  accept: (body: Buffer) => boolean;
 }
 
 export interface Remote {
@@ -60,6 +76,8 @@ export interface Remote {
   readonly apiVersion: string;
   /** One call to member `node`: the checked success body, or a `ControlError`. */
   request(node: string, r: RemoteRequest): Promise<unknown>;
+  /** One GET to member `node` whose success body is bytes: those bytes, or a `ControlError`. */
+  fetchBytes(node: string, r: RemoteBytesRequest): Promise<Buffer>;
 }
 
 /**
@@ -96,7 +114,7 @@ export function createRemote(o: RemoteOptions): Remote {
   const call = o.call ?? fleetCall;
 
   /** The member's address once the version rule allows the call. */
-  function target(node: string): PeerAddress {
+  function target(node: string, since: string, what: string): PeerAddress {
     const member = o.members.view().members.find((m) => m.node === node);
     if (!member) {
       const text = `${node} is not a listed fleet member: it has not announced itself to this core within the silence limit, or its key is not in this core's trust list.`;
@@ -109,39 +127,53 @@ export function createRemote(o: RemoteOptions): Remote {
         server_api_version: member.api_version,
       });
     }
-    if (!servesSince(member.api_version, REMOTE_RUNS_SINCE)) throw unsupported("placement", `${node} speaks API ${member.api_version}; runs on another member need API ${REMOTE_RUNS_SINCE} or later on that member. Upgrade it.`);
+    if (!servesSince(member.api_version, since)) throw unsupported("placement", `${node} speaks API ${member.api_version}; ${what} need API ${since} or later on that member. Upgrade it.`);
     const address = o.addressOf(node);
     if (!address) throw new Unreached("no_answer", `No address in this core's fleet address list (peers.json) has answered as ${node}; add its address there.`);
     return address;
   }
 
+  async function send(node: string, r: RemoteRequest): Promise<FleetResponse> {
+    const address = target(node, r.since ?? REMOTE_RUNS_SINCE, r.what ?? "runs on another member");
+    try {
+      return await call({
+        key: o.key,
+        trust: o.trust(),
+        host: address.host,
+        port: address.port,
+        method: r.method,
+        path: r.path,
+        ...(r.body !== undefined && { body: JSON.stringify(r.body) }),
+        expectNode: node,
+        headers: { [API_VERSION_HEADER]: own },
+        timeoutMs: r.timeoutMs ?? o.timeoutMs ?? FLEET_TIMEOUT_MS,
+        maxResponseBytes: r.maxBytes ?? MAX_RESPONSE_BYTES,
+      });
+    } catch (e) {
+      throw new Unreached("no_answer", `${node} did not answer: ${(e as Error).message}`.slice(0, 2000));
+    }
+  }
+
+  /** The member's typed error relayed, or `internal` for an answer outside the contract. */
+  function refusal(node: string, res: FleetResponse): ControlError {
+    const error = validate("error", parsed(res.body));
+    if (error.ok) return relayed(node, error.value.error);
+    return new ControlError("internal", `${node} answered HTTP ${res.status} with a body that does not match the contract.`);
+  }
+
   return {
     apiVersion: own,
     async request(node, r) {
-      const address = target(node);
-      let res: FleetResponse;
-      try {
-        res = await call({
-          key: o.key,
-          trust: o.trust(),
-          host: address.host,
-          port: address.port,
-          method: r.method,
-          path: r.path,
-          ...(r.body !== undefined && { body: JSON.stringify(r.body) }),
-          expectNode: node,
-          headers: { [API_VERSION_HEADER]: own },
-          timeoutMs: o.timeoutMs ?? FLEET_TIMEOUT_MS,
-          maxResponseBytes: r.maxBytes ?? MAX_RESPONSE_BYTES,
-        });
-      } catch (e) {
-        throw new Unreached("no_answer", `${node} did not answer: ${(e as Error).message}`);
-      }
+      const res = await send(node, r);
       const body = parsed(res.body);
       if (res.status === r.status && validate(r.schema, body).ok) return body;
-      const error = validate("error", body);
-      if (error.ok) throw relayed(node, error.value.error);
-      throw new ControlError("internal", `${node} answered HTTP ${res.status} with a body that does not match the contract.`);
+      throw refusal(node, res);
+    },
+    async fetchBytes(node, r) {
+      const { path, maxBytes, timeoutMs, since, what } = r;
+      const res = await send(node, { method: "GET", path, status: 200, schema: "error", maxBytes, timeoutMs, since, what });
+      if (res.status === 200 && r.accept(res.body)) return res.body;
+      throw refusal(node, res);
     },
   };
 }

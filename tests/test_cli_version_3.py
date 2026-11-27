@@ -1,8 +1,9 @@
 """API 3.x on the CLI side: a 2.0 client and a 3.x core refuse each other, and the new shapes.
 
 The fake core serves the contract's own fixtures, so its ``/v1/version`` answer
-is the 3.3 one (3.0 plus the fleet member list, t22, remote runs, t23, and the unreadable
-runs, t32). A "2.0 client" is this CLI with its version constant set back.
+is the 3.3 one (3.0 plus the fleet member list, t22, remote runs, t23, the unreadable
+runs, t32, the unreachable view, t25, and a remote run's result, logs and bundle,
+t26). A "2.0 client" is this CLI with its version constant set back.
 """
 
 from __future__ import annotations

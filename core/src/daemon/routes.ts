@@ -16,7 +16,18 @@ import { memberListOff } from "../fleet/members.js";
 import type { Remote } from "../fleet/remote.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { branchesList, branchesRemove } from "./branch-routes.js";
-import { fleetAliases, fleetRunsAttach, fleetRunsControl, fleetRunsShow, fleetRunsSubmit, fleetRunsView, type FleetRouteCall } from "./fleet-routes.js";
+import {
+  fleetAliases,
+  fleetRunsAttach,
+  fleetRunsBundle,
+  fleetRunsControl,
+  fleetRunsLogs,
+  fleetRunsResult,
+  fleetRunsShow,
+  fleetRunsSubmit,
+  fleetRunsView,
+  type FleetRouteCall,
+} from "./fleet-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 import type { DeferredRequest, RunService } from "./ports.js";
@@ -75,6 +86,9 @@ const PATTERNS: readonly Pattern[] = [
   ["fleet.runs.attach", "GET", "v1", "fleet", "runs", ":run_id", "attach"],
   ["fleet.runs.steer", "POST", "v1", "fleet", "runs", ":run_id", "steer"],
   ["fleet.runs.cancel", "POST", "v1", "fleet", "runs", ":run_id", "cancel"],
+  ["fleet.runs.logs", "GET", "v1", "fleet", "runs", ":run_id", "events"],
+  ["fleet.runs.result", "GET", "v1", "fleet", "runs", ":run_id", "result"],
+  ["fleet.runs.bundle", "GET", "v1", "fleet", "runs", ":run_id", "bundle"],
   ["fleet.aliases", "GET", "v1", "fleet", "aliases"],
 ];
 
@@ -86,6 +100,9 @@ const FLEET_ROUTES: Record<string, (c: FleetRouteCall) => Promise<void>> = {
   "fleet.runs.attach": fleetRunsAttach,
   "fleet.runs.steer": (c) => fleetRunsControl(c, "steer"),
   "fleet.runs.cancel": (c) => fleetRunsControl(c, "cancel"),
+  "fleet.runs.logs": fleetRunsLogs,
+  "fleet.runs.result": fleetRunsResult,
+  "fleet.runs.bundle": fleetRunsBundle,
   "fleet.aliases": fleetAliases,
 };
 

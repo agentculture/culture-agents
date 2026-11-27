@@ -13,6 +13,7 @@ import {
   type Allowlist,
   type Run,
   type RunEvent,
+  type RunResult,
   type SubmitRequest,
   type SubmitResponse,
   type Submitter,
@@ -45,9 +46,16 @@ export interface Received {
 /** The executing core's run service: records each submit and keeps the run, as the real service would. */
 export class MemberService extends FakeRunService {
   readonly received: Received[] = [];
+  /** The branch and commits `getResult` reports for a run (t26); the fixture's otherwise. */
+  readonly results = new Map<string, Pick<RunResult, "branch" | "commits">>();
 
   constructor(private readonly clock: () => Date) {
     super();
+  }
+
+  override async getResult(runId: string): Promise<RunResult> {
+    const result = await super.getResult(runId);
+    return { ...result, ...this.results.get(runId) };
   }
 
   override submit(request: SubmitRequest, submitter?: Submitter, options?: SubmitOptions): Promise<SubmitResponse> {

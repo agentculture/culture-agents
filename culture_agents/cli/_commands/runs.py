@@ -11,7 +11,9 @@ it over the fleet transport. The caller chooses the member; nothing schedules.
 The repository is the alias that member defines, the deadline a duration
 (``--deadline-in``), and the base commit the HEAD of the checkout the CLI runs
 in unless ``--base`` or ``--no-base`` says otherwise. ``show``, ``attach``,
-``steer`` and ``cancel`` reach the member that a run id's node names.
+``steer``, ``cancel`` and (API 3.3) ``logs`` and ``result`` reach the member
+that a run id's node names; ``result`` also brings the run's branch into the
+caller's checkout from a git bundle (``_fetch``).
 
 Task text and steer messages are data sent verbatim, never interpreted.
 """
@@ -27,7 +29,7 @@ from urllib.parse import quote
 
 from agentfront import Flag
 
-from culture_agents.cli import _mode, _render, _text
+from culture_agents.cli import _fetch, _mode, _render, _text
 from culture_agents.cli._client import CoreClient
 from culture_agents.cli._errors import EXIT_USER_ERROR, CliError, CoreError
 from culture_agents.cli._remote import check_submit, remote_base, usage
@@ -107,6 +109,19 @@ LIST_FLAGS = (
 LOGS_FLAGS = (
     Flag(names=("--after",), dest="after", type=int, help="only events after this cursor"),
     Flag(names=("--limit",), dest="limit", type=int, help="at most this many (1-5000)"),
+)
+RESULT_FLAGS = (
+    Flag(
+        names=("--into",),
+        dest="into",
+        help="run on another member: the checkout to fetch its branch into (default: this one)",
+    ),
+    Flag(
+        names=("--no-fetch",),
+        dest="no_fetch",
+        action="store_true",
+        help="run on another member: show the result only, fetch nothing",
+    ),
 )
 ATTACH_FLAGS = (
     Flag(names=("--after",), dest="after", type=int, help="resume after this cursor (default 0)"),
@@ -240,12 +255,26 @@ def runs_show(run_id: str) -> Rendered:
 def runs_logs(run_id: str, after: int | None = None, limit: int | None = None) -> Rendered:
     """Read a page of a run's stored events."""
     query = {"after": after, "limit": limit}
-    return _render.event_page(CoreClient().get(_run_route(run_id) + "/events", "event_page", query))
+    client = CoreClient()
+    route = client.run_route(run_id)[0] + "/events"
+    return _render.event_page(client.get(route, "event_page", query))
 
 
-def runs_result(run_id: str) -> Rendered:
-    """Show the outcome of a finished run."""
-    return _render.run_result(CoreClient().get(_run_route(run_id) + "/result", "run_result"))
+def runs_result(run_id: str, into: str | None = None, no_fetch: bool = False) -> Rendered:
+    """Show the outcome of a finished run; on another member, also fetch its branch here."""
+    client = CoreClient()
+    route, shape = client.run_route(run_id)
+    if shape == "run" and into is not None:
+        raise CliError(
+            code=EXIT_USER_ERROR,
+            message="--into goes with a run on another member; this run's branch is on this host",
+            remediation="see 'agents explain runs result'",
+        )
+    result = client.get(route + "/result", "run_result")
+    done = _render.run_result(result)
+    if shape == "run" or no_fetch or result["branch"] is None:
+        return done
+    return _fetch.with_branch(done, client, route, result["branch"], into)
 
 
 def runs_steer(

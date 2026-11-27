@@ -78,7 +78,11 @@ silent one within 16 s, and refuses a node name held by another key
 and `runs show|attach|steer|cancel` reach the member a run id names; the
 repository is an alias that member defines, the deadline a duration on its
 clock, and a member acts only on the runs it submitted
-(`docs/d2/remote-runs.md`, API 3.2).
+(`docs/d2/remote-runs.md`, API 3.2). `agents runs result` on a remote run
+brings its `runs/<id>` branch into the caller's checkout from a git bundle
+read over the transport (no shell on that host), and `runs logs` reads its
+events unredacted; only the member that submitted a run reads it this way
+(`docs/d2/run-bundles.md`, API 3.3).
 
 D0 decisions in force: a TypeScript core plus a Python CLI as two packages;
 the first two harnesses are Claude Code and OpenCode v2; a run's repository
@@ -115,8 +119,8 @@ node dist/src/daemon/main.js   # start the core daemon (after build); socket pat
 The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`);
-the `agents` CLI uses the same resolution. The control API is version 3.2
-(`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, remote runs and the unreadable runs list, and `contract/README.md` marks
+the `agents` CLI uses the same resolution. The control API is version 3.3
+(`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, remote runs, the unreadable runs list and a remote run's logs, result and bundle, and `contract/README.md` marks
 the behaviour that is not built yet as (planned). With no core running, every `agents agents` and `agents runs` verb
 exits 2 with a hint.
 

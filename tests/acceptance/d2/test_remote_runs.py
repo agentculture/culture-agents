@@ -7,13 +7,19 @@ repository it calls ``acc``. The calling core must hold another node name (c40):
 attaches and cancels with the CLI on the caller's socket only; thor's CLI is used to check what
 thor recorded. The stub's task language: ``files: a, b`` writes those files one at a time, and a
 steer ``files: ...`` replaces the ones not yet written; ``hang`` runs until cancelled.
+
+t26: ``runs result`` on the caller brings the run's branch into the caller's own checkout from a
+git bundle that the caller's core reads from thor over the fleet transport; ``runs logs`` reads
+thor's events unredacted. No SSH or shell on thor is involved: ssh is disabled for the CLI.
 """
 
 from __future__ import annotations
 
 import json
+import subprocess  # nosec B404 - fixed git invocations on test repositories
 import time
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
 
@@ -113,3 +119,43 @@ def test_a_run_is_cancelled_from_the_caller_and_a_named_commit_thor_lacks_is_ref
         "node": "thor",
         "aliases": [{"alias": "acc", "permits": [{"agent_id": AGENT, "harness": "stub"}]}],
     }
+
+
+def _git(cwd: Path, *args: str) -> str:
+    done = subprocess.run(  # nosec B603 B607 - fixed git arguments, no shell
+        ["git", *args], cwd=cwd, capture_output=True, text=True, check=True
+    )
+    return done.stdout.strip()
+
+
+def test_result_brings_the_run_branch_into_the_callers_checkout_from_a_bundle(
+    fleet, tmp_path
+) -> None:
+    thor, caller = fleet
+    thor_repo = thor.core.repos[0]
+    mine = tmp_path / "mine"  # the caller's own checkout of the same project
+    _git(tmp_path, "clone", "-q", str(thor_repo), str(mine))
+    base = _git(mine, "rev-parse", "HEAD")
+    sent = _submit(caller, "files: a.txt, b.txt", "--base", base)
+    assert sent.rc == 0, sent.err
+    run_id = sent.json()["run"]["id"]
+    assert thor.core.wait_terminal(run_id, 30)["state"] == "succeeded"
+
+    caller.core.env["GIT_SSH_COMMAND"] = "false"  # any ssh the CLI tried would fail
+    got = caller.core.cli("runs", "result", run_id, "--into", str(mine), "--json")
+    assert got.rc == 0, got.err
+    branch = f"runs/{run_id}"
+    tip = _git(thor_repo, "rev-parse", branch)
+    assert got.json()["fetched"] == {"branch": branch, "into": str(mine), "tip": tip}
+    assert got.json()["branch"] == branch
+    assert _git(mine, "rev-parse", branch) == tip, "the caller holds thor's run branch"
+    assert {"a.txt", "b.txt"} <= set(branch_files(mine, run_id))
+    assert (
+        _git(mine, "for-each-ref", "--format=%(refname)", "refs/heads/runs/")
+        == f"refs/heads/{branch}"
+    )
+
+    logs = caller.core.cli("runs", "logs", run_id, "--limit", "50", "--json")
+    assert logs.rc == 0, logs.err
+    on_thor = thor.core.cli("runs", "logs", run_id, "--limit", "50", "--json")
+    assert logs.json()["events"] == on_thor.json()["events"], "the same events, unredacted"

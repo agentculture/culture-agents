@@ -33,7 +33,7 @@ test("the rule between cores is the same MAJOR, whatever the MINORs; the client 
   assert.deepEqual([servesSince("3.1", "3.2"), servesSince("3.2", "3.2"), servesSince("3.9", "3.2"), servesSince("4.2", "3.2")], [false, true, true, false]);
 });
 
-test("a 3.3 core and a core that reports 3.1 call each other in both directions", async () => {
+test("this core (3.3) and a core that reports 3.1 call each other in both directions", async () => {
   const thorKey = newFleetKey();
   const callerKey = newFleetKey();
   const thor = await startCore("thor", thorKey, [[CALLER_NODE, callerKey]], { apiVersion: "3.1" });
@@ -42,7 +42,7 @@ test("a 3.3 core and a core that reports 3.1 call each other in both directions"
     // 3.3 -> 3.1: the announcement (header 3.3) is accepted, and each core lists the other with its version.
     caller.announceTo(thor);
     await caller.fleet.announce();
-    assert.equal(thor.fleet.members.view().members[0]?.api_version, "3.3");
+    assert.equal(thor.fleet.members.view().members[0]?.api_version, apiVersion);
     assert.equal(caller.fleet.members.view().members[0]?.api_version, "3.1");
     const down = await Promise.all(["/v1/version", "/v1/fleet/members"].map((path) => direct(caller, thor, path, "3.3")));
     assert.deepEqual(down.map((r) => r.status), [200, 200], down.map((r) => r.body.toString()).join("; "));

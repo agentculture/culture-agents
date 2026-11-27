@@ -310,7 +310,7 @@ def test_refused_connection_is_the_same(tmp_path, monkeypatch, capsys) -> None:
 # --- incompatible core -------------------------------------------------------
 
 
-@pytest.mark.parametrize("server", ["4.0", "2.9", "3.0", "3.1"])
+@pytest.mark.parametrize("server", ["4.0", "2.9", "3.0", "3.1", "3.2"])
 def test_incompatible_core_is_refused_naming_both_versions(core, capsys, server) -> None:
     core.respond(
         "GET /v1/version", 200, {**fixture("version", "root.current"), "api_version": server}
