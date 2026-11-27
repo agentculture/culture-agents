@@ -73,9 +73,18 @@ environment in `/proc/<pid>/environ`, which any process of the same user can rea
 stay readable there for the life of the core. The way to avoid that is to give the core its secrets
 by file or descriptor instead of the environment (planned, not built). The list is declared in one place,
 `INJECTED_SECRETS` in `src/daemon/secrets.ts`: `GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`,
-`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and `LOBES_GATEWAY_KEY`. The worker spawner, the host
-command runner and the sandbox environment filter also drop these names from any environment they
-are given.
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `LOBES_GATEWAY_KEY` and `CULTURE_AGENTS_FLEET_KEY`.
+The worker spawner, the host command runner and the sandbox environment filter also drop these names
+from any environment they are given.
+
+## Fleet transport (off by default)
+
+A TLS 1.3 listener for other cores, authenticated in both directions by Ed25519 key against a local
+trust list (`src/fleet/`). It opens only when `CULTURE_AGENTS_FLEET_LISTEN` is set to `<ip>:<port>`.
+The key comes as `CULTURE_AGENTS_FLEET_KEY` (above), so it stays readable in the core's
+`/proc/<pid>/environ` to the same user. `culture-agents-fleet keygen` makes a key, and
+`culture-agents-fleet cert` prints the trust entry other members add. See
+`docs/d2/fleet-transport.md`.
 
 ## License
 

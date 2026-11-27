@@ -58,6 +58,11 @@ chat integration. Nothing is archived: recovery is the condition for archiving
 [#2](https://github.com/agentculture/culture-agents/issues/2) is the
 authoritative plan; `docs/d0/decisions.md` lists open decisions. Never
 describe unbuilt verbs as available.
+The network transport between cores is the one piece of part two on disk:
+`core/src/fleet/` (TLS 1.3, both sides authenticated by Ed25519 key against a
+local trust list; `docs/d2/fleet-transport.md`). It is off unless
+`CULTURE_AGENTS_FLEET_LISTEN` is set, and so far it serves members only the
+version route.
 
 It is a sibling to [`guildmaster`](https://github.com/agentculture/guildmaster)
 (the **skills supplier**), [`steward`](https://github.com/agentculture/steward)
