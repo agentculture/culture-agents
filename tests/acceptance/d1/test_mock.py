@@ -244,11 +244,11 @@ def test_without_a_core_the_cli_exits_2_and_guesses_nothing() -> None:
     assert "unavailable" in res.stderr
 
 
-def test_a_2_0_client_is_refused_by_the_3_1_core_with_exit_2_naming_both_versions(
+def test_a_2_0_client_is_refused_by_the_3_2_core_with_exit_2_naming_both_versions(
     core: Core,
 ) -> None:
     """The real core and the real CLI code, with the client's version set back to 2.0."""
-    assert core.ok("runs", "list") == {"runs": []}  # this client and this core agree on 3.1
+    assert core.ok("runs", "list") == {"runs": [], "unreadable_count": 0}  # this client and this core agree on 3.2
     old_client = (
         "import sys; from culture_agents.cli import _client, main; "
         "_client.CLIENT_API_VERSION = '2.0'; sys.exit(main(sys.argv[1:]))"
@@ -265,8 +265,8 @@ def test_a_2_0_client_is_refused_by_the_3_1_core_with_exit_2_naming_both_version
         assert res.returncode == 2, res.stderr
         assert res.stdout == ""
         assert "2.0" in res.stderr, res.stderr
-        assert "3.1" in res.stderr, res.stderr
+        assert "3.2" in res.stderr, res.stderr
     detail = json.loads(res.stderr)  # the last one ran with --json
-    assert (detail["client_api_version"], detail["server_api_version"]) == ("2.0", "3.1")
-    assert core.show_version_refusal("2.0") == ("incompatible_version", "2.0", "3.1", 412)
-    record("mock.version_refusal", client="2.0", core="3.1", exit_code=2)
+    assert (detail["client_api_version"], detail["server_api_version"]) == ("2.0", "3.2")
+    assert core.show_version_refusal("2.0") == ("incompatible_version", "2.0", "3.2", 412)
+    record("mock.version_refusal", client="2.0", core="3.2", exit_code=2)

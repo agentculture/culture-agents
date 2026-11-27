@@ -59,6 +59,7 @@ run state; the CLI only asks.
 
 - `runs submit` — start a run; returns it queued.
 - `runs list` — runs, newest first.
+- `runs unreadable` — the run directories the core cannot read.
 - `runs show <run_id>` — one run.
 - `runs attach <run_id>` — follow events live.
 - `runs steer <run_id> <message>` — send a mid-run instruction.
@@ -105,12 +106,29 @@ _LIST = f"""\
 # agents runs list
 
 Lists runs, newest first. Filters: `--state`, `--agent`, `--limit` (1-500,
-default 50).
+default 50). When the core cannot read some run directories it skips them, and
+this prints one warning line naming how many and `agents runs unreadable`;
+`--json` carries that count as `unreadable_count`.
 
 ## Usage
 
     agents runs list
     agents runs list --state running --json
+
+{CORE_NOTE}"""
+
+_UNREADABLE = f"""\
+# agents runs unreadable
+
+Lists every run directory the core cannot read: its run id, why (`newer_version`,
+`corrupt_record`, `unreadable_log` or `other`) and the core's message. These
+runs are skipped by `runs list`; they are not absent. Listing them changes
+nothing in their directories.
+
+## Usage
+
+    agents runs unreadable
+    agents runs unreadable --json
 
 {CORE_NOTE}"""
 
@@ -253,6 +271,7 @@ CONTROL_ENTRIES: dict[tuple[str, ...], str] = {
     ("runs",): _RUNS,
     ("runs", "submit"): _SUBMIT,
     ("runs", "list"): _LIST,
+    ("runs", "unreadable"): _UNREADABLE,
     ("runs", "show"): _SHOW,
     ("runs", "attach"): _ATTACH,
     ("runs", "steer"): _STEER,

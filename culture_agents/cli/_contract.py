@@ -43,6 +43,7 @@ TARGETS: dict[str, str] = {
     "branch_remove_request": "branches.json#/$defs/remove_request",
     "branch_remove": "branches.json#/$defs/remove_response",
     "member_list": "fleet.json",
+    "unreadable_list": "unreadable.json",
 }
 
 _PACKAGE = Path(__file__).resolve().parent.parent

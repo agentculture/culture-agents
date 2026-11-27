@@ -30,6 +30,7 @@ D1_ROUTES = {
     "branches.list",
     "branches.remove",
     "fleet.members",  # added in 3.1 (t22)
+    "runs.unreadable",  # added in 3.2 (t32)
 }
 DEFERRED_ROUTES = {"runs.pause", "runs.resume", "runs.answer"}
 #: Pinned to unsupported by the schema in 3.0.

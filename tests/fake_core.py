@@ -45,6 +45,7 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "GET /v1/harnesses/{id}": (200, fixture("capabilities", "root.opencode-no-steer")),
     "POST /v1/runs": (201, fixture("control-action", "submit_response.queued")),
     "GET /v1/runs": (200, fixture("run", "run_list.two-runs")),
+    "GET /v1/runs/unreadable": (200, fixture("unreadable", "root.empty")),
     "GET /v1/runs/{id}": (200, fixture("run", "root.running")),
     "GET /v1/runs/{id}/events": (200, fixture("event", "event_page.first-page")),
     "GET /v1/runs/{id}/result": (200, fixture("run", "run_result.succeeded")),

@@ -1,7 +1,7 @@
 """API 3.x on the CLI side: a 2.0 client and a 3.x core refuse each other, and the new shapes.
 
 The fake core serves the contract's own fixtures, so its ``/v1/version`` answer
-is the 3.1 one (3.0 plus the fleet member list, t22). A "2.0 client" is this CLI
+is the 3.2 one (3.0 plus the fleet member list, t22, and the unreadable runs, t32). A "2.0 client" is this CLI
 with its version constant set back.
 """
 
@@ -19,7 +19,7 @@ API = cs.api_index()
 
 
 def test_this_client_speaks_3_1() -> None:
-    assert _client.CLIENT_API_VERSION == "3.1" == API["api_version"]
+    assert _client.CLIENT_API_VERSION == "3.2" == API["api_version"]
 
 
 @pytest.mark.parametrize("argv", [("runs", "list"), ("agents", "list"), ("runs", "show", "x")])
@@ -27,12 +27,12 @@ def test_a_2_0_client_is_refused_by_a_3_0_core_with_exit_2_naming_both_versions(
     core, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch, argv
 ) -> None:
     monkeypatch.setattr(_client, "CLIENT_API_VERSION", "2.0")
-    assert fixture("version", "root.current")["api_version"] == "3.1"
+    assert fixture("version", "root.current")["api_version"] == "3.2"
     r = run(capsys, *argv)
     assert r.rc == 2
     assert r.out == ""
     assert "this client speaks 2.0" in r.err
-    assert "the core speaks 3.1" in r.err
+    assert "the core speaks 3.2" in r.err
     assert "hint:" in r.err
     # The client stopped at the version route: nothing else was asked of the core.
     assert [q["path"] for q in core.requests] == ["/v1/version"]
@@ -41,7 +41,7 @@ def test_a_2_0_client_is_refused_by_a_3_0_core_with_exit_2_naming_both_versions(
     j = run(capsys, *argv, "--json")
     assert j.rc == 2
     detail = j.err_json()
-    assert (detail["client_api_version"], detail["server_api_version"]) == ("2.0", "3.1")
+    assert (detail["client_api_version"], detail["server_api_version"]) == ("2.0", "3.2")
 
 
 def test_a_3_0_client_is_refused_by_a_2_0_core_the_same_way(
@@ -52,7 +52,7 @@ def test_a_3_0_client_is_refused_by_a_2_0_core_the_same_way(
     )
     r = run(capsys, "runs", "list")
     assert r.rc == 2
-    assert "this client speaks 3.1" in r.err
+    assert "this client speaks 3.2" in r.err
     assert "the core speaks 2.0" in r.err
 
 

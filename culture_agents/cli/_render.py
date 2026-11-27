@@ -226,10 +226,34 @@ def question_lines(question: Any, label: str) -> list[str]:
     return lines
 
 
-def run_list(payload: Any) -> Rendered:
+def unreadable_warning(count: Any) -> str:
+    """The one line ``runs list`` adds when the core skipped run directories it cannot read."""
+    n = count if isinstance(count, int) else 0
+    noun = "run" if n == 1 else "runs"
+    return f"warning: {n} {noun} could not be read; list them with: agents runs unreadable"
+
+
+def run_list(payload: Any, unreadable: Any = None) -> Rendered:
+    """The runs; given the core's unreadable list, a warning line and ``unreadable_count``."""
     runs = _items(_get(payload, "runs"))
     text = "\n".join(run_line(r) for r in runs) if runs else "no runs"
-    return Rendered(payload, text)
+    count = _get(unreadable, "count")
+    if unreadable is None or not isinstance(count, int):
+        return Rendered(payload, text)
+    data = {**payload, "unreadable_count": count} if isinstance(payload, dict) else payload
+    return Rendered(data, f"{text}\n{unreadable_warning(count)}" if count else text)
+
+
+def unreadable_list(payload: Any) -> Rendered:
+    """Every run directory the core cannot read: its run id, why, and the core's message."""
+    runs = _items(_get(payload, "runs"))
+    if not runs:
+        return Rendered(payload, "no unreadable runs")
+    lines = [f"unreadable runs ({len(runs)}):"]
+    for r in runs:
+        fields = (_get(r, key) for key in ("run_id", "reason", "detail"))
+        lines.append("  " + "  ".join(_val(field) for field in fields))
+    return Rendered(payload, "\n".join(lines))
 
 
 def submitted(payload: Any) -> Rendered:
