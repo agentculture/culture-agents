@@ -315,6 +315,15 @@ slug: `d2-fleet-and-recovery` · status: `exported` · from frame: `d2-fleet-and
   - A local submit under an unknown gateway signal is admitted with the `signal_unknown` warning, as for heat; a hold does not refuse a local submit in part one; a test with an injected fetch proves each case and that a slow gateway cannot delay a call past the timeout
   - A live read against the real gateway on the merge host is recorded as measured or NOT VERIFIED in docs/d2/part-one-acceptance.md
 
+### t32 — Show run directories the core cannot read over the API
+
+- instruction: Files: core/src/runs/scan.ts already knows the unreadable runs (unreadableLiveRuns, the scan's warnings); expose them through a new route in core/src/daemon/routes.ts, a new schema in contract/, `culture_agents`/cli/`_commands`/runs.py and `_render.py`. The owner chose this on 2026-11-27 over amending claim c55.
+- covers: c55
+- acceptance:
+  - A new route lists every run directory the core cannot read, with its run id when one can be read and the reason (a newer store version, a corrupt record, an unreadable log); it is a MINOR contract addition with its own schema and fixtures, and no existing shape changes
+  - agents runs list prints one warning line naming how many runs could not be read and the command that lists them; --json carries the count; a test drives the real CLI against the real core with a corrupt run and a newer-version run
+  - Nothing in a directory the core cannot read is modified by listing it; the existing unreadable-run tests still pass
+
 ## Risks
 
 - [unknown_nonblocking] What makes two checkouts the same repository across hosts, and which commit a remote run starts from when the hosts' checkouts differ, is not decided. The owner said a repository can exist on more than one host. The part two design record must answer it before the remote submit task. (task t20)

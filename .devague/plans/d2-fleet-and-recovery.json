@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-26T17:07:54Z",
-  "updated": "2026-11-27T03:41:24Z",
+  "updated": "2026-11-27T11:48:36Z",
   "targets": [
     {
       "id": "c1",
@@ -1331,6 +1331,22 @@
       ],
       "covers": [],
       "instruction": "Files: core/src/runs/admission.ts and its test, contract/README.md, docs/d2/part-one.md. The gateway (lobes-cli 0.99.0) answers GET /status with an admission object: admit (boolean), at (RFC 3339 string), stale_after_s (number), reason (optional string). Read it with Node fetch, with a short timeout, from the gateway URL the OpenCode harness is already configured with; never block a submit or a capability call on it for longer than that timeout. No new dependency. The reader must take an injected fetch so tests need no network."
+    },
+    {
+      "id": "t32",
+      "summary": "Show run directories the core cannot read over the API",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A new route lists every run directory the core cannot read, with its run id when one can be read and the reason (a newer store version, a corrupt record, an unreadable log); it is a MINOR contract addition with its own schema and fixtures, and no existing shape changes",
+        "agents runs list prints one warning line naming how many runs could not be read and the command that lists them; --json carries the count; a test drives the real CLI against the real core with a corrupt run and a newer-version run",
+        "Nothing in a directory the core cannot read is modified by listing it; the existing unreadable-run tests still pass"
+      ],
+      "deps": [],
+      "covers": [
+        "c55"
+      ],
+      "instruction": "Files: core/src/runs/scan.ts already knows the unreadable runs (unreadableLiveRuns, the scan's warnings); expose them through a new route in core/src/daemon/routes.ts, a new schema in contract/, culture_agents/cli/_commands/runs.py and _render.py. The owner chose this on 2026-11-27 over amending claim c55."
     }
   ],
   "risks": [

@@ -113,7 +113,7 @@ repository is `busy`.
 ## Chat independence
 
 The plan asked for the run to happen with the culture server stopped. It was
-not stopped: two chat servers (`spark` on port 6667 and `sbx` on port 6668)
+not stopped: two chat servers (on ports 6667 and 6668)
 were running on the host as the owner's live mesh, and stopping them was not
 authorized. This is recorded as a proposed deviation on the plan. What was
 checked instead:

@@ -189,12 +189,11 @@ FORMER_NODE = "spark"
 #: Checked files that still hold the former name, and why each is left alone.
 #: None of them uses it as an example node in an id or a node field.
 FORMER_NAME_REMAINS = {
-    # the D1 acceptance record: names a chat server that was running during the run
-    "docs/d0/d1-acceptance.md",
     # a captured `git status` of a sibling repo: the name is part of a file name there
     "docs/d0/sibling-baseline.txt",
-    # exported from a .devague delivery record, which quotes the same chat server
-    "docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md",
+    # the D2 delivery summary: quotes plan task t2 ("rename ... from spark to thor"), claim c30
+    # and lapse l1 verbatim, as the summary method requires; none is a node name
+    "docs/deliveries/2026-11-26-d2-fleet-and-recovery.md",
 }
 
 
