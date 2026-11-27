@@ -24,10 +24,10 @@ retry. The **operator** is the person who owns the host and sets its limits.
 | `answer` was always refused as unsupported | A run can ask its operator a question; it waits on disk and is answered once, after a restart too (stub harness only, see gaps) | `core/src/worker/questions.ts` |
 | A run started from whatever the repository held at start | The base commit is resolved and recorded at accept time | `core/src/runs/base-commit.ts` |
 | No store version, no retention, one unreadable run could break a listing | `store.json` schema version, retention of finished runs (30 days by default), startup cleanup, unreadable runs skipped by listing | `core/src/store/` |
-| No branch tooling | Finished `runs/<id>` branches can be listed and removed, with evidence | `core/src/runs/branches.ts` |
+| No branch tooling | Finished `runs/<id>` branches can be listed and removed, with evidence (a remote-tracking copy of a run branch is never evidence) | `core/src/runs/branches.ts` |
 
 Also built: submitter and local authentication on the socket (`core/src/daemon/submitter.ts`),
-injected secrets leave the environment at start (`core/src/daemon/secrets.ts`), the capability
+injected secrets are kept out of every child at start (`core/src/daemon/secrets.ts`; the core's own initial environment stays readable to the same user through `/proc`, and giving the core its secrets by file or descriptor is planned), the capability
 report with limits, active runs and admission (`core/src/runs/admission.ts`), and tracing
 (`docs/d2/observability.md`). Corrections to stale records are in `docs/d2/corrections.md`. Upgrading a 2.0 store is in `docs/d2/upgrade.md`.
 
@@ -95,7 +95,7 @@ is no `artifacts` route or verb at all (planned). A test asserts all four:
   (`docs/d2/probe-approvals.md`).
 - The capability report reads the heat signal (checked against a real signal file on 1
   host) and, for OpenCode, the model gateway's `admission` object (lobes-cli 0.99.0; 1 s
-  timeout; anything unreadable, stale or future-stamped reads unknown). The gateway read is
+  timeout, 64 KiB body cap; anything unreadable, oversized, stale or future-stamped reads unknown; the status is read on loopback only, and a gateway URL on another host reads unknown without a request). The gateway read is
   proven with injected and loopback test servers only; the live read is NOT VERIFIED until
   filled in (`docs/d2/part-one-acceptance.md`). A hold does not refuse a submit in part one.
 - A run directory the core cannot read is skipped by listing and not shown over the API.

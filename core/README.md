@@ -68,7 +68,10 @@ directory and ships in this package under `dist/contract-schemas/`.
 
 The core is started with credentials in its environment. It reads each one once at start, keeps it in
 memory and deletes it from `process.env` before any worker, host command (`git`, `openshell`) or
-sandbox exists, so none of them inherits it. The list is declared in one place,
+sandbox exists, so none of them inherits it. That is all it does: the kernel keeps the core's initial
+environment in `/proc/<pid>/environ`, which any process of the same user can read, so the secrets
+stay readable there for the life of the core. The way to avoid that is to give the core its secrets
+by file or descriptor instead of the environment (planned, not built). The list is declared in one place,
 `INJECTED_SECRETS` in `src/daemon/secrets.ts`: `GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`,
 `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and `LOBES_GATEWAY_KEY`. The worker spawner, the host
 command runner and the sandbox environment filter also drop these names from any environment they

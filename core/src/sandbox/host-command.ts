@@ -3,6 +3,7 @@
 import { execFile } from "node:child_process";
 
 import { INJECTED_SECRETS } from "../daemon/secrets.js";
+import { TRACE_ENV_PREFIX } from "../trace/config.js";
 
 export interface CommandResult {
   readonly code: number;
@@ -34,6 +35,7 @@ export function hostEnv(extra: Readonly<Record<string, string>> = {}): Record<st
     if (value === undefined) continue;
     if (key.startsWith("GIT_")) continue;
     if (INJECTED_SECRETS.includes(key)) continue;
+    if (key.startsWith(TRACE_ENV_PREFIX)) continue; // second line: the core removes them at start
     env[key] = value;
   }
   env["GIT_TERMINAL_PROMPT"] = "0";

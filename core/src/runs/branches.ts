@@ -56,10 +56,13 @@ function runBlocker(view: RunView): string | null {
   return null;
 }
 
-/** Refs a run branch's commits may be reachable from: local branches that are not run branches, and remote-tracking refs. */
+/** A remote-tracking copy of a run branch, under any remote: a pushed branch is not a second place its commits live. */
+const isRemoteRunBranch = (ref: string): boolean => /^refs\/remotes\/[^/]+\/runs\//.test(ref);
+
+/** Refs a run branch's commits may be reachable from: local branches that are not run branches, and remote-tracking refs that are not copies of run branches. */
 async function otherRefs(options: BranchOptions): Promise<string[]> {
   const out = await gitOrThrow(options, ["for-each-ref", "--format=%(refname)", "refs/heads", "refs/remotes"]);
-  return out.split("\n").filter((r) => r !== "" && !r.startsWith(PREFIX) && !r.endsWith("/HEAD"));
+  return out.split("\n").filter((r) => r !== "" && !r.startsWith(PREFIX) && !isRemoteRunBranch(r) && !r.endsWith("/HEAD"));
 }
 
 const short = (ref: string): string => ref.replace(/^refs\/(heads|remotes)\//, "");

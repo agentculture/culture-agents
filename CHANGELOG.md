@@ -24,7 +24,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- Injected secrets are read once at core start and removed from the environment, so no worker, host command or sandbox inherits them.
+- Injected secrets are read once at core start and deleted from the core's `process.env`, so no worker, host command or sandbox inherits them. The core's own initial environment stays readable to the same user through `/proc/<pid>/environ`; giving the core its secrets by file or descriptor is planned.
 - The core refuses to start when its socket directory, set through `CULTURE_AGENTS_SOCKET`, is reachable by other users.
 - A submit against a repository with no resolvable commit is refused with `invalid`.
 - The example node in fixtures, tests and documents is `thor`; `scripts/check-example-node.py` enforces it in CI.

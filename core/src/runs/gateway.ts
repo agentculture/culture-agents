@@ -4,7 +4,8 @@
  * `reason`. It is read with Node's fetch (injectable), under a short timeout, from the origin of
  * the gateway URL the OpenCode harness is configured with. Anything but a fresh, well-formed
  * sample reads unknown, never admit: a missing field, a stale or future-stamped sample, a timeout,
- * a refused connection, a bad status, or a redirect to anywhere but loopback. NOT VERIFIED against
+ * a refused connection, a bad status, or a redirect to anywhere but loopback, or a configured host that is not loopback (no request is sent). The body is read
+ * with a 64 KiB cap, content-length included. NOT VERIFIED against
  * a live gateway from the build sandbox (no network); the live row is in part-one-acceptance.md.
  */
 import type { Signal } from "../contract/index.js";
@@ -66,6 +67,28 @@ function redirectTarget(res: Response, url: URL): URL {
   return next;
 }
 
+/** The body of `res` as text, read from the stream and abandoned as soon as it passes MAX_BODY bytes. */
+async function readCapped(res: Response): Promise<string> {
+  const declared = Number(res.headers.get("content-length"));
+  if (Number.isFinite(declared) && declared > MAX_BODY) {
+    await res.body?.cancel().catch(() => undefined);
+    throw new Error("body too large");
+  }
+  if (res.body === null) return "";
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (let part = await reader.read(); !part.done; part = await reader.read()) {
+    total += part.value.length;
+    if (total > MAX_BODY) {
+      await reader.cancel().catch(() => undefined);
+      throw new Error("body too large");
+    }
+    chunks.push(part.value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 async function fetchStatus(source: GatewaySource, signal: AbortSignal): Promise<string> {
   const doFetch = source.fetch ?? fetch;
   let url = new URL("/status", source.url);
@@ -76,17 +99,25 @@ async function fetchStatus(source: GatewaySource, signal: AbortSignal): Promise<
       continue;
     }
     if (!res.ok) throw new Error(`status ${res.status}`);
-    const text = await res.text();
-    if (text.length > MAX_BODY) throw new Error("body too large");
-    return text;
+    return readCapped(res);
   }
   throw new Error("too many redirects");
+}
+
+/** The core reads the gateway's status on loopback only; any other host is not asked at all. */
+function notOnThisHost(url: string): Signal | null {
+  let host: URL | null = null;
+  try { host = new URL(url); } catch { host = null; }
+  if (host !== null && isLoopback(host)) return null;
+  return unknown("the gateway is not on this host: its status is read on loopback only, so no request was sent");
 }
 
 const inflight = new WeakMap<GatewaySource, Promise<Signal>>();
 
 /** Read the gateway signal. Never throws and never waits longer than the timeout. Concurrent reads of one source share a request. */
 export function readGateway(source: GatewaySource, now: Date): Promise<Signal> {
+  const off = notOnThisHost(source.url);
+  if (off !== null) return Promise.resolve(off);
   const running = inflight.get(source);
   if (running) return running;
   const ms = source.timeoutMs ?? GATEWAY_TIMEOUT_MS;

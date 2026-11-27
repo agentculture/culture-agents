@@ -1,0 +1,18 @@
+# Task report: security surfaces (review of pull request 15)
+
+All six findings were reproduced by a new test that failed on the unmodified code, then fixed.
+
+1. **Remote-tracking run branches as evidence: fixed.** Test: `a remote-tracking copy of a run branch is never evidence that it was merged` (core/test/runs/branches.test.ts). Seen failing first: yes. `otherRefs` now drops `refs/remotes/<any remote>/runs/`.
+2. **Gateway body read whole: fixed.** Tests in core/test/runs/gateway-limits.test.ts: `an endless /status body is read up to a cap, then dropped: unknown` and `a content-length past the cap is refused without reading the body`. Seen failing first: yes. The first failed with an assertion; the second hung on the old `res.text()` and I killed it. The body is now read from the stream with a 64 KiB cap, and content-length is honoured.
+3. **Gateway first hop not held to loopback: fixed.** Test: `a gateway URL whose host is not loopback is not asked: unknown, not on this host`. Seen failing first: yes. `readGateway` sends no request unless the host is loopback. `hostView` still rewrites the sandbox alias to 127.0.0.1 before the check, so a source built with the raw alias reads `unknown`.
+4. **Trace keys: fixed.** Tests in core/test/daemon/trace-env.test.ts: `hostEnv drops every CULTURE_AGENTS_TRACE_ variable` and `the core has read and removed the trace variables by the time it serves its first request` (child: trace-env-child.ts). Seen failing first: yes, both. `prepareTrace` runs in main.ts right after `takeSecrets`, and `startTracing` takes the config it read. `hostEnv` filters the prefix as a second line. The window itself is only covered by "first request has no trace variables". The test cannot tell "before listening" from "just after".
+5. **Removal claim: corrected, no test.** This is a documentation change, so there is nothing to fail first. It reads "children do not inherit them; the core's own initial environment stays readable through `/proc/<pid>/environ`; file or descriptor intake is planned". I changed core/README.md, docs/d2/part-one.md, the 0.16.0 entry in CHANGELOG.md, the comments in secrets.ts and docs/d2/observability.md. CLAUDE.md, AGENTS.md, AGENTS.colleague.md, AGENTS.override.md and QWEN.md contain no such claim, so I left them alone. No re-exec was attempted. `heldSecret` is kept and justified in a comment: the existing assertion in secrets.test.ts pins it, and I did not delete an existing assertion. It still has no production caller. Say so if you want it removed along with that assertion.
+6. **`localhost` nit: documented** in docs/d2/observability.md, with a recommendation to use 127.0.0.1. I also noted the gateway's loopback rule, 64 KiB cap and remote-branch rule in docs/d2/part-one.md.
+
+## Commands and results
+
+- Core: `npm run build && npm test` reached 689 tests with 674 to 675 passing. The 2 to 3 failures change between runs and pass when run alone: `with the broker down...`, `a worker survives a daemon SIGKILL...` and `2 runs in 1 repository complete...`. The last is the known flake from the review's finding 19. I did not diagnose them or test them on the base commit.
+- `npm run lint`, `npm run typecheck` and `npm run check:contract-types`: clean.
+- Python, `pytest -n auto`: 1754 passed, 13 skipped, 2 failed. One is the known network wheel test. The other, `acceptance/d1 test_mock ... under 2 seconds`, passes alone (9 passed) and fails only under load.
+- `scripts/check-file-length.py`, `check-example-node.py` and `scan-secrets.py`: clean.
+- The core/node_modules symlink is removed.
