@@ -93,8 +93,8 @@ Not done for t29: the live check against a real Langfuse on the host.
   `../.worktrees.culture-agents/dispatch-core` (0.15.2 plus the chunk fix,
   API 2.0): the default socket runs Claude Code on sonnet, and
   `/run/user/1000/culture-agents/core-opus.sock` runs it on opus. Each has
-  its own state directory, `~/.local/state/culture-agents-dogfood` and
-  `-dogfood-opus`. Both were started as background tasks of this session;
+  its own state directory, `culture-agents-dogfood` and
+  `-dogfood-opus` under the state home. Both were started as background tasks of this session;
   they do not survive it. Their environment is in the scratchpad file
   `core-env.sh` (for the core process only; never give it to the owner to
   source, it sets `XDG_CONFIG_HOME`).
