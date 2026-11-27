@@ -162,6 +162,26 @@ def agent_status(agent: Any, harnesses: Any) -> Rendered:
     return Rendered({"agent": agent, "harnesses": harnesses}, "\n".join(lines))
 
 
+def run_view(view: Any) -> Rendered:
+    """A run on another member: its detail when the member answered, else that it is unreachable.
+
+    The JSON of an answered run is the run itself, as for every other remote read; an
+    unreachable run's JSON is the view (``"view": "unreachable"``), which has no state.
+    """
+    if _get(view, "view") != "unreachable":
+        return run_detail(_get(view, "run"))
+    why = _get(view, "unreachable")
+    lines = [
+        f"id: {_val(_get(view, 'run_id'))}",
+        f"state: unreachable ({_val(_get(why, 'reason'))})",
+        f"node: {_val(_get(view, 'node'))}",
+        f"detail: {_val(_get(why, 'detail'))}",
+        "note: this core cannot reach the member, so the run's state is not known here;"
+        " it is not failed and not finished, and shows its real state when the member answers",
+    ]
+    return Rendered(view, "\n".join(lines))
+
+
 def run_detail(run: Any) -> Rendered:
     reason = _get(run, "state_reason")
     state = _val(_get(run, "state")) + (f" ({_val(reason)})" if reason else "")

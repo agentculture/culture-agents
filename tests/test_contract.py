@@ -36,6 +36,7 @@ REQUIRED_SCHEMAS = {
     "fleet.json",
     "remote.json",
     "unreadable.json",
+    "reachability.json",
 }
 
 

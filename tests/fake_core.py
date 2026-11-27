@@ -57,6 +57,7 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "GET /v1/fleet/members": (200, fixture("fleet", "root.one-member-one-refusal")),
     "POST /v1/fleet/runs": (201, fixture("remote", "submit_response.queued")),
     "GET /v1/fleet/runs/{id}": (200, fixture("remote", "root.queued")),
+    "GET /v1/fleet/runs/{id}/view": (200, fixture("reachability", "root.reachable")),
     "POST /v1/fleet/runs/{id}/steer": (202, fixture("control-action", "accepted_response.steer")),
     "POST /v1/fleet/runs/{id}/cancel": (202, fixture("control-action", "accepted_response.cancel")),
     "GET /v1/fleet/aliases": (200, fixture("remote", "alias_list.two")),

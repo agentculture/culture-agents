@@ -230,8 +230,10 @@ def runs_unreadable() -> Rendered:
 
 
 def runs_show(run_id: str) -> Rendered:
-    """Show one run (on another member: its view without the path)."""
+    """Show one run (on another member: its view without the path, or unreachable)."""
     client = CoreClient()
+    if client.is_remote(run_id):
+        return _render.run_view(client.get(client.run_view_route(run_id), "run_view"))
     return _render.run_detail(client.get(*client.run_route(run_id)))
 
 

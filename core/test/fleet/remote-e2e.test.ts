@@ -4,49 +4,15 @@
 // (two members never share a node name, c40). The caller's operator submits on its own control
 // socket, attaches, steers and cancels; thor records the member as the run's submitter.
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync } from "node:fs";
-import type { KeyObject } from "node:crypto";
-import { join } from "node:path";
-import { test, type TestContext } from "node:test";
+import { test } from "node:test";
 
-import type { MemberList, RemoteSubmitResponse, Run, RunEvent } from "../../src/contract/index.js";
-import { certificateFor, fleetKeyText, newFleetKey } from "../../src/fleet/cert.js";
+import type { RemoteSubmitResponse, Run, RunEvent } from "../../src/contract/index.js";
 import { call } from "../daemon/harness.js";
-import { events, HANG, makeEnv, ok, startDaemon, waitFor, waitRun, type Daemon, type Env } from "../runs/support.js";
-import { ALIAS, CALLER_NODE, sseEvents, submitBody } from "./remote-support.js";
+import { events, HANG, ok, waitFor, waitRun } from "../runs/support.js";
+import { CALLER_NODE, sseEvents, submitBody } from "./remote-support.js";
+import { twoCores } from "./two-cores.js";
 
 const CALLER = { kind: "operator", id: `${CALLER_NODE}-operator` } as const;
-
-function fleetEnv(env: Env, node: string, key: KeyObject, trusted: [string, KeyObject][]): string {
-  const dir = join(env.vars["XDG_CONFIG_HOME"] ?? "", "culture-agents", "fleet");
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, "trust.json"), JSON.stringify(trusted.map(([name, k]) => ({ node: name, cert: certificateFor(k).text }))));
-  Object.assign(env.vars, { TEST_NODE: node, CULTURE_AGENTS_FLEET_LISTEN: "127.0.0.1:0", CULTURE_AGENTS_FLEET_KEY: fleetKeyText(key) });
-  return dir;
-}
-
-function portOf(daemon: Daemon): number {
-  const m = /fleet transport listening on 127\.0\.0\.1:(\d+)/.exec(daemon.stderr());
-  assert.ok(m, daemon.stderr());
-  return Number(m[1]);
-}
-
-async function twoCores(t: TestContext): Promise<{ thor: Env; caller: Env; thorDaemon: Daemon }> {
-  const thorKey = newFleetKey();
-  const callerKey = newFleetKey();
-  const thor = makeEnv(t, [HANG]);
-  const thorFleet = fleetEnv(thor, "thor", thorKey, [[CALLER_NODE, callerKey]]);
-  writeFileSync(join(thorFleet, "aliases.json"), JSON.stringify({ version: 1, aliases: [{ alias: ALIAS, repo: thor.repoA }] }));
-  const thorDaemon = await startDaemon(t, thor);
-  await waitFor(() => /fleet transport listening/.test(thorDaemon.stderr()), 10_000, "thor's fleet transport");
-  const caller = makeEnv(t, null);
-  const callerFleet = fleetEnv(caller, CALLER_NODE, callerKey, [["thor", thorKey]]);
-  writeFileSync(join(callerFleet, "peers.json"), JSON.stringify([`127.0.0.1:${portOf(thorDaemon)}`]));
-  await startDaemon(t, caller); // it announces itself to thor at once; thor's reply lists thor
-  const listed = async (): Promise<boolean> => ((await call(caller.socket, "GET", "/v1/fleet/members")).json as MemberList).members.some((m) => m.node === "thor");
-  await waitFor(listed, 10_000, "the caller to list thor");
-  return { thor, caller, thorDaemon };
-}
 
 test("two real cores: a submit from the caller runs on thor and is attached, steered and cancelled from the caller", async (t) => {
   const { thor, caller } = await twoCores(t);

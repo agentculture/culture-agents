@@ -62,6 +62,21 @@ export interface Remote {
   request(node: string, r: RemoteRequest): Promise<unknown>;
 }
 
+/**
+ * The member does not answer this caller: not in the member list (but trusted), or a call to it that
+ * failed. It is a `unavailable` error for every route that needs the member, and the one thing the
+ * unreachable view (contract 3.3, `fleet.runs.view`) reads. It is never stored.
+ */
+export class Unreached extends ControlError {
+  constructor(
+    readonly reason: "not_listed" | "no_answer",
+    message: string,
+  ) {
+    super("unavailable", message.slice(0, 500));
+    this.name = "Unreached";
+  }
+}
+
 function parsed(body: Buffer): unknown {
   try {
     return JSON.parse(body.toString("utf8"));
@@ -83,7 +98,11 @@ export function createRemote(o: RemoteOptions): Remote {
   /** The member's address once the version rule allows the call. */
   function target(node: string): PeerAddress {
     const member = o.members.view().members.find((m) => m.node === node);
-    if (!member) throw unavailable(`${node} is not a listed fleet member: it has not announced itself to this core within the silence limit, or its key is not in this core's trust list.`);
+    if (!member) {
+      const text = `${node} is not a listed fleet member: it has not announced itself to this core within the silence limit, or its key is not in this core's trust list.`;
+      // A trusted member that is not listed is silent; a name the trust list lacks is not a member at all.
+      throw o.trust().some((t) => t.node === node) ? new Unreached("not_listed", text) : unavailable(text);
+    }
     if (!isPeerCompatible(own, member.api_version)) {
       throw new ControlError("incompatible_version", `${node} speaks API ${member.api_version} and this core ${own}; cores call each other only within one MAJOR version.`, {
         client_api_version: own,
@@ -92,7 +111,7 @@ export function createRemote(o: RemoteOptions): Remote {
     }
     if (!servesSince(member.api_version, REMOTE_RUNS_SINCE)) throw unsupported("placement", `${node} speaks API ${member.api_version}; runs on another member need API ${REMOTE_RUNS_SINCE} or later on that member. Upgrade it.`);
     const address = o.addressOf(node);
-    if (!address) throw unavailable(`No address in this core's fleet address list (peers.json) has answered as ${node}; add its address there.`);
+    if (!address) throw new Unreached("no_answer", `No address in this core's fleet address list (peers.json) has answered as ${node}; add its address there.`);
     return address;
   }
 
@@ -116,7 +135,7 @@ export function createRemote(o: RemoteOptions): Remote {
           maxResponseBytes: r.maxBytes ?? MAX_RESPONSE_BYTES,
         });
       } catch (e) {
-        throw unavailable(`${node} did not answer: ${(e as Error).message}`.slice(0, 2000));
+        throw new Unreached("no_answer", `${node} did not answer: ${(e as Error).message}`);
       }
       const body = parsed(res.body);
       if (res.status === r.status && validate(r.schema, body).ok) return body;

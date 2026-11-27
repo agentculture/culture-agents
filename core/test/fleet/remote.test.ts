@@ -159,7 +159,7 @@ test("a member acts only on the runs it submitted; thor's own operator keeps con
   try {
     const { run } = await submitRemote(caller);
     const asOther = (method: "GET" | "POST", path: string, body?: unknown) =>
-      fleetCall({ key: otherKey, trust: loadTrust(join(other.fleetDir, "trust.json")), host: LOOPBACK, port: exec.port(), method, path, ...(body !== undefined && { body: JSON.stringify(body) }), headers: { "Agents-Api-Version": "3.2" }, expectNode: "thor" });
+      fleetCall({ key: otherKey, trust: loadTrust(join(other.fleetDir, "trust.json")), host: LOOPBACK, port: exec.port(), method, path, ...(body !== undefined && { body: JSON.stringify(body) }), headers: { "Agents-Api-Version": "3.3" }, expectNode: "thor" });
     const by = { caller: { kind: "operator", id: `${OTHER_NODE}-operator` }, message: "take over" };
     const tries = [
       asOther("GET", `/v1/fleet/runs/${run.id}`),
