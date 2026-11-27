@@ -39,6 +39,24 @@ Anything predating this boundary, or belonging to an unledgered frame, is not re
   - provenance: caused by `c58` — plan `d2-fleet-and-recovery`, frame `d2-fleet-and-recovery`
   - ⚠ unproven: no passing evidence on record
     - evidence: none on record
+- A halted or silent member's runs read 'unreachable' on the caller, a view computed on each read and never stored, with reason `not_listed` or `no_answer`; only the owning core writes the terminal state 'unknown', with evidence the worker is gone (`d2-fleet-and-recovery:b10`, amended)
+  - provenance: caused by `c9` — plan `d2-fleet-and-recovery`, frame `d2-fleet-and-recovery`
+  - proof: best strength `execution`
+    - evidence: integration — execution: pass (run 2026-11-27 @ 6cd81ca)
+    - evidence: integration — execution: pass (run 2026-11-27 @ 6cd81ca)
+- A member submitter also carries the fingerprint of the key it authenticated with (submitter.key, contract 3.3); a member acts on a run only with that key, so a node name moved to another key inherits none of its runs (`d2-fleet-and-recovery:b11`, amended)
+  - provenance: caused by `c35` — plan `d2-fleet-and-recovery`, frame `d2-fleet-and-recovery`
+  - proof: best strength `execution`
+    - evidence: integration — execution: pass (run 2026-11-27 @ 6cd81ca)
+    - evidence: integration — execution: pass (run 2026-11-27 @ 6cd81ca)
+- One remote address may hold at most 8 fleet connections at once (a further one is closed before anything is read), and refused or failed handshakes are logged at most once per address a minute (found by review) (`d2-fleet-and-recovery:b12`, added)
+  - provenance: caused by `c37` — plan `d2-fleet-and-recovery`, frame `d2-fleet-and-recovery`
+  - proof: best strength `execution`
+    - evidence: integration — execution: pass (run 2026-11-27 @ 6cd81ca)
+- A member's steer and cancel idempotency keys are held in its own namespace, as its submit keys are, so they never match a local operator's or another member's (found by review) (`d2-fleet-and-recovery:b14`, added)
+  - provenance: caused by `c6` — plan `d2-fleet-and-recovery`, frame `d2-fleet-and-recovery`
+  - proof: best strength `execution`
+    - evidence: integration — execution: pass (run 2026-11-27 @ 6cd81ca)
 - The second required D1 harness is OpenCode v2, not Codex; Codex is reported as not verified. Both Claude Code and OpenCode passed the live stage (submit, steer, cancel, kill -9 and restart). (`issue-2-cross-repo-reorganization:b1`, amended)
   - provenance: caused by `d1` — plan `issue-2-cross-repo-reorganization`, frame `issue-2-cross-repo-reorganization`
   - proof: best strength `execution`
@@ -59,6 +77,6 @@ Anything predating this boundary, or belonging to an unledgered frame, is not re
 
 ## Ledger status
 
-- proposed deltas awaiting adjudication: 1
+- proposed deltas awaiting adjudication: 2
 - rejected deltas (excluded from this projection): 0
 - retired lineages (superseded with no live replacement): 0

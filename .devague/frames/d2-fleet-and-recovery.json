@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-25T21:59:31Z",
-  "updated": "2026-11-27T17:29:18Z",
+  "updated": "2026-11-27T18:27:16Z",
   "claims": [
     {
       "id": "c1",
@@ -2240,7 +2240,7 @@
       "behavior": "A submit from host A runs on host B and is steered and cancelled from A; with host B halted every run on it reads unreachable on A within the stated seconds and 0 read succeeded; a hold signal refuses a submit and a missing one reads unknown",
       "source_text": "Part two passes on at least 2 real hosts: a submit from host A runs on host B and is steered and cancelled from A; with host B halted, every run that was active on it reads 'unknown' on A within a stated number of seconds and 0 read 'succeeded'; a submit to a host whose heat or gateway signal says hold is refused, and a missing signal reads 'unknown'.",
       "origin": "llm",
-      "status": "proposed"
+      "status": "approved"
     }
   ]
 }

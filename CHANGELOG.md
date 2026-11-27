@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.2] - 2026-11-27
+
+### Changed
+
+- The owner approved the part two validation records (evidence e25 to e34, obligation o28, deltas b10 to b12 and b14); `docs/current-spec.md` is regenerated from them and the D2 delivery summary's claims table reads from the approved evidence.
+
 ## [0.17.1] - 2026-11-27
 
 ### Added
