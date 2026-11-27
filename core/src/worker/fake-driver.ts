@@ -70,13 +70,15 @@ export class FakeDriver implements Driver {
     if (!options.noAnswer) this.answer = (ref, reply) => this.takeAnswer(ref, reply);
   }
 
-  private async takeAnswer(ref: string, reply: AnswerReply): Promise<void> {
-    if (this.options.answerError !== undefined) throw new Error(this.options.answerError);
-    if (this.waiting?.ref !== ref) throw new Error(`no pending request ${ref}`);
+  /** Callers get a promise either way: a refused answer is a rejection, never a synchronous throw. */
+  private takeAnswer(ref: string, reply: AnswerReply): Promise<void> {
+    if (this.options.answerError !== undefined) return Promise.reject(new Error(this.options.answerError));
+    if (this.waiting?.ref !== ref) return Promise.reject(new Error(`no pending request ${ref}`));
     const { resolve } = this.waiting;
     this.waiting = null;
     this.emit({ type: "output", data: { channel: "diagnostic", text: `answer: ${JSON.stringify(reply)}` } });
     resolve();
+    return Promise.resolve();
   }
 
   start(): AsyncIterable<DriverEvent> {

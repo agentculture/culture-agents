@@ -39,7 +39,7 @@ const hasHangLine = (task: string): boolean => task.split(/[\n\r\u2028\u2029]/).
 
 /** The question a task asks first, or null. */
 export function parseAsk(task: string): AskedQuestion | null {
-  const line = (key: string) => new RegExp(`^\\s*${key}:\\s*(.+)$`, "im").exec(task)?.[1]?.trim() ?? null;
+  const line = (key: string) => new RegExp(String.raw`^\s*${key}:\s*(.+)$`, "im").exec(task)?.[1]?.trim() ?? null;
   const approval = line("approval");
   if (approval !== null) return { ref: "stub-approval-1", kind: "approval", text: approval, choices: [], free_text: false, multiple: false, tool: "write" };
   const ask = line("ask");
@@ -119,7 +119,7 @@ class StubTurn {
   }
 
   answer(ref: string, reply: AnswerReply): void {
-    if (this.asked === null || this.asked.ref !== ref) throw new Error(`The stub has no pending request ${ref}.`);
+    if (this.asked?.ref !== ref) throw new Error(`The stub has no pending request ${ref}.`);
     const { resolve } = this.asked;
     this.asked = null;
     resolve(reply);

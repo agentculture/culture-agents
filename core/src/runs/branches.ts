@@ -72,20 +72,28 @@ async function mergedInto(options: BranchOptions, tip: string, refs: string[]): 
   return null;
 }
 
+/** The branch of one `for-each-ref` line, or null when the line is not a run branch this core made. */
+async function branchOf(options: BranchOptions, line: string, refs: string[]): Promise<Branch | null> {
+  const [ref, tip] = line.split("\0");
+  if (!ref || !tip) return null;
+  const name = ref.slice("refs/heads/".length);
+  const runId = name.slice("runs/".length);
+  if (!isRunId(runId)) return null; // not a branch this core made
+  const view = await viewRun(options, runId);
+  return { branch: name, run_id: runId, state: view.state, state_note: view.note, tip, merged_into: await mergedInto(options, tip, refs) };
+}
+
 /** Every `runs/<run id>` branch of the repository, with its run's state and the reachability evidence. */
 export async function listBranches(options: BranchOptions): Promise<Branches> {
   const out = await gitOrThrow(options, ["for-each-ref", "--format=%(refname)%00%(objectname)", PREFIX.slice(0, -1)]);
   const refs = await otherRefs(options);
-  const branches: Branch[] = [];
-  for (const line of out.split("\n")) {
-    const [ref, tip] = line.split("\0");
-    if (!ref || !tip) continue;
-    const name = ref.slice("refs/heads/".length);
-    const runId = name.slice("runs/".length);
-    if (!isRunId(runId)) continue; // not a branch this core made
-    const view = await viewRun(options, runId);
-    branches.push({ branch: name, run_id: runId, state: view.state, state_note: view.note, tip, merged_into: await mergedInto(options, tip, refs) });
-  }
+  // One line at a time, in order: each line's lookup and git commands start once the line before is done.
+  const branches = await out.split("\n").reduce<Promise<Branch[]>>(async (before, line) => {
+    const done = await before;
+    const branch = await branchOf(options, line, refs);
+    if (branch !== null) done.push(branch);
+    return done;
+  }, Promise.resolve([]));
   return { repo: options.repo, branches };
 }
 
@@ -93,17 +101,23 @@ export async function listBranches(options: BranchOptions): Promise<Branches> {
 export async function removeBranches(options: BranchOptions, dryRun: boolean): Promise<RemoveResponse> {
   const { branches } = await listBranches(options);
   const result: RemoveResponse = { repo: options.repo, dry_run: dryRun, removed: [], skipped: [] };
-  for (const b of branches) {
-    const skip = (reason: string): void => void result.skipped.push({ branch: b.branch, run_id: b.run_id, state: b.state, reason });
-    const blocker = runBlocker({ state: b.state, note: b.state_note });
-    if (blocker !== null) skip(blocker);
-    else if (b.merged_into === null) skip("git shows no other ref containing its commits (they would be lost)");
-    else if (dryRun) result.removed.push(b);
-    else {
-      const res = await git(options, ["branch", "-d", "--", b.branch]);
-      if (res.code === 0) result.removed.push(b);
-      else skip(`git refused to delete it: ${(res.stderr || res.stdout).trim()}`);
-    }
-  }
+  // One branch at a time, in order: at most one `git branch -d` runs at once.
+  await branches.reduce((before, b) => before.then(() => settleBranch(options, dryRun, result, b)), Promise.resolve());
   return result;
+}
+
+/** Put one branch in `removed` or `skipped`, deleting it first unless `dryRun`. */
+async function settleBranch(options: BranchOptions, dryRun: boolean, result: RemoveResponse, b: Branch): Promise<void> {
+  const skip = (reason: string): void => {
+    result.skipped.push({ branch: b.branch, run_id: b.run_id, state: b.state, reason });
+  };
+  const blocker = runBlocker({ state: b.state, note: b.state_note });
+  if (blocker !== null) skip(blocker);
+  else if (b.merged_into === null) skip("git shows no other ref containing its commits (they would be lost)");
+  else if (dryRun) result.removed.push(b);
+  else {
+    const res = await git(options, ["branch", "-d", "--", b.branch]);
+    if (res.code === 0) result.removed.push(b);
+    else skip(`git refused to delete it: ${(res.stderr || res.stdout).trim()}`);
+  }
 }

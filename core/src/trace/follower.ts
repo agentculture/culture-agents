@@ -116,7 +116,7 @@ export function createTraceFollower(o: TraceFollowerOptions): TraceFollower {
       c.n += 1;
       counts.set(k, c);
     }
-    const signature = JSON.stringify([...counts.keys()].sort().map((k) => [k, counts.get(k)?.n]));
+    const signature = JSON.stringify([...counts.keys()].sort((a, b) => a.localeCompare(b)).map((k) => [k, counts.get(k)?.n]));
     if (signature === lastFleet) return;
     const now = nowIso();
     const spans: ExportSpan[] = [...counts.values()].map((c) => ({
@@ -157,17 +157,33 @@ export function createTraceFollower(o: TraceFollowerOptions): TraceFollower {
     return total;
   }
 
-  async function follow(): Promise<void> {
-    while (!stopped) {
-      let count = 0;
-      try {
-        count = await pass();
-      } catch (err) {
-        o.warn(`culture-agents core: exporting traces failed for this round: ${reasonOf(err)}`);
-      }
-      if (stopped) return;
-      await delay(up === false ? (o.retryMs ?? 1000) : count > 0 ? 0 : (o.pollMs ?? 250), undefined, { signal: abort.signal }).catch(() => undefined);
+  /** How long to sleep after a round that sent the spans of `count` events. */
+  function waitAfter(count: number): number {
+    if (up === false) return o.retryMs ?? 1000;
+    return count > 0 ? 0 : (o.pollMs ?? 250);
+  }
+
+  /** One round of `follow`: a pass, then the sleep before the next one (none once stopped). */
+  async function round(): Promise<void> {
+    let count = 0;
+    try {
+      count = await pass();
+    } catch (err) {
+      o.warn(`culture-agents core: exporting traces failed for this round: ${reasonOf(err)}`);
     }
+    if (stopped) return;
+    await delay(waitAfter(count), undefined, { signal: abort.signal }).catch(() => undefined);
+  }
+
+  /** Rounds one after the other until `stop`; each round starts when the one before has finished. */
+  function follow(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      const next = (): void => {
+        if (stopped) return resolve();
+        round().then(next, reject);
+      };
+      next();
+    });
   }
 
   return {

@@ -13,9 +13,7 @@
  */
 import {
   buildRunId,
-  buildSessionId,
   newUlid,
-  parseMeshId,
   type AcceptedResponse,
   type ActionRecord,
   type Agent,
@@ -37,15 +35,15 @@ import {
 } from "../contract/index.js";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { resolveBaseCommit, startRef } from "./base-commit.js";
-import { ControlError, notFound, unavailable, unsupported } from "../daemon/errors.js";
+import { ControlError, notFound } from "../daemon/errors.js";
 import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../daemon/ports.js";
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
-import { actionRecorded, KeyIndex, pruneKeys, recoverKeys, requestDigest, settleKey, type KeyEntry } from "../store/idempotency.js";
+import { actionRecorded, KeyIndex, pruneKeys, recoverKeys, requestDigest, type KeyEntry } from "../store/idempotency.js";
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
-import { WorkerSpawnError, reconnectWorker, spawnWorker, type WorkerControl } from "../worker/spawn.js";
+import { reconnectWorker, type WorkerControl } from "../worker/spawn.js";
 import { withHostReport, readAdmission, submitWarnings, type HostReport } from "./admission.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { answer as answerRun } from "./answer.js";
@@ -55,6 +53,7 @@ import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
 import { readRun, resultOf, scanRuns, UnreadableRunError, type ScanOptions } from "./scan.js";
 import { checkLimits, NO_LIMITS } from "./limits.js";
+import { newRunRecord, startWorker, submittableHarness } from "./submit.js";
 
 export interface RunServiceOptions {
   /** The run store's state directory. */
@@ -103,7 +102,11 @@ export class StoreRunService implements RunService {
   constructor(private readonly options: RunServiceOptions) {
     this.now = options.now ?? (() => new Date());
     this.keys = new KeyIndex(options.stateDir);
-    const warn = options.warn ?? ((line: string): void => void process.stderr.write(`${line}\n`));
+    const warn =
+      options.warn ??
+      ((line: string): void => {
+        process.stderr.write(`${line}\n`);
+      });
     this.reattacher = new Reattacher({ stateDir: options.stateDir, controls: this.controls, reconnect: options.reconnect ?? ((dir, id) => reconnectWorker(dir, id)), warn });
     this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), unresponsive: (id) => this.reattacher.unresponsive(id), warn, ...(options.readFile && { readFile: options.readFile }) };
   }
@@ -152,17 +155,8 @@ export class StoreRunService implements RunService {
   }
 
   private async submitNow(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
-    // Step 4: harness known, then available.
-    const entry = this.options.catalog.get(request.harness);
-    if (!entry) throw notFound(`No harness ${request.harness} is known to this core.`);
-    const capabilities = await entry.capabilities();
-    if (!capabilities.available) throw unavailable(`The ${request.harness} harness is not available on this core; check its binary, credentials and sandbox with agents doctor.`);
-    // Step 5: capabilities, in contract order.
-    if (parseMeshId(request.agent_id)?.node !== this.options.node) {
-      throw unsupported("placement", `Agent ${request.agent_id} is not on this core's node ${this.options.node}; multi-host placement is not supported.`);
-    }
-    if (request.session_id !== undefined) throw unsupported("continue_session", "Continuing a session is not supported in this API version.");
-    if (request.parent_run_id !== undefined) throw unsupported("delegate", "Delegating from a parent run is not supported in this API version.");
+    // Steps 4 and 5: harness known and available, capabilities in contract order.
+    const entry = await submittableHarness(this.options.catalog, this.options.node, request);
     // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the limit check.
     const key = request.idempotency_key;
     const digest = key === undefined ? null : requestDigest("submit", request);
@@ -177,30 +171,7 @@ export class StoreRunService implements RunService {
     const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
     const created = this.now();
     const run = buildRunId(request.agent_id, newUlid(created.getTime()));
-    const record: Run = {
-      id: run,
-      agent_id: request.agent_id,
-      session_id: buildSessionId(request.agent_id, newUlid(created.getTime())),
-      harness: request.harness,
-      repo: request.repo,
-      task: request.task,
-      owner: request.caller,
-      ...(submitter !== undefined && { submitter }),
-      idempotency_key: request.idempotency_key ?? null,
-      deadline: request.deadline ?? null,
-      state: "queued",
-      state_reason: null,
-      terminal: false,
-      created_at: created.toISOString(),
-      updated_at: created.toISOString(),
-      started_at: null,
-      ended_at: null,
-      cursor: 1,
-      live_control: true,
-      worker_pid: null,
-      branch: null,
-      base_commit: baseCommit,
-    };
+    const record = newRunRecord(run, request, submitter, created, baseCommit);
     // On disk: the key, then the run directory, then the worker.
     const fault = this.options.submitFault ?? (() => undefined);
     let reserved: KeyEntry | null = null;
@@ -209,26 +180,7 @@ export class StoreRunService implements RunService {
       this.keys.put(reserved);
     }
     fault("after-key");
-    const w = this.options.worker ?? {};
-    let spawned;
-    try {
-      spawned = await spawnWorker({
-        stateDir: this.options.stateDir,
-        run: record,
-        driver: { module: entry.driver.module, options: entry.driver.options },
-        ...(w.heartbeatMs !== undefined && { heartbeatMs: w.heartbeatMs }),
-        ...(w.cancelGraceMs !== undefined && { cancelGraceMs: w.cancelGraceMs }),
-        ...(w.readyTimeoutMs !== undefined && { readyTimeoutMs: w.readyTimeoutMs }),
-        ...(w.questionLimitMs !== undefined && { questionLimitMs: w.questionLimitMs }),
-        ...(w.env !== undefined && { env: w.env }),
-        onCreated: () => fault("after-run-dir"),
-      });
-    } catch (err) {
-      // A run that reached event 1 keeps its key; otherwise the key is released.
-      if (reserved !== null) settleKey(this.keys, reserved);
-      if (err instanceof WorkerSpawnError) throw unavailable(`The run's worker could not be started: ${err.message}`);
-      throw err;
-    }
+    const spawned = await startWorker({ stateDir: this.options.stateDir, record, entry, worker: this.options.worker ?? {}, fault, keys: this.keys, reserved });
     this.controls.set(run, spawned.control);
     fault("after-spawn");
     if (reserved !== null) this.keys.establish(reserved);

@@ -22,9 +22,9 @@ async function probe(): Promise<void> {
   process.kill(worker.pid, "SIGKILL");
   const host = names((await runCommand("env", [])).stdout);
   let sandboxEnv: string[] = [];
-  const client = { exec: async (_n: string, _c: string[], o?: { environment?: Record<string, string> }) => {
+  const client = { exec: (_n: string, _c: string[], o?: { environment?: Record<string, string> }) => {
     sandboxEnv = Object.keys(o?.environment ?? {});
-    return { exitCode: 0, stdout: new Uint8Array(), stderr: new Uint8Array() };
+    return Promise.resolve({ exitCode: 0, stdout: new Uint8Array(), stderr: new Uint8Array() });
   } };
   const sandbox = new OpenShellRunSandbox("r", "n", "/home", client as never, async () => undefined, () => undefined);
   // The caller passes the core's own environment, as the harness session does.

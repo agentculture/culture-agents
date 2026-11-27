@@ -29,11 +29,31 @@ export interface Span {
 
 const ms = (iso: string): number => Date.parse(iso);
 
-export function buildSpans(run: Run, events: readonly RunEvent[], model: string, content: boolean): Span[] {
-  if (events.length === 0) return [];
-  const first = events[0] as RunEvent;
+type Make = (name: string, key: string, start: string, end: string, at: number, extra?: Record<string, Attr>) => Span;
+interface OpenTool {
+  event: RunEvent;
+  tool: string | null;
+}
+
+/** What the spans of one run are built with, and the spans built so far, in order. */
+interface Builder {
+  make: Make;
+  content: boolean;
+  spans: Span[];
+}
+
+/** Where the walk over the log stands. */
+interface Walk {
+  running: RunEvent | null;
+  terminal: RunEvent | null;
+  lastWork: RunEvent | null;
+  openTools: OpenTool[];
+  openQuestions: Map<string, RunEvent>;
+}
+
+function spanMaker(run: Run, model: string): Make {
   const base: Record<string, Attr> = { "culture.run_id": run.id, "culture.harness": run.harness, "culture.model": model, "gen_ai.request.model": model };
-  const make = (name: string, key: string, start: string, end: string, at: number, extra: Record<string, Attr> = {}): Span => ({
+  return (name, key, start, end, at, extra = {}) => ({
     name,
     key,
     parent: key === "root" ? null : "root",
@@ -42,69 +62,85 @@ export function buildSpans(run: Run, events: readonly RunEvent[], model: string,
     at,
     attrs: { ...base, "culture.duration_ms": Math.max(0, ms(end) - ms(start)), ...extra },
   });
-  const spans: Span[] = [make("run.submit", "submit", first.time, first.time, first.cursor)];
-  let running: RunEvent | null = null;
-  let terminal: RunEvent | null = null;
-  let lastWork: RunEvent | null = null;
-  const openTools: { event: RunEvent; tool: string | null }[] = [];
-  const openQuestions = new Map<string, RunEvent>();
-  const closeTool = (open: { event: RunEvent; tool: string | null }, end: RunEvent): void => {
-    const extra: Record<string, Attr> = {};
-    if (open.tool !== null) extra["culture.tool"] = open.tool;
-    if (content) {
-      const input = (open.event.data as { text?: string }).text;
-      if (input !== undefined) extra["culture.tool.input"] = input;
-      if (end.kind === "run.output" && (end.data as { channel?: string }).channel === "tool_result") extra["culture.tool.output"] = (end.data as { text: string }).text;
+}
+
+function closeTool(b: Builder, open: OpenTool, end: RunEvent): void {
+  const extra: Record<string, Attr> = {};
+  if (open.tool !== null) extra["culture.tool"] = open.tool;
+  if (b.content) {
+    const input = (open.event.data as { text?: string }).text;
+    if (input !== undefined) extra["culture.tool.input"] = input;
+    if (end.kind === "run.output" && (end.data as { channel?: string }).channel === "tool_result") extra["culture.tool.output"] = (end.data as { text: string }).text;
+  }
+  b.spans.push(b.make("tool.call", `tool.${open.event.cursor}`, open.event.time, end.time, end.cursor, extra));
+}
+
+function questionSpan(b: Builder, asked: RunEvent, end: RunEvent): Span {
+  const q = (asked.data as { question: { kind: string; text: string } }).question;
+  const extra: Record<string, Attr> = { "culture.question.kind": q.kind };
+  if (b.content) extra["culture.question.text"] = q.text;
+  return b.make("operator.question", `question.${asked.cursor}`, asked.time, end.time, end.cursor, extra);
+}
+
+/** A state event: the first `running` ends the sandbox setup; a terminal state ends the run. */
+function onState(b: Builder, walk: Walk, first: RunEvent, event: RunEvent): void {
+  const to = (event.data as { to: RunState }).to;
+  if (to === "running" && walk.running === null) {
+    walk.running = event;
+    b.spans.push(b.make("sandbox.setup", "sandbox", first.time, event.time, event.cursor));
+  }
+  if (isTerminal(to)) walk.terminal = event;
+}
+
+/** Any other event before the terminal state: it ends the open tool calls, and may open a tool call or a question or answer one. */
+function onWork(b: Builder, walk: Walk, event: RunEvent): void {
+  walk.lastWork = event;
+  for (const open of walk.openTools.splice(0)) closeTool(b, open, event);
+  if (event.kind === "run.output") {
+    const data = event.data as { channel: string; tool?: string };
+    if (data.channel === "tool_call") walk.openTools.push({ event, tool: data.tool ?? null });
+  } else if (event.kind === "run.question") {
+    const q = (event.data as { question: { id: string; kind: string; text: string } }).question;
+    walk.openQuestions.set(q.id, event);
+  } else if (event.kind === "run.answer") {
+    const id = (event.data as { question_id: string }).question_id;
+    const asked = walk.openQuestions.get(id);
+    if (asked) {
+      walk.openQuestions.delete(id);
+      b.spans.push(questionSpan(b, asked, event));
     }
-    spans.push(make("tool.call", `tool.${open.event.cursor}`, open.event.time, end.time, end.cursor, extra));
-  };
+  }
+}
+
+/** The spans the terminal state `end` completes. */
+function onTerminal(b: Builder, walk: Walk, run: Run, first: RunEvent, end: RunEvent): void {
+  const state = (end.data as { to: RunState }).to;
+  for (const open of walk.openTools) closeTool(b, open, end);
+  for (const asked of walk.openQuestions.values()) b.spans.push(questionSpan(b, asked, end));
+  if (walk.running !== null) {
+    const turnEnd = walk.lastWork ?? walk.running;
+    b.spans.push(b.make("harness.turn", "turn", walk.running.time, turnEnd.time, end.cursor), b.make("result.collection", "collection", turnEnd.time, end.time, end.cursor));
+  }
+  b.spans.push(b.make("run.terminal", "terminal", end.time, end.time, end.cursor, { "culture.state": state }));
+  const rootExtra: Record<string, Attr> = { "culture.state": state, "culture.agent_id": run.agent_id };
+  if (b.content) rootExtra["culture.prompt"] = run.task;
+  b.spans.push(b.make("agents.run", "root", first.time, end.time, end.cursor, rootExtra));
+}
+
+export function buildSpans(run: Run, events: readonly RunEvent[], model: string, content: boolean): Span[] {
+  if (events.length === 0) return [];
+  const first = events[0] as RunEvent;
+  const make = spanMaker(run, model);
+  const b: Builder = { make, content, spans: [make("run.submit", "submit", first.time, first.time, first.cursor)] };
+  const walk: Walk = { running: null, terminal: null, lastWork: null, openTools: [], openQuestions: new Map() };
   for (const event of events) {
     if (event.kind === "run.state") {
-      const to = (event.data as { to: RunState }).to;
-      if (to === "running" && running === null) {
-        running = event;
-        spans.push(make("sandbox.setup", "sandbox", first.time, event.time, event.cursor));
-      }
-      if (isTerminal(to)) terminal = event;
+      onState(b, walk, first, event);
       continue;
     }
-    if (terminal !== null) break;
-    lastWork = event;
-    for (const open of openTools.splice(0)) closeTool(open, event);
-    if (event.kind === "run.output") {
-      const data = event.data as { channel: string; tool?: string };
-      if (data.channel === "tool_call") openTools.push({ event, tool: data.tool ?? null });
-    } else if (event.kind === "run.question") {
-      const q = (event.data as { question: { id: string; kind: string; text: string } }).question;
-      openQuestions.set(q.id, event);
-    } else if (event.kind === "run.answer") {
-      const id = (event.data as { question_id: string }).question_id;
-      const asked = openQuestions.get(id);
-      if (asked) {
-        openQuestions.delete(id);
-        spans.push(questionSpan(asked, event));
-      }
-    }
+    if (walk.terminal !== null) break;
+    onWork(b, walk, event);
   }
-  function questionSpan(asked: RunEvent, end: RunEvent): Span {
-    const q = (asked.data as { question: { kind: string; text: string } }).question;
-    const extra: Record<string, Attr> = { "culture.question.kind": q.kind };
-    if (content) extra["culture.question.text"] = q.text;
-    return make("operator.question", `question.${asked.cursor}`, asked.time, end.time, end.cursor, extra);
-  }
-  if (terminal === null) return spans;
-  const end = terminal;
-  const state = (end.data as { to: RunState }).to;
-  for (const open of openTools) closeTool(open, end);
-  for (const asked of openQuestions.values()) spans.push(questionSpan(asked, end));
-  if (running !== null) {
-    const turnEnd = lastWork ?? running;
-    spans.push(make("harness.turn", "turn", running.time, turnEnd.time, end.cursor));
-    spans.push(make("result.collection", "collection", turnEnd.time, end.time, end.cursor));
-  }
-  spans.push(make("run.terminal", "terminal", end.time, end.time, end.cursor, { "culture.state": state }));
-  const rootExtra: Record<string, Attr> = { "culture.state": state, "culture.agent_id": run.agent_id };
-  if (content) rootExtra["culture.prompt"] = run.task;
-  spans.push(make("agents.run", "root", first.time, end.time, end.cursor, rootExtra));
-  return spans;
+  if (walk.terminal !== null) onTerminal(b, walk, run, first, walk.terminal);
+  return b.spans;
 }

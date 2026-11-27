@@ -52,7 +52,9 @@ export function seedRun(t: TestContext, into?: string, overrides: Partial<Run> =
 export function contentRun(t: TestContext, into?: string): Seeded {
   const seeded = seedRun(t, into, { task: MARKERS.prompt });
   const { run, writer } = seeded;
-  const loose = (input: unknown): void => void writer.append(input as EventInput);
+  const loose = (input: unknown): void => {
+    writer.append(input as EventInput);
+  };
   const questionId = `${AGENT}.qst.01JDQ5X0000000000000000001`;
   writer.transition("running", null);
   loose({ kind: "run.output", data: { channel: "text", text: MARKERS.output } });

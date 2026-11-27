@@ -36,14 +36,21 @@ export interface KeyEntry {
   recorded_at: string;
 }
 
+/** Code-unit order of two keys; not locale order, so a digest never depends on the host's locale. */
+function byCodeUnit(a: string, b: string): number {
+  if (a < b) return -1;
+  return a > b ? 1 : 0;
+}
+
 /** Sorted-key JSON, so two equal requests have one text whatever their field order. */
 function canonical(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value !== null && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
       .filter(([, v]) => v !== undefined)
-      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
+      .sort(([a], [b]) => byCodeUnit(a, b));
+    const members = entries.map(([k, v]) => JSON.stringify(k) + ":" + canonical(v)).join(",");
+    return `{${members}}`;
   }
   return JSON.stringify(value);
 }
@@ -54,8 +61,8 @@ function canonical(value: unknown): string {
  * and, for steer and cancel, the run id of the path. Every other field counts, `caller` included.
  */
 export function requestDigest(scope: KeyScope, request: object, runId?: string): string {
-  const { idempotency_key: _key, ...rest } = request as Record<string, unknown>;
-  void _key;
+  const rest: Record<string, unknown> = { ...(request as Record<string, unknown>) };
+  Reflect.deleteProperty(rest, "idempotency_key");
   const body = { scope, run_id: runId ?? null, request: rest };
   return `sha256:${createHash("sha256").update(canonical(body)).digest("hex")}`;
 }

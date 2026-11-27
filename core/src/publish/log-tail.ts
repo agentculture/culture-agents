@@ -99,19 +99,48 @@ function factOf(runId: string, line: string, previous: PublishPosition): RunFact
   return { run_id: runId, kind, state, cursor: previous.cursor + 1, time };
 }
 
+/** The run's event log, open for reading, or null when it has none yet. */
+function openLog(dir: string): number | null {
+  try {
+    return openSync(runFile(dir, "events"), "r");
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+}
+
+/**
+ * The events of `buf` (whole lines read at `from`) into `out`, up to `max`. Returns the position
+ * after the last line read, or null when a line that breaks a rule of the log ends the read after
+ * some events: those are published, and the next call reports the line.
+ */
+function readChunk(runId: string, buf: Buffer, from: PublishPosition, skipThrough: number, out: PendingFact[], max: number): PublishPosition | null {
+  let at = from;
+  let start = 0;
+  while (out.length < max && start < buf.length) {
+    const end = buf.indexOf(0x0a, start);
+    let fact: RunFact;
+    try {
+      fact = factOf(runId, buf.subarray(start, end).toString("utf8"), at);
+    } catch (err) {
+      if (out.length > 0 && err instanceof LogHeldError) return null; // publish what precedes it; the next call reports it
+      throw err;
+    }
+    at = { cursor: fact.cursor, offset: at.offset + (end + 1 - start), state: fact.state };
+    if (fact.cursor > skipThrough) out.push({ fact, after: at });
+    start = end + 1;
+  }
+  return at;
+}
+
 /**
  * Up to `max` events after `from`, in cursor order. A complete line that breaks a rule of the log
  * ends the read: the events before it are returned, and the call that finds it first throws
  * `LogHeldError`. Nothing after it is ever returned.
  */
 function readFrom(dir: string, runId: string, from: PublishPosition, skipThrough: number, max: number): PendingFact[] {
-  let fd: number;
-  try {
-    fd = openSync(runFile(dir, "events"), "r");
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw err;
-  }
+  const fd = openLog(dir);
+  if (fd === null) return [];
   try {
     const size = fstatSync(fd).size;
     if (from.offset > size) throw new LogHeldError(`the log is shorter than the recorded offset ${from.offset}`);
@@ -120,20 +149,9 @@ function readFrom(dir: string, runId: string, from: PublishPosition, skipThrough
     while (out.length < max && at.offset < size) {
       const buf = readLines(fd, at.offset, size);
       if (buf.length === 0) break; // only a torn tail is left
-      let start = 0;
-      while (out.length < max && start < buf.length) {
-        const end = buf.indexOf(0x0a, start);
-        let fact: RunFact;
-        try {
-          fact = factOf(runId, buf.subarray(start, end).toString("utf8"), at);
-        } catch (err) {
-          if (out.length > 0 && err instanceof LogHeldError) return out; // publish what precedes it; the next call reports it
-          throw err;
-        }
-        at = { cursor: fact.cursor, offset: at.offset + (end + 1 - start), state: fact.state };
-        if (fact.cursor > skipThrough) out.push({ fact, after: at });
-        start = end + 1;
-      }
+      const next = readChunk(runId, buf, at, skipThrough, out, max);
+      if (next === null) return out;
+      at = next;
     }
     return out;
   } finally {
