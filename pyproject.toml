@@ -1,6 +1,6 @@
 [project]
 name = "culture-agents"
-version = "0.17.1"
+version = "0.17.2"
 description = "Control plane for AgentCulture agents: direct dispatch, sessions, and lifecycle (dispatch, attach, steer, delegate, cancel, resume, supervise) over harness adapters, independent of chat."
 readme = "README.md"
 license = "Apache-2.0"

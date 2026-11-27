@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-27T17:30:00Z",
+  "updated": "2026-11-27T18:27:17Z",
   "deviations": [
     {
       "id": "d1",
@@ -516,7 +516,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 28
     },
@@ -535,7 +535,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 29
     },
@@ -554,7 +554,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 30
     },
@@ -573,7 +573,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 31
     },
@@ -592,7 +592,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 32
     },
@@ -611,7 +611,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 33
     },
@@ -630,7 +630,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 34
     },
@@ -649,7 +649,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 35
     },
@@ -668,7 +668,7 @@
         "commit": "6cd81ca"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 36
     },
@@ -687,7 +687,7 @@
         "commit": "c64d0e1"
       },
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false,
       "seq": 37
     }
@@ -821,7 +821,7 @@
         "e31"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     },
     {
@@ -836,7 +836,7 @@
         "e32"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     },
     {
@@ -850,7 +850,7 @@
         "e30"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     },
     {
@@ -878,7 +878,7 @@
         "e33"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "superseded": false
     }
   ],
