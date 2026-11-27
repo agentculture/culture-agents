@@ -52,7 +52,7 @@ reports `placement` as unsupported, and no route returns the new refusal.
 
 New:
 
-- `tests/test_contract_part_two_ready.py` (Python, 18 tests): the schema shape, both validators
+- `tests/test_contract_part_two_ready.py` (Python, 17 tests): the schema shape, both validators
   (the test validator and the CLI's `_contract.problem`) on every new fixture, the api.json row and
   route, and the README.
 - `core/test/contract/part-two-ready.test.ts` (core, 4 tests): the core validator, the generated
