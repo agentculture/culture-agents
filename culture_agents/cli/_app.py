@@ -54,7 +54,7 @@ _TOOLS: tuple[tuple[tuple[str, ...], str, Callable[..., Any], tuple[Flag, ...]],
     (("runs",), "cancel", runs_cmd.runs_cancel, runs_cmd.CANCEL_FLAGS),
     (("runs",), "answer", runs_cmd.runs_answer, runs_cmd.ANSWER_FLAGS),
     (("runs",), "logs", runs_cmd.runs_logs, runs_cmd.LOGS_FLAGS),
-    (("runs",), "result", runs_cmd.runs_result, ()),
+    (("runs",), "result", runs_cmd.runs_result, runs_cmd.RESULT_FLAGS),
     (("branches",), "list", branches_cmd.branches_list, branches_cmd.LIST_FLAGS),
     (("branches",), "remove", branches_cmd.branches_remove, branches_cmd.REMOVE_FLAGS),
 )

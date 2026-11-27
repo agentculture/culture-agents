@@ -83,6 +83,8 @@ RECONNECT_WINDOW = 30.0
 #: Seconds one request may take before the CLI treats the core as not answering.
 DEFAULT_TIMEOUT = 10.0
 #: A keyed request is sent at most this many times in all, always with the same key.
+#: Seconds to wait for a run's bundle: the core's call to the member may take 60 s (API 3.3).
+BYTES_TIMEOUT = 90.0
 KEYED_ATTEMPTS = 3
 KEYED_PAUSE = 0.2
 
@@ -261,6 +263,24 @@ class CoreClient:
     def get(self, route: str, shape: str, query: dict[str, Any] | None = None) -> Any:
         self.connect()
         return self._json("GET", route + _query(query), shape)
+
+    def get_bytes(self, route: str) -> bytes:
+        """GET a route whose success body is bytes (a run's bundle, API 3.3).
+
+        A refusal is still the core's typed JSON error, raised as :class:`CoreError`.
+        """
+        self.connect()
+        conn, resp = self._open("GET", route, timeout=max(self.timeout, BYTES_TIMEOUT))
+        try:
+            raw = resp.read()
+            status = resp.status
+        except (OSError, http.client.HTTPException) as exc:
+            raise _unavailable(self.path, _describe(exc)) from exc
+        finally:
+            conn.close()
+        if not 200 <= status < 300:
+            raise error_from_body(status, _loads(raw))
+        return raw
 
     def post(self, route: str, shape: str, body: dict[str, Any]) -> Any:
         self.connect()

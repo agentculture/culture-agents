@@ -69,7 +69,7 @@ def test_submit_by_alias_goes_to_the_fleet_route_with_the_checkout_head_as_base(
     assert lines[1] == f"base commit: {fixture('remote', 'root.queued')['base_commit']}"
     assert remote.seen("POST", "/v1/runs") == []
     sent = remote.seen("POST", "/v1/fleet/runs")[0]
-    assert sent["version_header"] == "3.2"
+    assert sent["version_header"] == "3.3"
     body = sent["body"]
     assert_valid("remote.json#/$defs/submit_request", body)
     assert body["alias"] == "culture-agents"

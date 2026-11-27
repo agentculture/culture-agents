@@ -264,6 +264,10 @@ Reads a page of the run's stored events, oldest first: `--after <cursor>`
 (default 0) and `--limit` (1-5000, default 500). When more events exist the
 text output says so and `--json` carries `more: true` and `last_cursor`.
 
+On a run on another fleet member (API 3.3) the page is read from that member,
+unredacted, at most 50 events a page; only a member that submitted the run may
+read it.
+
 ## Usage
 
     agents runs logs <run_id> --after 6 --json
@@ -277,9 +281,18 @@ Shows the outcome of a terminal run: state, branch, commits, summary, error. On
 a run that is still active the core answers `conflict` (retryable); a run in
 state `unknown` is never reported as succeeded.
 
+On a run on another fleet member (API 3.3) the result is read from that member,
+and its branch `runs/<run_id>` is brought into the checkout the CLI runs in (or
+`--into <checkout>`) from a git bundle that this core reads from the member over
+the fleet transport: no shell on that host. The bundle holds only that run's
+ref and the commits after its base commit, so the checkout must hold the base.
+Outside a checkout, or with `--no-fetch`, nothing is fetched; `--json` carries
+`fetched` (null, or the branch, checkout and tip).
+
 ## Usage
 
     agents runs result <run_id> --json
+    agents runs result <run_id> --into ../culture-agents
 
 {CORE_NOTE}"""
 

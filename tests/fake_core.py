@@ -60,6 +60,10 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "POST /v1/fleet/runs/{id}/steer": (202, fixture("control-action", "accepted_response.steer")),
     "POST /v1/fleet/runs/{id}/cancel": (202, fixture("control-action", "accepted_response.cancel")),
     "GET /v1/fleet/aliases": (200, fixture("remote", "alias_list.two")),
+    "GET /v1/fleet/runs/{id}/events": (200, fixture("event", "event_page.first-page")),
+    "GET /v1/fleet/runs/{id}/result": (200, fixture("run", "run_result.succeeded")),
+    #: A run's bundle (3.3) is bytes; tests that fetch one put a real bundle here.
+    "GET /v1/fleet/runs/{id}/bundle": (404, error_body("root.not-found")),
 }
 
 _PATTERNS = [
@@ -129,9 +133,12 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(404, error_body("root.not-found"))
 
     def _json(self, status: int, payload: Any) -> None:
-        data = json.dumps(payload).encode("utf-8")
+        binary = isinstance(payload, bytes)  # a run's bundle (3.3)
+        data = payload if binary else json.dumps(payload).encode("utf-8")
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header(
+            "Content-Type", "application/x-git-bundle" if binary else "application/json"
+        )
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
