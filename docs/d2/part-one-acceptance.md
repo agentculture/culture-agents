@@ -74,7 +74,7 @@ CULTURE_AGENTS_ACCEPTANCE_LIVE=1 uv run pytest tests/acceptance/d2/test_live.py 
 | --- | --- | --- |
 | Third submit to another repository with 2 runs active in 1 repository | Claude Code | measured: 0.464 s (limit 2 s) |
 | Cancel of that run reaches `cancelled` | Claude Code | measured: 7.67 s (limit 10 s) |
-| The same 2 checks | OpenCode | NOT VERIFIED: not run. The check starts 3 runs at once on the local model, and the owner's rule for this build is 1 local-model run at a time |
+| The same 2 checks | OpenCode | measured on 2026-11-27 at 11:47 UTC, with the owner's permission to run 3 local-model runs at once: 0.397 s and 8.86 s, with both busy runs `running` at the submit and at the cancel |
 | Question survives a restart and is answered | Claude Code, OpenCode | NOT VERIFIED: both report `answer` as unsupported |
 
 Report file lines for the passing run:
@@ -82,6 +82,14 @@ Report file lines for the passing run:
 ```json
 {"check": "live.d2.timing", "time": "2026-11-26T23:35:37Z", "harness": "claude-code", "submit_seconds": 0.464, "cancel_seconds": 7.67, "state": "cancelled"}
 {"check": "live.d2.timing.precondition", "time": "2026-11-26T23:35:38Z", "harness": "claude-code", "before": ["running", "running"], "after": ["running", "running"]}
+```
+
+OpenCode, run on 2026-11-27 with the same command and `-k "opencode and third"`
+(1 passed in 46.9 s):
+
+```json
+{"check": "live.d2.timing", "time": "2026-11-27T11:47:22Z", "harness": "opencode", "submit_seconds": 0.397, "cancel_seconds": 8.86, "state": "cancelled"}
+{"check": "live.d2.timing.precondition", "time": "2026-11-27T11:47:22Z", "harness": "opencode", "before": ["running", "running"], "after": ["running", "running"]}
 ```
 
 The test was changed at the gate. As first written it took the times without

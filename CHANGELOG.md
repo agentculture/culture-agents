@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.2] - 2026-11-27
+
+### Changed
+
+- The validation records of D2 part one are adjudicated: the owner approved evidence e1 to e22 and deltas b1 to b7 and b9; `docs/current-spec.md` is regenerated from them.
+- Two records no longer name the chat servers that ran during D1 (`docs/d0/d1-acceptance.md`, and delivery record d5 of the issue 2 plan with its export); they name them by port, as the owner chose. The example-node test no longer exempts them.
+- The D2 delivery summary records the adjudication and the owner's confirmation that retention also removes `timed_out` and `unanswered` runs.
+
 ## [0.16.1] - 2026-11-27
 
 ### Added

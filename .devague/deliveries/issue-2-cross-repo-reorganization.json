@@ -60,7 +60,7 @@
     },
     {
       "id": "d5",
-      "what": "t16 live acceptance ran with the two culture chat servers (spark :6667, sbx :6668) still running on the host instead of stopped; chat independence was shown by inspecting the TCP sockets of the core and worker processes (none in the mock stage; none to a chat server port in the live stage)",
+      "what": "t16 live acceptance ran with the two culture chat servers (on ports 6667 and 6668) still running on the host instead of stopped; chat independence was shown by inspecting the TCP sockets of the core and worker processes (none in the mock stage; none to a chat server port in the live stage)",
       "task_ref": "t16",
       "reason": "The chat servers are the owner's live mesh; stopping them is disruptive and was not authorized. Unprivileged user namespaces are disabled on this host, so the suite could not be run in an isolated process and network namespace either.",
       "affects": [],

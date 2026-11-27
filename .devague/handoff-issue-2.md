@@ -26,17 +26,28 @@ is `docs/deliveries/2026-11-26-d2-fleet-and-recovery.md` (17 tasks delivered,
 with `devague today` after the owner adjudicates the evidence and deltas.
 
 **Part two.** The owner approved the design record on 2026-11-27 ("part two
-approved"), every open question at its recommended answer. It lives on
-branch `runs/d2-fleet` (based on main, worktree
-`../.worktrees.culture-agents/part-two`), which is the integration branch
-for part two; the older `runs/d2-part-two` branch is stale. Task t21
-(transport) was dispatched at 10:22 UTC on the opus core, run
-`spark-culture-agents.run.01M8E8EP9JVB3JX44D2FZWPMK6`, worktree `agent-t21`
-(branched from `runs/d2-fleet`). Gate it in the part-two worktree: `mg.sh`
-and `gate.sh` assume the main checkout, so run the same steps there by hand
-or copy the scripts with the path changed. Then t22, t23, then t24 to t26 in
-parallel, then t28 on the owner's hosts. The 20-minute status job was
-stopped at the owner's request; report when runs finish.
+approved"), every open question at its recommended answer. The integration
+branch is `runs/d2-fleet` (worktree `../.worktrees.culture-agents/part-two`),
+based on the part one merge; the other D2 branches were deleted on GitHub at
+the owner's request. On it: t20 (design record) and t21 (fleet transport over
+TLS 1.3, off by default; gate: core 740 passed, Python 1794 passed). t22
+(announcement and member list, run
+`spark-culture-agents.run.01M8EAD5MM2WZ2R3XNR5JV5V8V`, worktree `agent-t22`)
+finished and is not yet gated. Gate in the part-two worktree by hand
+(`mg.sh` and `gate.sh` assume the main checkout). Then t23, then t24 to t26
+in parallel, then t28 on the owner's hosts. Before the part two pull request:
+merge main into `runs/d2-fleet`, and an independent code review.
+
+**Reviews.** The owner had the 9-hour OpenCode review stopped on 2026-11-27
+and asked for a way that needs no babysitting or has a time limit. Do not
+start an unbounded local-model run.
+
+**Owner decisions of 2026-11-27 after the merge:** the validation records
+were adjudicated (approved); the two records naming the D1 chat servers were
+redacted; retention of `timed_out` and `unanswered` runs was confirmed; the
+OpenCode live acceptance check is allowed once with 3 concurrent local runs.
+Item still open: whether an unreadable run should be shown over the API or
+claim `c55` amended (the owner answered "approved" to a two-option question).
 
 **Lessons from part one that the part two briefs must carry** (they are in
 `briefs/note-t21.txt`): the review found defects both green suites missed,
@@ -188,8 +199,7 @@ Not done for t29: the live check against a real Langfuse on the host.
   local-model probes and has failed unexplained twice.
 - No real host name or address in any tracked file. The local gateway's role
   listing names real machines; keep that output out of commits and messages.
-  `thor` and `spark` are both real mesh machines; the owner chose the Jetson
-  Thor name as the example knowingly.
+  The owner chose the example node name knowingly.
 
 ### Found by dogfooding
 
@@ -230,7 +240,7 @@ Not done for t29: the live check against a real Langfuse on the host.
 2. Dispatch t7 (sonnet) and t11 (sonnet) after t6; then t8 (opus) after t7.
    Fold "unreadable run on the wire" into t8, as t4's report suggests.
 3. When t15 and t29 end, gate them; t29's live Langfuse check follows.
-4. Remove merged `runs/spark-…` result branches and the two smoke branches at
+4. Remove the merged result branches of the dispatched runs and the two smoke branches at
    the end, with the owner's go-ahead for forced deletes.
 5. After wave 8 (t18 acceptance, t19 documents): bump the version, open the
    pull request through the `cicd` skill, and run the pre-PR review in
