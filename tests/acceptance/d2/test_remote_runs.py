@@ -12,6 +12,7 @@ steer ``files: ...`` replaces the ones not yet written; ``hang`` runs until canc
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Iterator
 
 import pytest
@@ -30,6 +31,10 @@ def fleet() -> Iterator[tuple[Member, Member]]:
     try:
         thor.trust(caller)
         caller.trust(thor)
+        # A remote submit is admitted only on a known, admitting heat signal (t24): thor's says admit.
+        heat = thor.core.root / "heat.json"
+        heat.write_text(json.dumps({"at": time.time(), "stale_after_s": 3600, "level": "normal", "admit": True}))
+        thor.core.env["HEAT_GOVERNOR_STATE"] = str(heat)
         repo = thor.core.add_repo()
         (thor.fleet_dir / "aliases.json").write_text(
             json.dumps({"version": 1, "aliases": [{"alias": "acc", "repo": str(repo)}]})

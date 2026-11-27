@@ -1,0 +1,51 @@
+# TASK-REPORT t24: admission across hosts
+
+## Built
+- `core/src/runs/admission.ts`: `admitSubmit(admission, origin)`. A `remote` submit is refused with
+  the typed, retryable `admission_held` (its `signal` names heat or gateway, the state `hold` or
+  `unknown`, and `observed_at`) when a consulted signal holds or reads unknown. A `local` submit is
+  never refused by a signal: unknown yields the existing `signal_unknown` warning. A signal that was
+  not consulted never refuses or warns.
+- `core/src/runs/service.ts`: submit order is harness, key replay, limits, then signals, so the
+  executing core decides on its own host. `SubmitOptions.remote` (`daemon/ports.ts`) is set by
+  `fleet/serve-runs.ts` for `POST /v1/fleet/runs`.
+- `core/src/runs/gateway.ts`: a `/status` with no `admission` field now reads `consulted: false`
+  (reason names lobes-cli issue 346); the field present but malformed or stale stays consulted-unknown.
+- Docs: `contract/README.md` (order-of-checks step 7, the admission paragraph, two table rows) and
+  `docs/d2/remote-runs.md`. No contract change: `admission_held` is a 3.0 shape, so no 3.3 addition.
+
+## Tests
+- New `core/test/runs/admission-remote.test.ts` (6 tests): admit/hold/unknown for remote and local;
+  missing and stale heat; the gateway field present and absent; the real `StoreRunService` refuses
+  remote hold and unknown with nothing queued, and checks harness then limit before signals.
+- Updated, not deleted: `core/test/runs/gateway.test.ts` (an empty `{}` status used to read
+  consulted-unknown and warn; it is now not consulted, and a malformed field covers the warning),
+  `core/test/fleet/remote-e2e.test.ts` and `tests/acceptance/d2/test_remote_runs.py` (thor now has an
+  admitting heat file, since a remote submit with no heat reading is refused by design).
+
+## Commands and results
+- `cd core && npm run lint`: clean. `npm run typecheck`, `npm run check:contract-types`: clean.
+- `cd core && npm test`: 841 tests, 829 pass, 0 fail, 12 skipped (final run).
+- `/usr/local/share/dogfood/venv/bin/python -m pytest -n auto` from the root: see the last section.
+- An earlier core run had `transport.test.js` "no session can be resumed" fail; it passes alone and
+  in the final full run (flaky, unrelated to this task).
+
+## Acceptance criteria
+1. Proven: `admission-remote.test.ts` "remote: admit passes; hold is a typed admission_held..." and
+   "through the service..." (harness, then limit, then signal; nothing queued).
+2. Proven: "unknown: a remote submit is refused, a local one admitted with a warning" and "a missing or
+   stale heat reading reads unknown...". Reader errors are caught, so the control plane never fails.
+3. Proven: "the gateway is read only from the admit field with a timestamp..." (present and absent) and
+   the updated `gateway.test.ts`.
+
+## Not verified / assumed
+- A remote submit that is admitted through the real service is covered only by the two-core e2e
+  tests (real cores, heat file admitting), not by an in-process unit test.
+- The gateway live read is still NOT VERIFIED (issue 346 not released, no gateway in the sandbox).
+- Assumed: an unreachable or timed-out gateway (field presence unknown) reads consulted-unknown, so
+  it refuses a remote submit for a harness that uses the gateway.
+- `tests/test_contract_packaging.py::test_a_built_wheel_holds_the_schemas_byte_for_byte` fails here
+  because it needs pypi.org (no network); it failed the same way without my changes.
+- Left unchanged on purpose: the CLI, `api.json`, `error.json` and the five prompt files.
+- Reasoning lapse: I first imported `capabilitiesOf` from `test/runs/child.ts`, which starts a daemon
+  on import; I replaced it with a minimal capability object.
