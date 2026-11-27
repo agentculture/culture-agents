@@ -63,7 +63,9 @@ After a **retry** with the same idempotency key:
 - Submit, steer and cancel take effect once. The same key and request returns the
   first answer; a different request with that key is `conflict`. A key is scoped to its
   route and, for steer and cancel, to the run. A key is kept while its run is in the
-  store and 7 days after it ended.
+  store and 7 days after it ended. A steer or cancel whose outcome is not known yet (no
+  answer in time) keeps its key reserved: a retry gets `unavailable` and is not delivered
+  again until the run's log settles it.
 - The CLI sends a key on every submit, steer and cancel (generated when none is given)
   and retries with the same key after a timeout. `runs answer` is sent once and never
   retried; a second answer is `conflict`.

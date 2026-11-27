@@ -198,8 +198,9 @@ function reconcileRuns(runs: ReturnType<typeof createRunService> | null, err: Lo
 }
 
 /**
- * Sandboxes of finished runs that their workers could not delete, and finished run directories past
- * the retention period: once now, then periodically. Returns what stops the timers.
+ * Sandboxes of finished runs that their workers could not delete, finished run directories past
+ * the retention period, and expired idempotency keys: once now, then periodically. Returns what
+ * stops the timers.
  */
 function startHousekeeping(runs: ReturnType<typeof createRunService> | null, stateDir: string, env: Env, intervalMs: number, err: Log): () => void {
   const reclaim = (): void => {
@@ -214,6 +215,7 @@ function startHousekeeping(runs: ReturnType<typeof createRunService> | null, sta
     try {
       const ids = pruneFinishedRuns(stateDir, { retentionMs: retentionFromEnv(env) });
       if (ids.length > 0) err(`culture-agents core: removed ${ids.length} finished run directory(ies) past retention: ${ids.join(", ")}`);
+      runs.pruneExpiredKeys(); // idempotency keys past their retention, or of runs that left the store
     } catch (e) {
       err(`culture-agents core: could not prune finished runs: ${e instanceof Error ? e.message : String(e)}`);
     }

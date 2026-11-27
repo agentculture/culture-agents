@@ -33,6 +33,7 @@ import {
   type Submitter,
   type SubmitResponse,
 } from "../contract/index.js";
+import { existsSync } from "node:fs";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { resolveBaseCommit, startRef } from "./base-commit.js";
 import { ControlError, notFound } from "../daemon/errors.js";
@@ -40,14 +41,14 @@ import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "..
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
-import { actionRecorded, KeyIndex, pruneKeys, recoverKeys, requestDigest, type KeyEntry } from "../store/idempotency.js";
+import { KeyIndex, pruneKeys, recoverKeys, requestDigest, settleKey, sweepKeyTemps, type KeyEntry } from "../store/idempotency.js";
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
 import { reconnectWorker, type WorkerControl } from "../worker/spawn.js";
 import { withHostReport, readAdmission, submitWarnings, type HostReport } from "./admission.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { answer as answerRun } from "./answer.js";
-import { control, recordDeferredRefusal, type ControlKind, type ControlTarget } from "./control.js";
+import { control, recordDeferredRefusal, WorkerRefusedError, type ControlKind, type ControlTarget } from "./control.js";
 import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
 import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
@@ -65,7 +66,7 @@ export interface RunServiceOptions {
   allowlist: () => AllowlistState;
   now?: () => Date;
   /** Passed to every worker. */
-  worker?: { heartbeatMs?: number; cancelGraceMs?: number; readyTimeoutMs?: number; questionLimitMs?: number; env?: NodeJS.ProcessEnv };
+  worker?: { heartbeatMs?: number; cancelGraceMs?: number; readyTimeoutMs?: number; questionLimitMs?: number; steerTimeoutMs?: number; env?: NodeJS.ProcessEnv };
   /** Poll interval of a live event stream. Default 20 ms. */
   followPollMs?: number;
   warn?: (line: string) => void;
@@ -119,6 +120,7 @@ export class StoreRunService implements RunService {
    */
   reconcile(): Run[] {
     // Keys first: a reserved key is settled from the store (run established, or released).
+    sweepKeyTemps(this.keys);
     recoverKeys(this.keys);
     const runs = scanRuns(this.scan);
     for (const run of runs) if (!run.terminal) void this.reattacher.begin(run.id);
@@ -126,13 +128,22 @@ export class StoreRunService implements RunService {
     return runs;
   }
 
-  /** Forget established keys whose run left the store, or ended longer ago than the retention. */
-  private pruneKeys(runs: Run[]): void {
+  /** Housekeeping, on the daemon's interval: forget expired keys. Returns the keys removed. */
+  pruneExpiredKeys(): string[] {
+    return this.pruneKeys(scanRuns(this.scan));
+  }
+
+  /**
+   * Forget established keys whose run directory is gone, or whose run ended longer ago than the
+   * retention. A run the scan could not read is not gone: its key is kept.
+   */
+  private pruneKeys(runs: Run[]): string[] {
     const byId = new Map(runs.map((run) => [run.id as string, run]));
     const cutoff = this.now().getTime() - (this.options.keyRetentionMs ?? KEY_RETENTION_MS);
-    pruneKeys(this.keys, (entry) => {
+    return pruneKeys(this.keys, (entry) => {
       const run = byId.get(entry.run_id);
-      return run === undefined || (run.terminal && Date.parse(run.ended_at ?? run.updated_at) < cutoff);
+      if (run === undefined) return !existsSync(runDir(this.options.stateDir, entry.run_id));
+      return run.terminal && Date.parse(run.ended_at ?? run.updated_at) < cutoff;
     });
   }
 
@@ -246,7 +257,8 @@ export class StoreRunService implements RunService {
   /**
    * A steer or cancel under its idempotency key: a repeat returns the first action and delivers
    * nothing; a new key is written (reserved, with the action id) just before delivery, established
-   * once the worker accepted, and released when the action was refused or never recorded.
+   * once the worker accepted, and released when the worker refused it. With no answer (a timeout)
+   * the key is settled from the log, and stays reserved while the outcome is not known yet.
    */
   private async keyed(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse> {
     const key = request.idempotency_key;
@@ -265,11 +277,8 @@ export class StoreRunService implements RunService {
         return { action };
       } catch (err) {
         const held = reserved as KeyEntry | null;
-        if (held?.action) {
-          const recorded = actionRecorded(this.options.stateDir, held.run_id, held.action.id);
-          if (recorded === null) this.keys.release(kind, key);
-          else this.keys.establish(held, { ...held.action, outcome: "accepted" });
-        }
+        if (held !== null && err instanceof WorkerRefusedError) this.keys.release(kind, key);
+        else if (held !== null) settleKey(this.keys, held);
         throw err;
       }
     });

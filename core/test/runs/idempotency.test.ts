@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -14,7 +14,7 @@ import { apiVersion, type ActionRecord, type Run, type RunEvent } from "../../sr
 import { runDir } from "../../src/store/files.js";
 import { checkLiveness } from "../../src/store/liveness.js";
 import { listRunIds } from "../../src/store/run-store.js";
-import { CALLER, HANG, events, killDaemon, makeEnv, ok, refused, startDaemon, submitBody, waitRun, type Env } from "./support.js";
+import { CALLER, HANG, events, killDaemon, makeEnv, ok, refused, startDaemon, submitBody, waitFor, waitRun, type Env } from "./support.js";
 
 type Submitted = { run: Run; replayed?: boolean };
 type Accepted = { action: ActionRecord; replayed?: boolean };
@@ -111,6 +111,17 @@ test("a refused steer does not use up its key", async (t) => {
   assert.equal(existsSync(keyFile(env, "steer", "steer-late")), false, "the refusal released the key");
   const again = await refused(env, "POST", `/v1/runs/${run.id}/steer`, "conflict", steer);
   assert.equal(again.idempotency_key, undefined, "a state conflict, not a key conflict");
+});
+
+test("the daemon prunes keys on its housekeeping interval, not only at start", async (t) => {
+  const env = makeEnv(t, [HANG]);
+  await startDaemon(t, { ...env, vars: { ...env.vars, RECLAIM_INTERVAL_MS: "100" } });
+  const made = await post<Submitted>(env, "/v1/runs", 201, "control-action#submit_response", submitBody("fake", env.repoA, { idempotency_key: "housekeep-1" }));
+  await post(env, `/v1/runs/${made.run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
+  await waitRun(env, made.run.id, (r) => r.terminal, "terminal");
+  assert.ok(existsSync(keyFile(env, "submit", "housekeep-1")));
+  rmSync(runDir(env.stateDir, made.run.id), { recursive: true, force: true }); // the run left the store
+  await waitFor(() => !existsSync(keyFile(env, "submit", "housekeep-1")), 3000, "the key of a run that left the store to be pruned");
 });
 
 /** A POST that tolerates the core dying under it. */

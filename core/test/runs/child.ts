@@ -58,10 +58,13 @@ process.on("SIGUSR2", () => {
 const spec = process.env["FAKE_CATALOG"];
 // SUBMIT_FAULT=<step> kills this core (SIGKILL, no cleanup) when a submit reaches that step.
 const faultAt = process.env["SUBMIT_FAULT"];
+// RECLAIM_INTERVAL_MS=<n> runs the daemon's housekeeping every n ms.
+const housekeepMs = process.env["RECLAIM_INTERVAL_MS"];
 const code = await main(undefined, {
   node: "thor",
   stderr: (line) => process.stderr.write(`${line}\n`),
   fatalHandlers: true,
+  ...(housekeepMs !== undefined && { reclaimIntervalMs: Number(housekeepMs) }),
   ...(faultAt !== undefined && {
     submitFault: (step: string) => {
       if (step === faultAt) process.kill(process.pid, "SIGKILL");

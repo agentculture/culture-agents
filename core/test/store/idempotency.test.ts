@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
+import { runDir } from "../../src/store/files.js";
 import { KeyIndex, keysDir, pruneKeys, recoverKeys, requestDigest, type KeyEntry } from "../../src/store/idempotency.js";
 
 const RUN = "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5" as KeyEntry["run_id"];
@@ -52,6 +53,20 @@ test("recovery releases a reserved key whose run never got a directory and keeps
   assert.deepEqual(report, { established: [], pending: [], released: ["submit:k1"] });
   assert.equal(keys.get("submit", "k1"), null);
   assert.equal(keys.get("submit", "k2")?.state, "established");
+});
+
+test("a reserved steer or cancel key whose run log cannot be read is kept, never released", (t) => {
+  const keys = index(t);
+  const dir = runDir(keys.stateDir, RUN);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, "events.jsonl"), "{not json}\n");
+  for (const scope of ["steer", "cancel"] as const) {
+    const action = { id: "thor-culture-agents.action.01JDQ5V7M2K8X9Y0Z1A2B3C4D5", run_id: RUN, kind: scope, caller: { kind: "operator", id: "thor-operator" }, requested_at: "2026-11-26T00:00:00.000Z", idempotency_key: "k", outcome: "accepted", error: null } as unknown as KeyEntry["action"];
+    keys.put(entry({ scope, key: "k", action }));
+  }
+  assert.deepEqual(recoverKeys(keys).released, [], "an unreadable log is not \"not recorded\"");
+  assert.equal(keys.get("steer", "k")?.state, "reserved");
+  assert.equal(keys.get("cancel", "k")?.state, "reserved");
 });
 
 test("pruning removes only established keys the rule says are over", (t) => {
