@@ -42,6 +42,15 @@ function serviceFor(stateDir: string, calls: string[] = []) {
   });
 }
 
+/** Let a stopped worker run again so its cleanup can kill it; it may already be gone. */
+function resume(pid: number): void {
+  try {
+    process.kill(pid, "SIGCONT");
+  } catch {
+    // already exited
+  }
+}
+
 const codeOf = (p: Promise<unknown>) => p.then(
   () => null,
   (e: { body: { code: string; retry_after_ms?: number; run_id?: string } }) => e.body,
@@ -55,9 +64,7 @@ test("a live worker that misses its first ping is never reported unknown, is ref
   await killDaemon(first);
   const pid = run.worker_pid as number;
   process.kill(pid, "SIGSTOP");
-  t.after(() => {
-    if (processExists(pid)) process.kill(pid, "SIGCONT");
-  });
+  t.after(() => resume(pid));
 
   const calls: string[] = [];
   const service = serviceFor(env.stateDir, calls);
@@ -93,9 +100,7 @@ test("a stopped worker is reattached by the next control call after it resumes",
   await killDaemon(first);
   const pid = run.worker_pid as number;
   process.kill(pid, "SIGSTOP");
-  t.after(() => {
-    if (processExists(pid)) process.kill(pid, "SIGCONT");
-  });
+  t.after(() => resume(pid));
   const calls: string[] = [];
   const service = serviceFor(env.stateDir, calls);
   service.reconcile();
