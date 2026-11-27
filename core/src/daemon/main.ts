@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { startPublishing } from "../publish/index.js";
-import { startTracing } from "../trace/index.js";
+import { prepareTrace, startTracing } from "../trace/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
 import { defaultStateDir } from "../store/files.js";
 import { retentionFromEnv, pruneFinishedRuns } from "../store/retention.js";
@@ -263,6 +263,8 @@ async function serveUntilStopped(
   const env = options.env ?? process.env;
   // Before any worker, host command or sandbox exists: secrets leave the environment for memory.
   takeSecrets(env, options.secretNames);
+  // The trace keys leave the environment at the same point, before the socket listens (no host command can inherit them).
+  const traceConfig = prepareTrace(env, err);
   const allowlistPath = options.allowlistPath ?? resolveAllowlistPath(env);
   const stateDir = options.stateDir ?? defaultStateDir(env);
   const operator = readOperatorLimits(service, options, env, err);
@@ -280,7 +282,7 @@ async function serveUntilStopped(
   // Run events also go to the events broker when one is configured. Never awaited by a request, never needed by a run.
   const publishing = runs ? await startPublishing({ stateDir, node, env, log: err }) : null;
   // Run traces go to Langfuse when an endpoint is configured; same rules: never awaited by a request, never needed by a run.
-  const tracing = runs ? startTracing({ stateDir, node, env, log: err }) : null;
+  const tracing = runs ? startTracing({ stateDir, node, env, log: err, config: traceConfig }) : null;
   const stopHousekeeping = startHousekeeping(runs, stateDir, env, options.reclaimIntervalMs ?? 300_000, err);
   const state = daemon.allowlistState();
   err(`culture-agents core: listening on ${daemon.paths.socket} (pid ${process.pid}); allow-list ${state.status}, ${state.entries.length} entries`);

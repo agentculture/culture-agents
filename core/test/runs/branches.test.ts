@@ -135,3 +135,17 @@ test("the core routes list and remove, and refuse a repository the allow-list do
     env.cleanup();
   }
 });
+
+test("a remote-tracking copy of a run branch is never evidence that it was merged", async () => {
+  const lone = id("E1");
+  git(repo, "checkout", "-q", "-b", `runs/${lone}`);
+  git(repo, "commit", "-q", "--allow-empty", "-m", "pushed work");
+  git(repo, "checkout", "-q", "main");
+  git(repo, "update-ref", `refs/remotes/origin/runs/${lone}`, `refs/heads/runs/${lone}`);
+  states.set(lone, { state: "succeeded" });
+  const { branches } = await listBranches({ repo, lookup });
+  assert.equal(branches.find((b) => b.run_id === lone)?.merged_into, null);
+  const res = await removeBranches({ repo, lookup }, false);
+  assert.ok(res.skipped.some((s) => s.run_id === lone));
+  assert.ok(exists(`runs/${lone}`), "the branch is still there");
+});
