@@ -8,6 +8,7 @@ import type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId
 import type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
 import type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 import type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
+import type { MemberList, Fingerprint, Member, Refusal, Announcement } from "./fleet.js";
 import type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 import type { Session } from "./session.js";
 import type { Version } from "./version.js";
@@ -20,6 +21,7 @@ export type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId
 export type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
 export type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 export type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
+export type { MemberList, Fingerprint, Member, Refusal, Announcement } from "./fleet.js";
 export type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 export type { Session } from "./session.js";
 export type { Version } from "./version.js";
@@ -98,6 +100,11 @@ export interface SchemaTypes {
   "event#question_data": QuestionData;
   "event#answer_data": AnswerData;
   "event#event_page": EventPage;
+  "fleet": MemberList;
+  "fleet#fingerprint": Fingerprint;
+  "fleet#member": Member;
+  "fleet#refusal": Refusal;
+  "fleet#announcement": Announcement;
   "run": Run;
   "run#state": RunState;
   "run#active_state": ActiveState;

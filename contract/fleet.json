@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/fleet.json",
+  "title": "MemberList",
+  "description": "Response of GET /v1/fleet/members (added in 3.1): the fleet members this core has heard announce themselves, built from announcements only. A member is listed only after an announcement arrives from a key in this core's trust list, and only under the node name the trust list gives that key; it is dropped after `silence_ms` without an announcement, or at once when it announces `leaving`. No address is reported. `heard_ms_ago` is measured on this core's monotonic clock: no timestamp from another host is read or compared. `refused` holds the announcements this core refused recently, the operator's report of a node name claimed by a key that does not hold it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["node", "transport", "announce_interval_ms", "silence_ms", "members", "refused"],
+  "properties": {
+    "node": {
+      "description": "This core's own node name. This core is not an entry of `members`.",
+      "$ref": "common.json#/$defs/node"
+    },
+    "transport": {
+      "description": "`off` when the fleet transport is not configured: nothing is announced or heard, and both lists are empty.",
+      "enum": ["on", "off"]
+    },
+    "announce_interval_ms": {
+      "description": "How often this core announces itself to the peers in its local address list.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600000
+    },
+    "silence_ms": {
+      "description": "How long a member may stay silent before it is dropped. It leaves the list within this time plus one sweep (1 s).",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600000
+    },
+    "members": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/member" }
+    },
+    "refused": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/refusal" }
+    }
+  },
+  "$defs": {
+    "fingerprint": {
+      "description": "SHA-256 of a member's public key, lowercase hex. Public: it identifies the key, it gives no access.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "member": {
+      "description": "One member heard from. `node` is the name this core's trust list gives the member's key, never a name taken from the announcement alone.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "fingerprint", "api_version", "seq", "heard_ms_ago"],
+      "properties": {
+        "node": { "$ref": "common.json#/$defs/node" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "api_version": {
+          "description": "The control API version the member announced.",
+          "$ref": "common.json#/$defs/api_version"
+        },
+        "seq": {
+          "description": "The sequence number of the member's last announcement heard.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "heard_ms_ago": {
+          "description": "Milliseconds since this core last heard the member, on this core's monotonic clock.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "refusal": {
+      "description": "An announcement refused with `conflict`: the key `fingerprint`, which the trust list names `trusted_as`, claimed the node name `node`, which it does not hold or which another key holds. Repeats of the same claim by the same key are counted, not listed again.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "trusted_as", "fingerprint", "reason", "count", "heard_ms_ago"],
+      "properties": {
+        "node": { "$ref": "common.json#/$defs/node" },
+        "trusted_as": { "$ref": "common.json#/$defs/node" },
+        "fingerprint": { "$ref": "#/$defs/fingerprint" },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "count": { "type": "integer", "minimum": 1, "maximum": 9007199254740991 },
+        "heard_ms_ago": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 }
+      }
+    },
+    "announcement": {
+      "description": "Body of POST /v1/fleet/announce, served over the fleet transport only (never on the control socket), and the body of its 200 reply, which is the answering core's own announcement. It carries no key material: who sent it is the key the transport authenticated.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "api_version", "seq", "state"],
+      "properties": {
+        "node": { "$ref": "common.json#/$defs/node" },
+        "api_version": { "$ref": "common.json#/$defs/api_version" },
+        "seq": { "type": "integer", "minimum": 0, "maximum": 9007199254740991 },
+        "state": {
+          "description": "`up` while the core runs; `leaving` once, on a clean stop, so that its peers drop it at once.",
+          "enum": ["up", "leaving"]
+        }
+      }
+    }
+  }
+}
