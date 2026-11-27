@@ -468,7 +468,16 @@ shows it works and is small when a common base is known.
 
 ## Owner approval
 
-Status: pending
+Status: approved 2026-11-27
+
+The owner approved this record on 2026-11-27 with the words "part two
+approved", without changes. No question was answered separately, so each of
+the nine open questions below stands at its recommended answer, which is the
+one each question states. In particular: the fleet key is injected through
+the environment and stays readable to processes of the same user (question
+3), and a remote run's logs may be read only by the local operator and the
+member that submitted it (question 8). An answer the owner changes later is
+recorded here with its date.
 
 No part two code task (t21, t22, t23, t24, t25, t26) starts until this line
 reads `Status: approved` with a date, and with any changes the owner asked for
