@@ -1,71 +1,121 @@
-/** A run whose stored state cannot be read is reported as such; it is never treated as absent. */
+// t32: the run directories the core cannot read, listed with their reason and left untouched.
 import assert from "node:assert/strict";
-import { appendFileSync, chmodSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test, type TestContext } from "node:test";
 
-import type { StateData } from "../../src/contract/index.js";
-import { CALLER, HANG, attach, events, getRun, makeEnv, ok, processExists, refused, startDaemon, submit, submitBody, waitFor, waitRun, writeLimits } from "./support.js";
+import { validate, type UnreadableRunList } from "../../src/contract/index.js";
+import { startDaemon } from "../../src/daemon/daemon.js";
+import { listUnreadableRuns } from "../../src/runs/unreadable.js";
+import { EventLogWriter } from "../../src/store/event-log.js";
+import { runFile } from "../../src/store/files.js";
+import { createRun } from "../../src/store/run-store.js";
+import { FakeRunService } from "../daemon/fake-service.js";
+import { call, makeEnv } from "../daemon/harness.js";
 
-test("an active run with a corrupt log counts against a configured limit and is not reported as missing", async (t) => {
-  const env = makeEnv(t, [HANG]);
-  writeLimits(env, { runsPerRepository: 1 });
-  await startDaemon(t, env);
-  const run = await submit(env, "fake", env.repoA);
-  await waitRun(env, run.id, (r) => r.state === "running", "running");
-  appendFileSync(join(env.stateDir, "runs", run.id, "events.jsonl"), "{not json}\n");
+const id = (n: string): string => `thor-culture-agents.run.01M8CMHYHM3NW9NCT0KAW4${n}00`;
 
-  const shown = await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
-  assert.match(shown.message, /cannot be read/);
-  // Every route that names the run says the same thing; none reports it as missing.
-  await refused(env, "GET", `/v1/runs/${run.id}/events`, "internal");
-  await refused(env, "GET", `/v1/runs/${run.id}/result`, "internal");
-  await refused(env, "GET", `/v1/runs/${run.id}/attach`, "internal");
-  assert.ok(processExists(run.worker_pid as number), "its worker is still running");
-  // Its worker may still be working, so it counts as active against the configured limit.
-  const second = await refused(env, "POST", "/v1/runs", "limit_reached", submitBody("fake", env.repoA));
-  assert.deepEqual(second.limit, { name: "runs_per_repository", value: 1, active: 1, repo: env.repoA });
-  // Another repository is unaffected: the unreadable run's record names its own repository.
-  assert.equal((await submit(env, "fake", env.repoB)).state, "queued");
+function tmp(t: TestContext): string {
+  const dir = mkdtempSync(join(tmpdir(), "ca-unreadable-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  return dir;
+}
+
+function record(runId: string): Parameters<typeof createRun>[1] {
+  return {
+    id: runId, agent_id: "thor-culture-agents", session_id: "thor-culture-agents.ses.01M8CMHYHM466FE0YF6MS2Q9WW", harness: "fake", repo: "/tmp/r",
+    task: "t", owner: { kind: "operator", id: "thor-operator" }, idempotency_key: null, deadline: null, state: "queued", state_reason: null, terminal: false,
+    created_at: "2026-11-26T10:00:00.000Z", updated_at: "2026-11-26T10:00:00.000Z", started_at: null, ended_at: null, cursor: 1, live_control: false, worker_pid: null, branch: null,
+  } as Parameters<typeof createRun>[1];
+}
+
+function established(state: string, runId: string): string {
+  const dir = createRun(state, record(runId));
+  const writer = EventLogWriter.open(dir, runId as never);
+  writer.transition("queued", null);
+  writer.close();
+  return dir;
+}
+
+/** Every file under the store with its size and times, and its bytes: what "nothing was modified" compares. */
+function snapshot(root: string): string[] {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    for (const name of readdirSync(dir).sort()) {
+      const path = join(dir, name);
+      const st = statSync(path, { bigint: true });
+      if (st.isDirectory()) {
+        out.push(`${path} dir ${st.mtimeNs}`);
+        walk(path);
+      } else out.push(`${path} ${st.size} ${st.mtimeNs} ${st.ctimeNs} ${readFileSync(path).toString("base64")}`);
+    }
+  };
+  walk(root);
+  return out;
+}
+
+test("a corrupt record, a corrupt log and a newer version are listed with their reasons, and a readable run is not", (t) => {
+  const state = tmp(t);
+  established(state, id("1A"));
+  const corruptRecord = established(state, id("2B"));
+  writeFileSync(runFile(corruptRecord, "record"), "nope");
+  const corruptLog = established(state, id("3C"));
+  appendFileSync(runFile(corruptLog, "events"), "{not json}\n");
+  const newer = established(state, id("4D"));
+  writeFileSync(runFile(newer, "version"), '{"schema":99}\n');
+  const list = listUnreadableRuns(state);
+  assert.deepEqual(list.runs.map((r) => [r.run_id, r.reason]), [
+    [id("4D"), "newer_version"],
+    [id("3C"), "unreadable_log"],
+    [id("2B"), "corrupt_record"],
+  ]);
+  assert.equal(list.count, 3);
+  assert.ok(list.runs.every((r) => r.detail.length > 0 && r.detail.length <= 500));
+  assert.ok(validate("unreadable", list).ok, "the list is a valid unreadable.json");
 });
 
-test("with no limit configured, an unreadable active run never blocks a submit to its repository", async (t) => {
-  const env = makeEnv(t, [HANG]);
-  await startDaemon(t, env);
-  const run = await submit(env, "fake", env.repoA);
-  await waitRun(env, run.id, (r) => r.state === "running", "running");
-  appendFileSync(join(env.stateDir, "runs", run.id, "events.jsonl"), "{not json}\n");
-  await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
-  assert.equal((await submit(env, "fake", env.repoA)).state, "queued");
+test("a version file that is not a version is `other`, and a store with no unreadable run lists none", (t) => {
+  const state = tmp(t);
+  assert.deepEqual(listUnreadableRuns(state), { count: 0, runs: [] });
+  const dir = established(state, id("1A"));
+  assert.deepEqual(listUnreadableRuns(state), { count: 0, runs: [] });
+  writeFileSync(runFile(dir, "version"), "garbage");
+  assert.deepEqual(listUnreadableRuns(state).runs.map((r) => r.reason), ["other"]);
 });
 
-test("a live worker whose liveness evidence cannot be read is never settled as unknown", async (t) => {
-  const env = makeEnv(t, [HANG]);
-  await startDaemon(t, env);
-  const run = await submit(env, "fake", env.repoA);
-  await waitRun(env, run.id, (r) => r.state === "running" && r.cursor >= 3, "running");
-  const stream = await attach(env, run.id, 0);
-  // The stream must be past its replay before the fault: on a slow runner the core otherwise
-  // handles the attach after it, refuses it as unreadable, and the stream never carries an event.
-  await waitFor(() => stream.events.length >= 3, 5000, "the attach stream to replay");
-  // The identity file exists but reading it fails (EACCES): that is not "no worker". The mode
-  // change is one step, so no reader ever sees the file missing (replacing it with a directory
-  // left a moment without it, in which the attach follower rightly settled the run as unknown).
-  const identity = join(env.stateDir, "runs", run.id, "worker.json");
-  chmodSync(identity, 0o000);
+test("listing unreadable runs modifies nothing in their directories (a newer one holds a summary a reader might trust)", (t) => {
+  const state = tmp(t);
+  established(state, id("1A"));
+  const corruptLog = established(state, id("3C"));
+  appendFileSync(runFile(corruptLog, "events"), "{not json}\n");
+  const corruptRecord = established(state, id("2B"));
+  writeFileSync(runFile(corruptRecord, "record"), "nope");
+  const newer = established(state, id("4D"));
+  writeFileSync(runFile(newer, "version"), '{"schema":99}\n');
+  writeFileSync(runFile(newer, "summary"), "{}");
+  for (const dir of [corruptLog, corruptRecord, newer]) {
+    const before = snapshot(dir);
+    assert.equal(listUnreadableRuns(state).count, 3);
+    listUnreadableRuns(state);
+    assert.deepEqual(snapshot(dir), before, `${dir} is unchanged`);
+  }
+});
 
-  const shown = await refused(env, "GET", `/v1/runs/${run.id}`, "internal");
-  assert.match(shown.message, /liveness cannot be established/);
-  await refused(env, "POST", `/v1/runs/${run.id}/cancel`, "internal", { caller: CALLER });
-  await new Promise((resolve) => setTimeout(resolve, 600)); // several orphan checks of the attach follower
-  assert.ok(processExists(run.worker_pid as number), "the worker is still running");
-
-  chmodSync(identity, 0o600);
-  assert.equal((await getRun(env, run.id)).state, "running");
-  assert.deepEqual((await events(env, run.id)).filter((e) => e.kind === "run.state").map((e) => (e.data as StateData).to), ["queued", "running"]);
-  // The stream stayed open through the failed checks and still ends with the real outcome.
-  await ok(env, "POST", `/v1/runs/${run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
-  await stream.closed;
-  assert.equal((stream.events.at(-1)?.data as StateData).to, "cancelled");
-  assert.deepEqual(stream.events, await events(env, run.id));
+test("GET /v1/runs/unreadable answers with the list, before the `runs/{run_id}` route could take the path", async (t) => {
+  const env = makeEnv();
+  t.after(() => env.cleanup());
+  const body: UnreadableRunList = { count: 1, runs: [{ run_id: id("4D") as never, reason: "newer_version", detail: "the run directory uses store schema 99" }] };
+  const service = new FakeRunService();
+  service.listUnreadable = () => Promise.resolve(body);
+  const daemon = await startDaemon({ service, node: "thor", env: env.vars });
+  try {
+    const reply = await call(env.socket, "GET", "/v1/runs/unreadable");
+    assert.equal(reply.status, 200, reply.text);
+    assert.deepEqual(reply.json, body);
+    assert.equal((await call(env.socket, "GET", "/v1/runs/unreadable", { version: "2.0" })).status, 412);
+    assert.equal((await call(env.socket, "POST", "/v1/runs/unreadable", { body: {} })).status, 400);
+  } finally {
+    await daemon.stop();
+  }
 });

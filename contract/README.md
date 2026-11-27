@@ -1,6 +1,6 @@
 # culture-agents control-plane contract
 
-API version **3.1** (single source: `api.json` → `api_version`).
+API version **3.2** (single source: `api.json` → `api_version`).
 
 This directory is the contract between the TypeScript core daemon and every
 client of it, starting with the Python `agents` CLI. The JSON Schemas
@@ -12,8 +12,10 @@ copy them by hand.
 Scope: no chat. Version 3.0 carries the shapes of D2 part one:
 recovery after a core restart, concurrent runs in one repository, idempotent
 requests, operator questions, limits and admission. Version 3.1 adds one D2
-part two shape, the fleet member list, as a MINOR addition (see
-[Changes in 3.1](#changes-in-31)). The shapes are fixed here.
+part two shape, the fleet member list, and version 3.2 adds the list of run
+directories the core cannot read, each as a MINOR addition (see
+[Changes in 3.1](#changes-in-31) and [Changes in 3.2](#changes-in-32)). The
+shapes are fixed here.
 Some of the behaviour behind them is not built yet. Every such rule below is
 marked **(planned)** with the task of the D2 plan
 (`docs/plans/2026-11-26-d2-fleet-and-recovery.md`) that builds it, and
@@ -40,6 +42,7 @@ Key words: **must**, **must not** and **may** are normative.
 | `branches.json` | `branches.list` response | `remove_request`, `remove_response` |
 | `version.json` | `GET /v1/version` response | none |
 | `fleet.json` | `fleet.members` response (3.1) | `member`, `refusal`, `fingerprint`, `announcement`, `announce_refusal` (the fleet transport's announce route) |
+| `unreadable.json` | `runs.unreadable` response (3.2) | `unreadable_run` |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
 | `fixtures/` | example payloads, see [Fixtures](#fixtures) | |
@@ -233,6 +236,40 @@ repository or in any tracked file.
   authenticated members (`GET /v1/fleet/members` over the fleet transport).
   It is published nowhere else.
 
+## Changes in 3.2
+
+Version 3.2 is one MINOR addition to 3.1, built by plan task t32. No 3.1 shape
+changed: no field, enum value, error code or event kind was added to a shape
+that exists. A 3.1 client works with a 3.2 core. A 3.2 client refuses a 3.1
+core, which has no such route (the compatibility rule above).
+
+| Change | Where | Required in 3.2 | Built by |
+| --- | --- | --- | --- |
+| `runs.unreadable`: every run directory the core cannot read, with its run id and the reason | new route `GET /v1/runs/unreadable`, new file `unreadable.json` | new in 3.2 | t32 (built) |
+
+### Unreadable runs (3.2)
+
+`runs.list` skips a run directory the core cannot read (the core logs a
+warning). `runs.unreadable` is where those runs are named, so that a skipped run
+is never mistaken for a run that does not exist.
+
+- **What is listed.** Every directory under the store's `runs/` whose name is a
+  run id and which the core cannot read: `run_id` is the directory name. The
+  `reason` is `newer_version` (a store schema newer than the core reads),
+  `corrupt_record` (the record file is missing, not JSON or not a run),
+  `unreadable_log` (the event log is corrupt or unreadable) or `other` (say,
+  a version file that is not a version), and `detail` is the core's message,
+  at most 500 characters. A run whose worker may still be alive is listed
+  like any other: the list does not say whether a worker runs.
+- **Order.** By run id, descending. `count` equals the length of `runs`.
+- **Nothing is changed.** Listing reads the directory and never settles,
+  rewrites or removes anything in it. A directory of a newer store version is
+  read for its version file only.
+- **The CLI.** `agents runs list` prints one warning line when `count` is not
+  zero, naming the count and `agents runs unreadable`; its `--json` output
+  carries `unreadable_count` beside `runs`. The count is the CLI's own field,
+  not a change to the `run_list` shape.
+
 ## Routes
 
 The authoritative list is `api.json` → `routes`, which gives each route's
@@ -258,6 +295,7 @@ possible errors and CLI verb.
 | `branches.list` | `GET /v1/branches?repo=` | 200 `branches.json` | `agents branches list` |
 | `branches.remove` | `POST /v1/branches/remove` | 200 `remove_response` | `agents branches remove` |
 | `fleet.members` | `GET /v1/fleet/members` | 200 `fleet.json` | `agents agents list` (3.1) |
+| `runs.unreadable` | `GET /v1/runs/unreadable` | 200 `unreadable.json` | `agents runs unreadable` (3.2) |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:

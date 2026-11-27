@@ -19,6 +19,7 @@ import {
   type SteerRequest,
   type SubmitRequest,
   type SubmitResponse,
+  type UnreadableRunList,
 } from "../../src/contract/index.js";
 import { ControlError, notFound } from "../../src/daemon/errors.js";
 import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../../src/daemon/ports.js";
@@ -76,6 +77,11 @@ export class FakeRunService implements RunService {
     this.submitted.push(request);
     const base = fixture<Run>("valid/run/root.queued.json");
     return Promise.resolve({ run: { ...base, agent_id: request.agent_id, harness: request.harness, repo: request.repo, task: request.task, owner: request.caller } });
+  }
+
+  listUnreadable(): Promise<UnreadableRunList> {
+    this.calls.push("listUnreadable");
+    return Promise.resolve({ count: 0, runs: [] });
   }
 
   listRuns(query: RunListQuery): Promise<Run[]> {
