@@ -94,3 +94,15 @@ def _submit_args() -> list[str]:
         "--agent", "thor-culture-agents", "--harness", "claude-code",
         "--repo", "/srv/repos/demo", "--task", "x",
     ]  # fmt: skip
+
+
+def test_explain_runs_does_not_call_answer_missing(capsys) -> None:
+    out = run(capsys, "explain", "runs").out
+    assert "`answer` is not a verb" not in out
+    assert "runs answer" in out
+
+
+def test_learn_names_branches_among_the_verbs_that_need_a_core(capsys) -> None:
+    out = run(capsys, "learn").out
+    flat = " ".join(out.split())
+    assert "`agents branches`" in flat.split("exits 2")[0][-120:]
