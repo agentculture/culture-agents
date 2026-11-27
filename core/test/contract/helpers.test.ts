@@ -193,6 +193,7 @@ const ERRORS: Record<ErrorCode, [number, number, boolean | null]> = {
   not_found: [404, 1, false],
   conflict: [409, 1, null],
   limit_reached: [429, 1, true],
+  admission_held: [429, 1, true],
   unsupported: [422, 1, false],
   incompatible_version: [412, 2, false],
   unavailable: [503, 2, true],

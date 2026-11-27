@@ -36,11 +36,11 @@ DEFERRED_CAPABILITIES = {
     "pause",
     "resume",
     "delegate",
-    "placement",
     "continue_session",
 }
 #: Deferred in 2.0; in 3.0 a harness may report them supported (README: changes from 2.0).
-SUPPORTABLE_SINCE_3_0 = {"answer", "reconnect", "worktree_isolation"}
+#: ``placement`` joined them in t30 so that part two needs no MAJOR bump; no harness reports it yet.
+SUPPORTABLE_SINCE_3_0 = {"answer", "reconnect", "worktree_isolation", "placement"}
 ENVIRONMENT_ERRORS = {"incompatible_version", "unavailable", "internal"}
 
 
