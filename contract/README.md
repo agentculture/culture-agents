@@ -1,6 +1,6 @@
 # culture-agents control-plane contract
 
-API version **3.1** (single source: `api.json` → `api_version`).
+API version **3.2** (single source: `api.json` → `api_version`).
 
 This directory is the contract between the TypeScript core daemon and every
 client of it, starting with the Python `agents` CLI. The JSON Schemas
@@ -13,7 +13,9 @@ Scope: no chat. Version 3.0 carries the shapes of D2 part one:
 recovery after a core restart, concurrent runs in one repository, idempotent
 requests, operator questions, limits and admission. Version 3.1 adds one D2
 part two shape, the fleet member list, as a MINOR addition (see
-[Changes in 3.1](#changes-in-31)). The shapes are fixed here.
+[Changes in 3.1](#changes-in-31)), and version 3.2 adds remote runs, a run
+submitted to and controlled on another fleet member, as another (see
+[Changes in 3.2](#changes-in-32)). The shapes are fixed here.
 Some of the behaviour behind them is not built yet. Every such rule below is
 marked **(planned)** with the task of the D2 plan
 (`docs/plans/2026-11-26-d2-fleet-and-recovery.md`) that builds it, and
@@ -40,6 +42,7 @@ Key words: **must**, **must not** and **may** are normative.
 | `branches.json` | `branches.list` response | `remove_request`, `remove_response` |
 | `version.json` | `GET /v1/version` response | none |
 | `fleet.json` | `fleet.members` response (3.1) | `member`, `refusal`, `fingerprint`, `announcement`, `announce_refusal` (the fleet transport's announce route) |
+| `remote.json` | a run on another member, without its path (3.2) | `alias`, `submit_request`, `submit_response`, `alias_list`, `alias_file` (the local alias file, not an API payload) |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
 | `fixtures/` | example payloads, see [Fixtures](#fixtures) | |
@@ -114,6 +117,8 @@ sets `additionalProperties: false`, except the one opaque `extension` object
   It checks the header before anything else.
 - `core_version` in `/v1/version` is the core's release version. It is
   informational only and never used for compatibility.
+- Between two cores a different rule applies, so that a fleet upgrades one
+  host at a time: see [Calls between cores](#calls-between-cores-32).
 
 ## Changes from 2.0
 
@@ -171,7 +176,8 @@ never reported as a success, and neither is `unanswered`.
 
 **Part two is not in 3.0.** Its own shapes come with their tasks as 3.x MINOR
 additions: the list of fleet members (3.1, t22, built), the unreachable view of a run on a host
-that does not answer, and fetching a run's commits as a git bundle. A MINOR
+that does not answer, and fetching a run's commits as a git bundle. Remote runs
+are 3.2 (t23, built). A MINOR
 addition is a new route with its own response shape, or a new optional request
 field. It must not add a field, an enum value or an event kind to a shape that
 exists in 3.0. Three part-two shapes that would be MAJOR later are in 3.0
@@ -233,6 +239,111 @@ repository or in any tracked file.
   authenticated members (`GET /v1/fleet/members` over the fleet transport).
   It is published nowhere else.
 
+## Changes in 3.2
+
+Version 3.2 is one MINOR addition to 3.1, built by plan task t23. No 3.0 or 3.1
+shape changed: no field, enum value, error code or event kind was added to a
+shape that exists in 3.1. A 3.0 or 3.1 client works with a 3.2 core. A 3.2
+client refuses a 3.1 core, which has no remote runs (the client rule above).
+
+| Change | Where | Required in 3.2 | Built by |
+| --- | --- | --- | --- |
+| `fleet.runs.submit`, `.show`, `.attach`, `.steer`, `.cancel`: a run on another fleet member, submitted and controlled through this core | new routes under `/v1/fleet/runs`, new file `remote.json` | new in 3.2; with the fleet transport off they answer `unsupported`, capability `placement` | t23 (built) |
+| `fleet.aliases`: the repository aliases a member defines | new route `GET /v1/fleet/aliases?member=`, `remote.json#/$defs/alias_list` | new in 3.2 | t23 (built) |
+| the rule for calls between cores | this README, [Calls between cores](#calls-between-cores-32) | yes | t23 (built) |
+
+### Remote runs (3.2)
+
+Spec c42, c48, h31, h37; `docs/d2/part-two-design.md`, Decisions 4 and 5;
+`docs/d2/remote-runs.md`.
+
+- **Choosing the host.** The caller chooses: a remote submit goes to the
+  member that the node of its `agent_id` names, and every later call to the
+  member that the node of the run id names. Nothing schedules. The member must
+  be listed now in `fleet.members` (it announced itself within `silence_ms`,
+  under the name the trust list gives its key), and only an address of the
+  local address list whose last reply was authenticated as that member's key
+  is called. The transport checks that key again on the call, so a caller
+  never reaches a host that is not a listed, authenticated member.
+- **Two hops, one shape.** The local operator calls the routes of this core's
+  control socket. This core checks the request against its schema and sends
+  it, unchanged, over the fleet transport to the same path on the member,
+  which answers with the same shapes. The member's typed error is relayed as
+  that error, its message prefixed with the member's name. An answer that does
+  not match the contract is `internal`. Nothing about a remote run is stored on
+  the calling core.
+- **The repository** is named by `alias`, as the executing host defines it in
+  its local, untracked alias file
+  `${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/fleet/aliases.json`
+  (`remote.json#/$defs/alias_file`). The alias resolves to a path on that
+  host, and the allow-list applies to that path unchanged. No path crosses the
+  network: a `repo` field is `invalid`, and `remote.json` (a run as a caller
+  sees it) has no path. An alias the host does not define is `not_found`; an
+  alias whose path the allow-list does not permit for the agent and harness is
+  `denied`. That two hosts' aliases name the same repository is the operators'
+  claim; the core checks only a named commit.
+- **The base commit.** `base_commit`, when present, must be in the aliased
+  checkout, or the submit is `invalid` with `field: "/base_commit"` and a
+  message naming the commit; nothing is fetched. Without it the run starts
+  from the executing host's HEAD at acceptance. Either way `run.base_commit`
+  in the response is the commit the run starts from.
+- **Deadlines** cross as a duration, `deadline_ms`, counted on the executing
+  core's clock from when it accepts the submit; the absolute `deadline` of a
+  local submit is not part of the remote submit. No timestamp from one host is
+  compared with a clock on another (c42). Every timestamp in `remote.json` is
+  the executing core's clock.
+- **Submitter and authority.** The run's `submitter` on the executing core is
+  `member` with the node name its trust list gives the caller's key. A member
+  may show, read the events of, attach to, steer and cancel only the runs it
+  submitted; any other run is `denied`. No setting widens this. The executing
+  core's local operator keeps full control of every run on it through the
+  control socket.
+- **Idempotency.** A remote submit's key is held in the submitting member's
+  own namespace, so a member's key never matches a local submit's or another
+  member's. A repeat with the same key and the same request returns the first
+  run with `replayed: true`. Steer and cancel keys work as on one core.
+- **Attach** on the calling core is an SSE stream like `runs.attach`. The
+  calling core reads the run's events from the member a page at a time
+  (`GET /v1/fleet/runs/{run_id}/events?after=&limit=` over the fleet
+  transport, at most 50 events and 8 MiB a page), so every read from the
+  network is capped and has a timeout. A refusal before the stream starts is
+  an ordinary JSON error. When the member stops answering mid-stream, the
+  stream ends without a terminal event, and the client attaches again from its
+  last cursor.
+- **Limits of each call.** Every call to a member has a 5 second timeout and a
+  cap on what it reads (1 MiB, 8 MiB for an event page). A member that does not
+  answer, or is not listed, or has no address that answered as it, is
+  `unavailable` (retryable): never a hang, and never a stored state on the
+  caller. The unreachable view of a run is task t25 **(planned)**.
+- **Over the fleet transport** the member serves, besides the routes of 3.1:
+  `POST /v1/fleet/runs`, `GET /v1/fleet/runs/{run_id}`,
+  `GET /v1/fleet/runs/{run_id}/events`, `POST /v1/fleet/runs/{run_id}/steer`,
+  `POST /v1/fleet/runs/{run_id}/cancel` and `GET /v1/fleet/aliases`, each only
+  to an authenticated member and each requiring the version header. A request
+  body is at most 1 MiB.
+
+### Calls between cores (3.2)
+
+The client rule (`C == S` and `y >= x`) is not symmetric, so two cores at
+different MINOR versions could not both call each other under it (spec c48).
+Between cores:
+
+- A core calling a member sends `Agents-Api-Version: <its own version>`.
+- The member serves the call when the two MAJOR numbers are equal, whatever
+  the two MINOR numbers. A different MAJOR is answered 412
+  `incompatible_version`, with the caller's version as `client_api_version`
+  and the member's as `server_api_version`. On the remote-run routes the
+  header is required (`invalid` without it); on the announce and member-list
+  routes of 3.1 it is checked when present.
+- A route is sent only to a member whose announced `api_version` has it: the
+  calling core refuses a remote run to a member that announced 3.0 or 3.1 with
+  `unsupported`, capability `placement`, naming both versions, and sends
+  nothing. A member of another MAJOR is refused `incompatible_version`.
+- So a 3.2 core and a 3.1 core list each other and read each other's version
+  and member list in both directions, and the 3.2 core serves its 3.2 routes
+  to a caller that sends a lower MINOR. A fleet upgrades one host at a time;
+  remote runs to a host start once that host runs 3.2.
+
 ## Routes
 
 The authoritative list is `api.json` → `routes`, which gives each route's
@@ -258,6 +369,12 @@ possible errors and CLI verb.
 | `branches.list` | `GET /v1/branches?repo=` | 200 `branches.json` | `agents branches list` |
 | `branches.remove` | `POST /v1/branches/remove` | 200 `remove_response` | `agents branches remove` |
 | `fleet.members` | `GET /v1/fleet/members` | 200 `fleet.json` | `agents agents list` (3.1) |
+| `fleet.runs.submit` | `POST /v1/fleet/runs` | 201 `remote.json#/$defs/submit_response` | `agents runs submit --alias` (3.2) |
+| `fleet.runs.show` | `GET /v1/fleet/runs/{run_id}` | 200 `remote.json` | `agents runs show` of a remote run (3.2) |
+| `fleet.runs.attach` | `GET /v1/fleet/runs/{run_id}/attach?after=` | 200 SSE of `event.json` | `agents runs attach` of a remote run (3.2) |
+| `fleet.runs.steer` | `POST /v1/fleet/runs/{run_id}/steer` | 202 `accepted_response` | `agents runs steer` of a remote run (3.2) |
+| `fleet.runs.cancel` | `POST /v1/fleet/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` of a remote run (3.2) |
+| `fleet.aliases` | `GET /v1/fleet/aliases?member=` | 200 `remote.json#/$defs/alias_list` | `agents agents aliases` (3.2) |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:
@@ -774,7 +891,10 @@ read the event logs of finished runs.
   `member` with that member's `node`. No request field sets or changes it,
   and every request schema is closed, so a request that tries is `invalid`.
   A 3.0 core sets it on every run it creates **(built, t11)**; it is absent
-  on a run recorded before that. Part one does not enforce on it.
+  on a run recorded before that. Part one does not enforce on it. From 3.2 a
+  member acts over the fleet transport only on the runs whose submitter is
+  that member (see [Remote runs](#remote-runs-32)); the control socket's
+  routes are unchanged.
 - `base_commit` is the commit of the repository the run starts from, resolved
   by the core when it accepts the submit **(built, t7)**; the worker builds the sandbox from it, not from the host's HEAD at that later time. It is absent on a
   run recorded before that.

@@ -80,7 +80,10 @@ def test_admission_held_is_one_new_retryable_user_error_on_submit():
     assert "admission_held" in submit["errors"]
     # The remote submit (3.2, t23) is a submit too: the executing core's signal can hold it (t24).
     submits = {"runs.submit", "fleet.runs.submit"}
-    assert "admission_held" in next(r for r in API["routes"] if r["id"] == "fleet.runs.submit")["errors"]
+    assert (
+        "admission_held"
+        in next(r for r in API["routes"] if r["id"] == "fleet.runs.submit")["errors"]
+    )
     others = [r for r in API["routes"] if r["id"] not in submits]
     assert all("admission_held" not in r["errors"] for r in others)
 

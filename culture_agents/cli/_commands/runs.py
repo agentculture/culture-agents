@@ -1,9 +1,17 @@
 """``agents runs submit|list|show|attach|steer|cancel|answer|logs|result``.
 
 Every verb is one or two calls on the core's control socket. The CLI never
-decides what the core may do: ``pause``, ``resume``, sessions,
-delegation and placement are not verbs here, and a request the core refuses
+decides what the core may do: ``pause``, ``resume``, sessions and
+delegation are not verbs here, and a request the core refuses
 (``unsupported``, ``denied``, ``limit_reached``) surfaces as that typed error.
+
+A run on another fleet member (API 3.2): ``submit --alias`` sends the run to
+the member that the node of ``--agent`` names, through this core, which calls
+it over the fleet transport. The caller chooses the member; nothing schedules.
+The repository is the alias that member defines, the deadline a duration
+(``--deadline-in``), and the base commit the HEAD of the checkout the CLI runs
+in unless ``--base`` or ``--no-base`` says otherwise. ``show``, ``attach``,
+``steer`` and ``cancel`` reach the member that a run id's node names.
 
 Task text and steer messages are data sent verbatim, never interpreted.
 """
@@ -13,6 +21,7 @@ from __future__ import annotations
 import os
 import sys
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import quote
 
@@ -21,6 +30,7 @@ from agentfront import Flag
 from culture_agents.cli import _mode, _render, _text
 from culture_agents.cli._client import CoreClient
 from culture_agents.cli._errors import EXIT_USER_ERROR, CliError, CoreError
+from culture_agents.cli._remote import check_submit, remote_base, usage
 from culture_agents.cli._render import Rendered
 
 _STATES = (
@@ -58,10 +68,32 @@ CALLER_FLAGS = (
 SUBMIT_FLAGS = (
     Flag(names=("--agent",), dest="agent", required=True, help="executing agent mesh id"),
     Flag(names=("--harness",), dest="harness", required=True, help="harness id, e.g. claude-code"),
-    Flag(names=("--repo",), dest="repo", required=True, help="repository path on the core's host"),
+    Flag(names=("--repo",), dest="repo", help="repository path on this core's host"),
+    Flag(
+        names=("--alias",),
+        dest="alias",
+        help="repository alias the executing member defines (runs on the member --agent names)",
+    ),
     Flag(names=("--task",), dest="task", required=True, help="the work to do (sent verbatim)"),
     Flag(
         names=("--deadline",), dest="deadline", help="absolute UTC time, e.g. 2026-11-25T11:00:00Z"
+    ),
+    Flag(
+        names=("--deadline-in",),
+        dest="deadline_in",
+        type=int,
+        help="seconds the run may take, counted on the executing core's clock",
+    ),
+    Flag(
+        names=("--base",),
+        dest="base",
+        help="with --alias: the commit to start from (default: HEAD of this checkout)",
+    ),
+    Flag(
+        names=("--no-base",),
+        dest="no_base",
+        action="store_true",
+        help="with --alias: name no commit; the run starts from the member's HEAD",
     ),
     Flag(names=("--session-id",), dest="session_id", help="continue a session (core: unsupported)"),
     Flag(names=("--parent-run-id",), dest="parent_run_id", help="delegate (core: unsupported)"),
@@ -118,12 +150,24 @@ def _drop_none(body: dict[str, Any]) -> dict[str, Any]:
     return {k: v for k, v in body.items() if v is not None}
 
 
+def _submit_remote(client: CoreClient, body: dict[str, Any], key: str, generated: bool) -> Rendered:
+    """``POST /v1/fleet/runs``: this core sends the submit to the member the agent id names."""
+    sent = client.post_keyed("/v1/fleet/runs", "remote_submit_response", _drop_none(body))
+    done = _render.submitted(sent)
+    text = f"{done}\nbase commit: {_text.visible(sent['run']['base_commit'])}"
+    return _keyed(Rendered(dict(done), text), key, generated)
+
+
 def runs_submit(
     agent: str | None = None,
     harness: str | None = None,
     repo: str | None = None,
+    alias: str | None = None,
     task: str | None = None,
     deadline: str | None = None,
+    deadline_in: int | None = None,
+    base: str | None = None,
+    no_base: bool = False,
     session_id: str | None = None,
     parent_run_id: str | None = None,
     caller: str | None = None,
@@ -131,22 +175,42 @@ def runs_submit(
     idempotency_key: str | None = None,
 ) -> Rendered:
     """Submit a task to an agent; returns the queued run."""
+    check_submit(repo, alias, {"--base": base, "--no-base": no_base})
+    if deadline is not None and deadline_in is not None:
+        raise usage("give --deadline or --deadline-in, not both")
+    if deadline_in is not None and deadline_in < 1:
+        raise usage("--deadline-in must be a number of seconds of 1 or more")
     client = CoreClient()
     key, generated = _key(idempotency_key)
-    body = _drop_none(
-        {
-            "agent_id": agent,
-            "harness": harness,
-            "repo": os.path.abspath(repo) if repo else repo,
-            "task": task,
-            "caller": _principal(client, caller, caller_kind),
-            "idempotency_key": key,
-            "deadline": deadline,
-            "session_id": session_id,
-            "parent_run_id": parent_run_id,
+    common = {
+        "agent_id": agent,
+        "harness": harness,
+        "task": task,
+        "caller": _principal(client, caller, caller_kind),
+        "idempotency_key": key,
+    }
+    if alias is not None:
+        if deadline is not None or session_id or parent_run_id:
+            raise usage(
+                "a run on another member takes --deadline-in (a duration on that member's clock), "
+                "and no --deadline, --session-id or --parent-run-id"
+            )
+        remote = {
+            "alias": alias,
+            "deadline_ms": deadline_in * 1000 if deadline_in is not None else None,
+            "base_commit": remote_base(base, no_base),
         }
-    )
-    sent = client.post_keyed("/v1/runs", "submit_response", body)
+        return _submit_remote(client, {**common, **remote}, key, generated)
+    if deadline_in is not None:  # this core's host is this host: one clock
+        at = datetime.now(timezone.utc) + timedelta(seconds=deadline_in)
+        deadline = at.strftime("%Y-%m-%dT%H:%M:%SZ")
+    local = {
+        "repo": os.path.abspath(repo) if repo else repo,
+        "deadline": deadline,
+        "session_id": session_id,
+        "parent_run_id": parent_run_id,
+    }
+    sent = client.post_keyed("/v1/runs", "submit_response", _drop_none({**common, **local}))
     return _keyed(_render.submitted(sent), key, generated)
 
 
@@ -159,8 +223,9 @@ def runs_list(
 
 
 def runs_show(run_id: str) -> Rendered:
-    """Show one run."""
-    return _render.run_detail(CoreClient().get(_run_route(run_id), "run"))
+    """Show one run (on another member: its view without the path)."""
+    client = CoreClient()
+    return _render.run_detail(client.get(*client.run_route(run_id)))
 
 
 def runs_logs(run_id: str, after: int | None = None, limit: int | None = None) -> Rendered:
@@ -189,7 +254,7 @@ def runs_steer(
         "message": message,
         "idempotency_key": key,
     }
-    route = _run_route(run_id) + "/steer"
+    route = client.run_route(run_id)[0] + "/steer"
     return _keyed(
         _render.accepted(client.post_keyed(route, "accepted_response", body)), key, generated
     )
@@ -212,7 +277,7 @@ def runs_cancel(
             "idempotency_key": key,
         }
     )
-    route = _run_route(run_id) + "/cancel"
+    route = client.run_route(run_id)[0] + "/cancel"
     return _keyed(
         _render.accepted(client.post_keyed(route, "accepted_response", body)), key, generated
     )

@@ -110,7 +110,7 @@ def test_each_core_lists_the_other_after_it_announces_and_drops_it_when_it_stops
         20,
     )
     member = listening.fleet_view()["members"][0]
-    assert member["api_version"] == "3.1"
+    assert member["api_version"] == "3.2"
     assert announcing.entry["cert"] not in json.dumps(listening.fleet_view()), "no key material"
 
     announcing.core.close()  # SIGTERM: a clean stop announces leaving before the process exits

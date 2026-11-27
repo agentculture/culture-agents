@@ -24,14 +24,14 @@ import socket
 import time
 from collections.abc import Iterator
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from culture_agents.cli import _contract
 from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CoreError
 
 #: The contract's ``api.json`` -> ``api_version``. ``tests/test_cli_client.py``
 #: fails if this drifts from the contract.
-CLIENT_API_VERSION = "3.1"
+CLIENT_API_VERSION = "3.2"
 VERSION_HEADER = "Agents-Api-Version"
 SOCKET_ENV = "CULTURE_AGENTS_SOCKET"
 
@@ -243,6 +243,19 @@ class CoreClient:
     @property
     def node(self) -> str:
         return str(self.connect()["node"])
+
+    def run_route(self, run_id: str) -> tuple[str, str]:
+        """The route of a run and the shape ``GET`` on it returns.
+
+        A run id names the node of the core that executes the run. A run on
+        another node is reached through this core's ``/v1/fleet/runs`` routes
+        (API 3.2), which call that fleet member; its view has no path.
+        """
+        node = run_id.split("-", 1)[0]
+        quoted = quote(run_id, safe="")
+        if "-" in run_id and node != self.node:
+            return f"/v1/fleet/runs/{quoted}", "remote_run"
+        return f"/v1/runs/{quoted}", "run"
 
     # -- routes ------------------------------------------------------------
     def get(self, route: str, shape: str, query: dict[str, Any] | None = None) -> Any:
