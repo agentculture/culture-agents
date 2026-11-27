@@ -39,7 +39,8 @@ function cert(args: readonly string[], env: Record<string, string | undefined>, 
   }
   try {
     const key = parseFleetKey(text);
-    out(`${JSON.stringify({ entry: { node, cert: certificateFor(key).text }, fingerprint: `sha256:${fingerprint(key)}` })}\n`);
+    const printed = { entry: { node, cert: certificateFor(key).text }, fingerprint: "sha256:" + fingerprint(key) };
+    out(JSON.stringify(printed) + "\n");
     return 0;
   } catch (e) {
     err(`culture-agents-fleet: ${(e as Error).message}\n`); // the message never holds the key

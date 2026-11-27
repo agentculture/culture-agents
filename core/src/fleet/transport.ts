@@ -19,6 +19,7 @@
  */
 import { constants, type KeyObject } from "node:crypto";
 import { createServer as createHttpServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
+import type { Server, Socket } from "node:net";
 import { connect as tlsConnect, createServer as createTlsServer, type SecureContextOptions, type TLSSocket } from "node:tls";
 
 import { certificateFor, fingerprint } from "./cert.js";
@@ -63,12 +64,33 @@ export interface FleetServer {
 
 const shortPrint = (fp: string | undefined): string => fp?.slice(0, 16) ?? "none";
 
+/** The trust-list entry of a peer whose handshake finished, or undefined after logging why it is refused. */
+function admit(socket: TLSSocket, trust: TrustList, log: (line: string) => void): TrustEntry | undefined {
+  const peer = socket.getPeerX509Certificate();
+  const member = socket.authorized ? memberFor(peer, trust) : undefined;
+  if (member) return member;
+  const reason = socket.authorized ? "not in the trust list" : String(socket.authorizationError ?? "no certificate");
+  log(`culture-agents core: fleet: refused a peer before reading any request (${reason}; key ${shortPrint(peer && fingerprint(peer))})`);
+  return undefined;
+}
+
+function listenOn(server: Server, host: string, port: number): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen({ host, port }, () => {
+      server.off("error", reject);
+      const bound = server.address();
+      resolve(typeof bound === "object" && bound ? bound.port : port);
+    });
+  });
+}
+
 /** Start listening. Rejects when the address cannot be bound. */
 export async function startFleetServer(o: FleetServerOptions): Promise<FleetServer> {
   const source = trustSource(o.trustPath, (m) => o.log(`culture-agents core: fleet: ${m}`));
   let current = source().list;
   const members = new WeakMap<TLSSocket, TrustEntry>();
-  const live = new Set<TLSSocket>();
+  const live = new Set<Socket>(); // every TCP connection, authenticated or not, so a stop ends them all
   const requestTimeoutMs = o.requestTimeoutMs ?? FLEET_TIMEOUT_MS;
   const http = createHttpServer({ maxHeaderSize: MAX_HEADER_BYTES, requestTimeout: requestTimeoutMs, headersTimeout: requestTimeoutMs }, (req, res) => {
     const member = members.get(req.socket as TLSSocket);
@@ -80,23 +102,20 @@ export async function startFleetServer(o: FleetServerOptions): Promise<FleetServ
   const tls = createTlsServer({ ...serverContext(o.key, current), requestCert: true, rejectUnauthorized: false, handshakeTimeout: o.handshakeTimeoutMs ?? FLEET_TIMEOUT_MS });
   tls.maxConnections = o.maxConnections ?? 64;
   // Before the TLS layer sees the connection: the trust list this handshake is checked against.
-  tls.prependListener("connection", () => {
+  tls.prependListener("connection", (raw: Socket) => {
+    live.add(raw);
+    raw.once("close", () => live.delete(raw));
     const { list, changed } = source();
     current = list;
     if (changed) tls.setSecureContext(serverContext(o.key, list));
   });
   tls.on("secureConnection", (socket: TLSSocket) => {
-    const member = socket.authorized ? memberFor(socket.getPeerX509Certificate(), current) : undefined;
+    const member = admit(socket, current, o.log);
     if (!member) {
-      const peer = socket.getPeerX509Certificate();
-      const reason = socket.authorized ? "not in the trust list" : String(socket.authorizationError ?? "no certificate");
-      o.log(`culture-agents core: fleet: refused a peer before reading any request (${reason}; key ${shortPrint(peer && fingerprint(peer))})`);
       socket.destroy();
       return;
     }
     members.set(socket, member);
-    live.add(socket);
-    socket.once("close", () => live.delete(socket));
     socket.setTimeout(requestTimeoutMs, () => socket.destroy());
     http.emit("connection", socket);
   });
@@ -105,16 +124,8 @@ export async function startFleetServer(o: FleetServerOptions): Promise<FleetServ
     o.log(`culture-agents core: fleet: a handshake failed (${(e as NodeJS.ErrnoException).code ?? e.message})`);
     socket.destroy();
   });
-  await new Promise<void>((resolve, reject) => {
-    tls.once("error", reject);
-    tls.listen({ host: o.host, port: o.port }, () => {
-      tls.off("error", reject);
-      resolve();
-    });
-  });
+  const port = await listenOn(tls, o.host, o.port);
   tls.on("error", (e: Error) => o.log(`culture-agents core: fleet: the listener reported an error: ${e.message}`));
-  const bound = tls.address();
-  const port = typeof bound === "object" && bound ? bound.port : o.port;
   let stopped: Promise<void> | null = null;
   const stop = (): Promise<void> => {
     stopped ??= new Promise<void>((resolve) => {

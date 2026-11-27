@@ -155,6 +155,22 @@ test("a handshake that never starts is cut off by the handshake timeout", async 
   }
 });
 
+test("stopping the server also ends a connection still in its handshake", async () => {
+  const serving = await servingCore(t, [newFleetKey()], { handshakeTimeoutMs: 600_000 });
+  const closed = new Promise<void>((resolve) => {
+    const s = netConnect(serving.port, LOOPBACK);
+    s.on("connect", () => {
+      setTimeout(() => {
+        serving.server.stop().catch(() => undefined);
+      }, 50);
+    });
+    s.on("close", () => resolve());
+    s.on("error", () => undefined);
+  });
+  await closed;
+  await serving.server.stop();
+});
+
 test("a call reads at most the response cap and gives up after its timeout", async () => {
   const caller = newFleetKey();
   const flood = await servingCore(t, [caller], { onRequest: (_m, _q, res) => res.end(Buffer.alloc(64 * 1024, 0x61)) });
