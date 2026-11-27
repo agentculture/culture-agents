@@ -6,7 +6,7 @@ Status: built in `core/src/fleet/` (`remote.ts`, `serve-runs.ts`,
 (`docs/d2/fleet-transport.md`). It is control API 3.2, a MINOR addition
 (`contract/README.md`, "Changes in 3.2"). It builds Decisions 4 and 5 of
 `docs/d2/part-two-design.md` as that record recommends. Admission across hosts
-(t24), the unreachable view (t25) and fetching a run's commits as a bundle
+(t24) and fetching a run's commits as a bundle
 (t26) are not built.
 
 ## What it does
@@ -64,7 +64,9 @@ Status: built in `core/src/fleet/` (`remote.ts`, `serve-runs.ts`,
   250 ms while there is nothing new) and streams them to the operator as SSE,
   so no read from the network is unbounded and no call can hang. A request
   body on the member is capped at 1 MiB. A member that does not answer is
-  `unavailable`. Nothing about a remote run is stored on the calling core.
+  `unavailable` (`runs show` reads the unreachable view instead,
+  `docs/d2/unreachable-view.md`). Nothing about a remote run is stored on the
+  calling core.
 
 ## Key handling
 

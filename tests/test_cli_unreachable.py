@@ -10,14 +10,12 @@ from tests.fake_core import RUN_ID, fixture
 CALLER_NODE = "xxxxxxxx"
 
 
-
 @pytest.fixture
 def remote(core):
     core.respond(
         "GET /v1/version", 200, {**fixture("version", "root.current"), "node": CALLER_NODE}
     )
     return core
-
 
 
 def test_an_unreachable_run_shows_unreachable_and_no_state(remote, capsys) -> None:

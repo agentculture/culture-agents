@@ -26,8 +26,8 @@ def test_list_json_is_the_contract_payload(core, capsys: pytest.CaptureFixture[s
     expected = fixture("agent", "agent_list.two-agents")
     expected["fleet"] = fixture("fleet", "root.one-member-one-refusal")
     assert r.json() == expected
-    assert core.seen("GET", "/v1/agents")[0]["version_header"] == "3.2"
-    assert core.seen("GET", "/v1/fleet/members")[0]["version_header"] == "3.2"
+    assert core.seen("GET", "/v1/agents")[0]["version_header"] == "3.3"
+    assert core.seen("GET", "/v1/fleet/members")[0]["version_header"] == "3.3"
 
 
 def test_status_text(core, capsys: pytest.CaptureFixture[str]) -> None:

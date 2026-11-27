@@ -56,4 +56,4 @@ def test_an_empty_list_says_so(core, capsys) -> None:
 @pytest.mark.parametrize("verb", ["list", "unreadable"])
 def test_the_requests_carry_the_current_version(core, capsys, verb) -> None:
     run(capsys, "runs", verb)
-    assert core.seen("GET", "/v1/runs/unreadable")[0]["version_header"] == "3.2"
+    assert core.seen("GET", "/v1/runs/unreadable")[0]["version_header"] == "3.3"
