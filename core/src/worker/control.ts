@@ -55,26 +55,33 @@ export function parseRequest(line: string): ControlRequest | ControlReply {
   }
   const req = value as Record<string, unknown>;
   if (req === null || typeof req !== "object") return invalid("The control request is not an object.");
-  if (req["op"] === "ping") return { op: "ping" };
-  if (req["op"] !== "steer" && req["op"] !== "cancel" && req["op"] !== "refuse" && req["op"] !== "answer") return invalid("Unknown control op.");
+  const op = req["op"];
+  if (op === "ping") return { op: "ping" };
+  if (op !== "steer" && op !== "cancel" && op !== "refuse" && op !== "answer") return invalid("Unknown control op.");
   const action = validate("control-action#action_record", req["action"]);
   if (!action.ok) return invalid(`The action record is invalid at ${action.issues[0]?.path ?? ""}.`);
-  if (req["op"] === "steer") {
+  return actionRequest(op, req, action.value);
+}
+
+/** The rest of a request that carries a valid action record: what its op needs besides the record. */
+function actionRequest(op: "steer" | "cancel" | "refuse" | "answer", req: Record<string, unknown>, action: ActionRecord): ControlRequest | ControlReply {
+  if (op === "steer") {
     const message = validate("common#text", req["message"]);
     if (!message.ok) return invalid("The steer message is invalid.");
-    return { op: "steer", action: action.value, message: message.value };
+    return { op: "steer", action, message: message.value };
   }
-  if (req["op"] === "answer") {
+  if (op === "answer") {
     const request = validate("control-action#answer_request", req["request"]);
     if (!request.ok) return invalid(`The answer request is invalid at ${request.issues[0]?.path ?? ""}.`);
-    return { op: "answer", action: action.value, request: request.value };
+    return { op: "answer", action, request: request.value };
   }
-  if (req["op"] === "cancel") {
-    const reason = req["reason"];
-    if (reason !== undefined && typeof reason !== "string") return invalid("The cancel reason is not a string.");
-    return reason === undefined ? { op: "cancel", action: action.value } : { op: "cancel", action: action.value, reason };
-  }
-  return { op: "refuse", action: action.value };
+  if (op === "cancel") return cancelRequest(req["reason"], action);
+  return { op: "refuse", action };
+}
+
+function cancelRequest(reason: unknown, action: ActionRecord): ControlRequest | ControlReply {
+  if (reason !== undefined && typeof reason !== "string") return invalid("The cancel reason is not a string.");
+  return reason === undefined ? { op: "cancel", action } : { op: "cancel", action, reason };
 }
 
 /** How long a connection may take to send its request before the worker drops it. */
