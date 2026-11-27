@@ -20,7 +20,7 @@ def test_list_text(core, capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_list_json_is_the_contract_payload(core, capsys: pytest.CaptureFixture[str]) -> None:
-    # The agent list as the core sends it, plus the fleet member list under ``fleet`` (API 3.1, t22).
+    # The agent list as the core sends it, plus the member list under ``fleet`` (API 3.1, t22).
     r = run(capsys, "agents", "list", "--json")
     assert r.rc == 0
     expected = fixture("agent", "agent_list.two-agents")
