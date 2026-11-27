@@ -21,6 +21,7 @@ import { listRunIds } from "../../src/store/run-store.js";
 import { pollUntil } from "../../src/util/sequence.js";
 import type { FakeStep } from "../../src/worker/fake-driver.js";
 import { GIT } from "../harness/helpers.js";
+import { letExitForCoverage } from "../worker/helpers.js";
 
 export const AGENT = "thor-culture-agents";
 export const CALLER = { kind: "operator", id: "thor-operator" } as const;
@@ -80,11 +81,15 @@ export function makeEnv(t: TestContext, harnesses: FakeHarness[] | null): Env {
 
 /** SIGKILL every live worker recorded in the store. */
 export function killWorkers(env: Env): void {
+  const pids: number[] = [];
   for (const id of listRunIds(env.stateDir)) {
     const live = checkLiveness(runDir(env.stateDir, id));
-    if (!live.alive || live.pid === null) continue;
+    if (live.alive && live.pid !== null) pids.push(live.pid);
+  }
+  letExitForCoverage(pids);
+  for (const pid of pids) {
     try {
-      process.kill(live.pid, "SIGKILL");
+      process.kill(pid, "SIGKILL");
     } catch {
       // already gone
     }

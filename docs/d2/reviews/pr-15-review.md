@@ -61,3 +61,8 @@ Sound, checked by running: loopback parsing over 21 URL forms; the socket is bou
 - Measured by a delegated reviewer and not rerun by the orchestrator: findings 5 to 17.
 - Read only: findings 12 (window) and 18, and the nits.
 - Never verified: the SonarCloud gate (78 open findings at review time, clean-up in progress), a live trace to a real Langfuse, the OpenCode live acceptance check, an `admit` or `hold` from a real gateway, and a 12 hour question hold.
+
+## Added after the review (2026-11-27, at the merge gate)
+
+19. Should fix, seen once, not reproduced. core/test/runs/isolation.test.ts, "2 runs in 1 repository complete": in 1 of about 8 full-suite runs on the merge host, one of the 2 runs ended `succeeded` with `branch: null` in its result, so its commits were not on a `runs/<id>` branch. The test passed in 12 standalone runs and 5 further full-suite runs. Either collection can lose a run's commits when 2 runs collect into 1 repository under load, or the stub driver wrote nothing; which was not determined. Until it is, the claim that concurrent runs each return their own commits rests on a test that has failed once.
+20. CI flake, mitigated, cause not proven. The `test` job failed twice with "Could not report code coverage ... JSON at position 524288": a coverage file cut off at 512 KiB. The likely cause is a test helper killing a worker while it writes its coverage file on exit. The helpers now wait up to 400 ms for such a process to finish in a coverage run (`letExitForCoverage` in core/test/worker/helpers.ts). If the error returns, this was not the cause.

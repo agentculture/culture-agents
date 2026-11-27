@@ -39,6 +39,7 @@ export function stateDir(t: TestContext): string {
     } catch {
       // no runs directory: nothing was spawned
     }
+    letExitForCoverage(pids);
     for (const pid of pids) {
       try {
         process.kill(pid, "SIGKILL");
@@ -53,10 +54,24 @@ export function stateDir(t: TestContext): string {
   return dir;
 }
 
+/**
+ * In a coverage run, give these processes a moment to finish by themselves before they are killed.
+ * A process writes its coverage file while it exits; SIGKILL in the middle of that write leaves a
+ * cut-off file, and the coverage report of the whole run then fails. Outside a coverage run this
+ * returns at once.
+ */
+export function letExitForCoverage(pids: readonly number[], graceMs = 400): void {
+  if (process.env["NODE_V8_COVERAGE"] === undefined || pids.length === 0) return;
+  const until = Date.now() + graceMs;
+  const pause = new Int32Array(new SharedArrayBuffer(4));
+  while (pids.some(processExists) && Date.now() < until) Atomics.wait(pause, 0, 0, 20);
+}
+
 /** SIGKILL `pid` after the test if it is still the process we started. */
 export function killAfter(t: TestContext, pid: number, runDir?: string): void {
   t.after(() => {
     if (runDir !== undefined && !checkLiveness(runDir).alive) return;
+    letExitForCoverage([pid]);
     try {
       process.kill(pid, "SIGKILL");
     } catch {
