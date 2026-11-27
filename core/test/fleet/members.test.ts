@@ -160,3 +160,15 @@ test("this core's own announcement carries no key material and counts up", () =>
   assert.equal(second.state, "leaving");
   assert.ok(validate("fleet#announcement", first).ok);
 });
+
+test("an announcement from this core's own key is refused and reported: a core is not its own member", () => {
+  let now = 0;
+  const own = newFleetKey();
+  const cert = certificateFor(own);
+  const members = createMemberList({ node: "thor", fingerprint: fingerprint(own), now: () => now, log: () => undefined });
+  const receipt = members.receive({ node: "thor", cert: cert.text, pem: cert.pem, fingerprint: fingerprint(own) }, up("thor"));
+  assert.ok(!receipt.ok && /this core's own/.test(receipt.reason));
+  now += 1;
+  assert.deepEqual(members.view().members, []);
+  assert.equal(members.view().refused.length, 1);
+});

@@ -5,7 +5,8 @@
  *   against the trust list, and only under the node name the trust list gives that key. Nothing
  *   else adds an entry: not the trust list, not the address list.
  * - Two members never share a node name (c40). An announcement is refused with `conflict`, and
- *   reported to the operator (the core's log and `refused` in the list), when it claims a name the
+ *   reported to the operator (the core's log and `refused` in the list), when it comes from this
+ *   core's own key (a core is not its own member), when it claims a name the
  *   trust list does not give its key, when it claims this core's own name with another key, or when
  *   the name is still held by another listed key (the trust entry was replaced while the old key's
  *   core still runs; the name frees once that core leaves or goes silent).
@@ -82,6 +83,7 @@ export function createMemberList(o: MemberListOptions): Members {
   const silent = (h: Heard, t: number): boolean => t - h.at > silenceMs;
 
   function conflict(from: TrustEntry, a: Announcement, t: number): Receipt {
+    if (from.fingerprint === o.fingerprint) return { ok: false, reason: "the key is this core's own; a core is not its own member (its own address is in its address list and its own key in its trust list)", retryable: false };
     if (a.node !== from.node) return { ok: false, reason: `the trust list names this key ${from.node}, not ${a.node}`, retryable: false };
     if (a.node === o.node && from.fingerprint !== o.fingerprint) return { ok: false, reason: `the node name ${a.node} is held by this core's own key`, retryable: false };
     const holder = heard.get(a.node);

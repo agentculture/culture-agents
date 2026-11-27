@@ -6,7 +6,9 @@
  * two cores list each other when only one knows the other's address. On a clean stop the core
  * announces `leaving` once, with a short timeout, so its peers drop it at once.
  *
- * A call still in flight to an address is not started again. Outcomes are logged when they change
+ * A call still in flight to an address is not started again. A clean stop waits for the round in
+ * flight (at most `LEAVING_TIMEOUT_MS`) before it announces `leaving`, so a late `up` cannot list
+ * the stopping core again. Outcomes are logged when they change
  * (reachable, refused, unreachable), never once per interval.
  */
 import type { KeyObject } from "node:crypto";
@@ -106,10 +108,12 @@ export function createAnnouncer(o: AnnouncerOptions): Announcer {
     }
   }
 
+  let current: Promise<unknown> = Promise.resolve();
+
   async function round(): Promise<void> {
     if (stopping) return;
     const due = o.peers().filter((p) => !inFlight.has(label(p)));
-    await Promise.allSettled(
+    current = Promise.allSettled(
       due.map(async (peer) => {
         inFlight.add(label(peer));
         try {
@@ -119,6 +123,7 @@ export function createAnnouncer(o: AnnouncerOptions): Announcer {
         }
       }),
     );
+    await current;
   }
 
   const tick = (): void => {
@@ -137,6 +142,11 @@ export function createAnnouncer(o: AnnouncerOptions): Announcer {
       stopping ??= (async () => {
         if (timer) clearInterval(timer);
         timer = null;
+        // An `up` still in flight could land after the `leaving` and list this core again: let it
+        // settle first, waiting no longer than the leaving's own timeout.
+        let wait: NodeJS.Timeout | undefined;
+        await Promise.race([current, new Promise((resolve) => (wait = setTimeout(resolve, LEAVING_TIMEOUT_MS)))]);
+        clearTimeout(wait);
         const results = await Promise.allSettled(o.peers().map((peer) => send(peer, "leaving", LEAVING_TIMEOUT_MS)));
         const told = results.filter((r) => r.status === "fulfilled" && r.value.status === 200).length;
         if (results.length > 0) o.log(`culture-agents core: fleet: announced leaving to ${told} of ${results.length} address(es)`);
