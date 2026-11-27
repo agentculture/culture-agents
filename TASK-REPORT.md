@@ -210,3 +210,13 @@ timeout on every call.
 - The 3.0 shapes, `transport.ts`, `trust.ts`, `cert.ts`, `command.ts`.
 - `spikes/` (nothing imports it), `.claude/skills`, `.devague`,
   `docs/d2/part-two-design.md` and `docs/d2/part-one.md`.
+
+## Note for the next task
+
+`.gitignore` has `core/node_modules/` with a trailing slash. That matches a
+directory only, so the `core/node_modules` symlink this sandbox asks for is not
+ignored, and `git add -A` commits it. That happened in one of my commits. I
+removed the symlink from this task's commits with `git filter-branch`, run only
+on the unpushed t22 commits, and the final tree is the same. No commit on this
+branch now contains it. I did not change `.gitignore`, because that is outside
+this task's scope. Dropping the slash would close the trap.
