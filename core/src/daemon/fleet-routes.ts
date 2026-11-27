@@ -5,12 +5,18 @@
  * which answers with the same shapes. The caller chooses the member: the node of the agent id for a
  * submit, the node of the run id afterwards, the `member` query for aliases. Nothing schedules, and
  * nothing about a remote run is stored on this core.
+ *
+ * 3.3 (t26, fleet/bundle.ts): a remote run's stored events, its result and its branch as a git
+ * bundle, read from the member that executes it. Events and bundle arrive unredacted and leave with
+ * the sensitivity header; only a member that announced 3.3 is asked.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { parseMeshId, parseScopedId, validate, type RemoteSubmitRequest } from "../contract/index.js";
-import { streamRemoteAttach } from "../fleet/remote-attach.js";
+import { markUnredacted, relayRunBundle, REMOTE_RESULTS_SINCE, REMOTE_RESULTS_WHAT } from "../fleet/bundle.js";
+import { MAX_PAGE_BYTES, streamRemoteAttach } from "../fleet/remote-attach.js";
 import type { Remote } from "../fleet/remote.js";
+import { MAX_MEMBER_PAGE } from "../fleet/serve-runs.js";
 import { invalid, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 
@@ -83,4 +89,36 @@ export async function fleetAliases(c: FleetRouteCall): Promise<void> {
   if (member === c.node) throw invalid(`${member} is this core; its aliases are in its own fleet alias file.`, "member");
   const list = await remote.request(member, { method: "GET", path: "/v1/fleet/aliases", status: 200, schema: "remote#alias_list" });
   return sendJson(c.res, 200, "remote#alias_list", list);
+}
+
+/** An optional integer query parameter from 0 (or `min`) to `max`. */
+function queryInt(c: FleetRouteCall, name: string, min: number, max: number, fallback: number): number {
+  const raw = c.url.searchParams.get(name);
+  if (raw === null) return fallback;
+  if (!/^\d{1,16}$/.test(raw) || Number(raw) < min || Number(raw) > max) throw invalid(`Query parameter ${name} must be an integer from ${min} to ${max}.`, name);
+  return Number(raw);
+}
+
+const since33 = { since: REMOTE_RESULTS_SINCE, what: REMOTE_RESULTS_WHAT } as const;
+
+export async function fleetRunsLogs(c: FleetRouteCall): Promise<void> {
+  const remote = remoteOf(c);
+  const node = memberOfRun(c);
+  const after = queryInt(c, "after", 0, Number.MAX_SAFE_INTEGER, 0);
+  const limit = queryInt(c, "limit", 1, MAX_MEMBER_PAGE, MAX_MEMBER_PAGE);
+  const path = runPath(c.runId, `/events?after=${after}&limit=${limit}`);
+  const page = await remote.request(node, { method: "GET", path, status: 200, schema: "event#event_page", maxBytes: MAX_PAGE_BYTES, ...since33 });
+  markUnredacted(c.res);
+  return sendJson(c.res, 200, "event#event_page", page);
+}
+
+export async function fleetRunsResult(c: FleetRouteCall): Promise<void> {
+  const remote = remoteOf(c);
+  const result = await remote.request(memberOfRun(c), { method: "GET", path: runPath(c.runId, "/result"), status: 200, schema: "run#run_result", ...since33 });
+  return sendJson(c.res, 200, "run#run_result", result);
+}
+
+export async function fleetRunsBundle(c: FleetRouteCall): Promise<void> {
+  const remote = remoteOf(c);
+  return relayRunBundle(remote, memberOfRun(c), c.runId, c.res);
 }

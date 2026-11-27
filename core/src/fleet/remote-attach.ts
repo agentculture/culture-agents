@@ -17,6 +17,7 @@ import type { ServerResponse } from "node:http";
 import { isTerminal, validate, type EventPage, type RemoteRun, type RunEvent, type StateData } from "../contract/index.js";
 import { sseFrame } from "../daemon/http.js";
 import type { Remote } from "./remote.js";
+import { SENSITIVITY_HEADER } from "./bundle.js";
 
 /** Events asked for per page: an event's text is at most 100 000 characters, so a page stays under the cap. */
 export const ATTACH_PAGE = 10;
@@ -90,7 +91,8 @@ export async function streamRemoteAttach(a: RemoteAttach, log: (line: string) =>
   const stop = (): void => abort.abort();
   a.res.once("close", stop);
   a.shutdown.addEventListener("abort", stop, { once: true });
-  a.res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive" });
+  // The member's events as it stored them, unredacted (t26): the response says so.
+  a.res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive", [SENSITIVITY_HEADER]: "unredacted" });
   a.res.flushHeaders();
   const keepalive = setInterval(() => a.res.write(": keepalive\n\n"), a.keepaliveMs);
   let cursor = a.after;

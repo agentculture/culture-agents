@@ -56,10 +56,10 @@ interface Finished {
 /** A remote run on thor that finished with two commits on `runs/<id>`, built on its base commit. */
 async function finishedRun(o: Parameters<typeof pair>[0] = {}): Promise<Finished> {
   const { exec, caller, repo } = await pair(o);
-  const reply = await call(caller.env.socket, "POST", "/v1/fleet/runs", { body: submitBody() });
+  const base = git(repo, "rev-parse", "HEAD");
+  const reply = await call(caller.env.socket, "POST", "/v1/fleet/runs", { body: submitBody({ base_commit: base }) });
   assert.equal(reply.status, 201, reply.text);
   const runId = (reply.json as RemoteSubmitResponse).run.id;
-  const base = git(repo, "rev-parse", "HEAD");
   git(repo, "checkout", "-q", "-b", "elsewhere");
   const secret = commit(repo, "a commit of thor's own, on no run branch");
   git(repo, "checkout", "-q", "-b", `runs/${runId}`, base);

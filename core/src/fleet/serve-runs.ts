@@ -13,6 +13,9 @@
  * - `GET /v1/fleet/runs/{id}`, `GET .../events`, `POST .../steer`, `POST .../cancel`: only on a run
  *   that this member submitted (`denied` otherwise). The local operator keeps full control of every
  *   run through the control socket; nothing here widens what a member may do.
+ * - `GET /v1/fleet/runs/{id}/result` and `GET .../bundle` (3.3, bundle.ts): the outcome of a finished
+ *   run this member submitted, and its branch as a git bundle holding only that run's ref. Events,
+ *   result and bundle cross unredacted; events and bundle carry the sensitivity header.
  * - `GET /v1/fleet/aliases`: this host's aliases and what the allow-list permits on each, no path.
  *
  * Every one of these routes requires the `Agents-Api-Version` header and serves a caller of the same
@@ -38,6 +41,7 @@ import { checkBody, readJsonBody, sendJson } from "../daemon/http.js";
 import type { RunService } from "../daemon/ports.js";
 import { hostEnv, runCommand } from "../sandbox/host-command.js";
 import { aliasList, resolveAlias, type AliasState } from "./aliases.js";
+import { markUnredacted, serveRunBundle } from "./bundle.js";
 import type { TrustEntry } from "./trust.js";
 
 /** The most events one page over the fleet transport carries (the caller asks for fewer). */
@@ -148,6 +152,7 @@ async function events(c: Call): Promise<void> {
   if (after > run.cursor) throw invalid(`after (${after}) is beyond the run's newest cursor (${run.cursor}).`, "after");
   const page = await c.d.service.readEvents(run.id, after, limit);
   if (!page) throw notFound(`No run ${run.id} on ${c.d.node}.`, { run_id: run.id });
+  markUnredacted(c.res);
   return sendJson(c.res, 200, "event#event_page", page);
 }
 
@@ -164,6 +169,11 @@ type Handler = (c: Call) => Promise<void>;
 const RUN_ROUTES: Record<string, Handler> = {
   "GET ": async (c) => sendJson(c.res, 200, "remote", remoteView(await ownRun(c))),
   "GET events": events,
+  "GET result": async (c) => sendJson(c.res, 200, "run#run_result", await c.d.service.getResult((await ownRun(c)).id)),
+  "GET bundle": async (c) => {
+    const run = await ownRun(c);
+    return serveRunBundle(run, await c.d.service.getResult(run.id), c.d.node, c.res);
+  },
   "POST steer": (c) => control(c, "steer"),
   "POST cancel": (c) => control(c, "cancel"),
 };
@@ -172,7 +182,7 @@ const RUN_ROUTES: Record<string, Handler> = {
 function route(method: string, path: string): { handler: Handler; rawId: string } | null {
   if (method === "POST" && path === "/v1/fleet/runs") return { handler: submit, rawId: "" };
   if (method === "GET" && path === "/v1/fleet/aliases") return { handler: async (c) => sendJson(c.res, 200, "remote#alias_list", aliasList(c.d.node, c.d.aliases(), c.d.allowlist().entries)), rawId: "" };
-  const m = /^\/v1\/fleet\/runs\/([^/]+)(?:\/(events|steer|cancel))?$/.exec(path);
+  const m = /^\/v1\/fleet\/runs\/([^/]+)(?:\/(events|result|bundle|steer|cancel))?$/.exec(path);
   const handler = m ? RUN_ROUTES[`${method} ${m[2] ?? ""}`] : undefined;
   return m && handler ? { handler, rawId: m[1] ?? "" } : null;
 }
