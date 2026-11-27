@@ -20,6 +20,7 @@ import { checkLiveness } from "../../src/store/liveness.js";
 import { listRunIds } from "../../src/store/run-store.js";
 import { pollUntil } from "../../src/util/sequence.js";
 import type { FakeStep } from "../../src/worker/fake-driver.js";
+import { GIT } from "../harness/helpers.js";
 
 export const AGENT = "thor-culture-agents";
 export const CALLER = { kind: "operator", id: "thor-operator" } as const;
@@ -246,7 +247,7 @@ export function attach(env: Env, id: string, after: number): Promise<Attach> {
 
 /** Make `dir` a git repository with one commit (a submit resolves its base commit when accepted). */
 export function commitedRepo(dir: string): void {
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: { ...hostEnv(), PATH: "/usr/bin:/bin" } });
+  const git = (...args: string[]) => execFileSync(GIT, args, { cwd: dir, env: hostEnv() });
   git("init", "-q", "-b", "main");
   git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "--allow-empty", "-m", "one");
 }

@@ -12,7 +12,7 @@ import type { DriverEvent } from "../../src/worker/driver.js";
 export const AGENT = "thor-culture-agents";
 
 /** git by absolute path, from fixed system directories only: never whatever a writable PATH entry offers. */
-const GIT = ["/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git", "/bin/git"].find((path) => existsSync(path)) ?? "/usr/bin/git";
+export const GIT = ["/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git", "/bin/git"].find((path) => existsSync(path)) ?? "/usr/bin/git";
 
 /** A temp host repo on `main` with one commit and an uncommitted operator file. */
 export function hostRepo(t: TestContext): { dir: string; git: (...args: string[]) => string } {
