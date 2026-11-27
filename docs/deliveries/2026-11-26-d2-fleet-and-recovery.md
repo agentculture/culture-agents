@@ -179,4 +179,4 @@ Lapse ledger evidence:
 - Plan risks without a task: `r14` (a failed turn returns no work; it cost one run) and `r15` (a run can end `succeeded` with its task not done).
 - A 12 hour question hold was never measured (injected clock only; longest real hold 5 minutes).
 - The coverage step of CI failed twice with a cut-off coverage file; a mitigation is in and it has not recurred, but the cause is not proven.
-- Housekeeping for the owner: reject the staged dev versions on npm, limit the `npm` and `pypi` environments to `main`, delete stale remote branches (`runs/d2-frame`, `runs/d2-part-one`, `runs/d2-part-two`) and the merged local `runs/spark-…` result branches.
+- Housekeeping for the owner: reject the staged dev versions on npm, limit the `npm` and `pypi` environments to `main`, delete stale remote branches (`runs/d2-frame`, `runs/d2-part-one`, `runs/d2-part-two`) and the merged local result branches of the dispatched runs.

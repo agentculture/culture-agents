@@ -195,6 +195,9 @@ FORMER_NAME_REMAINS = {
     "docs/d0/sibling-baseline.txt",
     # exported from a .devague delivery record, which quotes the same chat server
     "docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md",
+    # the D2 delivery summary: quotes plan task t2 ("rename ... from spark to thor"), claim c30
+    # and lapse l1 verbatim, as the summary method requires; none is a node name
+    "docs/deliveries/2026-11-26-d2-fleet-and-recovery.md",
 }
 
 
