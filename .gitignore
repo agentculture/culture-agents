@@ -245,5 +245,5 @@ skills.local.yaml
 .devague/reviews/
 
 # TypeScript core (core/): installed deps and build output
-core/node_modules/
+core/node_modules
 core/dist/

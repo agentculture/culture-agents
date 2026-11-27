@@ -46,7 +46,7 @@ import { KeyIndex, pruneKeys, recoverKeys, requestDigest, settleKey, sweepKeyTem
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
 import { reconnectWorker, type WorkerControl } from "../worker/spawn.js";
-import { withHostReport, readAdmission, submitWarnings, type HostReport } from "./admission.js";
+import { withHostReport, readAdmission, admitSubmit, type HostReport } from "./admission.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { answer as answerRun } from "./answer.js";
 import { control, recordDeferredRefusal, WorkerRefusedError, type ControlKind, type ControlTarget } from "./control.js";
@@ -185,7 +185,8 @@ export class StoreRunService implements RunService {
     }
     // Step 7: a limit the operator configured has room (none applies by default). The chain makes check and spawn one step.
     checkLimits(this.options.limits ?? NO_LIMITS, this.scan, request.repo);
-    const warnings = submitWarnings(await readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile, this.options.catalog.gateway, entry.id)); // a local submit under an unknown signal is admitted with a warning
+    // Then the signals, decided on this host: a hold refuses any submit; unknown refuses a remote one and warns on a local one.
+    const warnings = admitSubmit(await readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile, this.options.catalog.gateway, entry.id), options.remote === true ? "remote" : "local");
     // Step 8: create the session and run, start the worker, acknowledge once durable.
     const baseCommit = await resolveBaseCommit(request.repo, options.baseRef ?? startRef(entry.driver.options));
     const created = this.now();

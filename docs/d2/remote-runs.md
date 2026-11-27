@@ -97,3 +97,18 @@ processes of the same user for as long as the core runs, as the owner accepted
   which is what the caller relies on.
 - The Claude Code and OpenCode harnesses on a remote run: the tests use the
   fake driver and the stub harness.
+
+## Admission on the executing core (t24)
+
+A remote submit passes the same checks as a local one, in the contract's order, on the executing
+core: harness available, then a configured limit with room, then the signals. The signals are read
+on that host, never on the caller's. A signal that says `hold`, or reads `unknown` (missing, stale,
+unreadable), refuses the remote submit with `admission_held`, whose `signal` names the signal
+(`heat` or `gateway`), its state and `observed_at`; nothing is queued. A local submit is never
+refused by a signal: an unknown one admits it with a `signal_unknown` warning. An unknown signal
+never fails the control plane.
+
+The gateway signal is read only from the `admission` object with a timestamp that lobes-cli issue
+346 asks for. A `/status` without that field leaves the gateway `consulted: false`: it neither
+refuses nor warns. Until issue 346 is released, harnesses that use the gateway are admitted on
+harness, limit and heat. A present but malformed or stale field reads unknown (consulted).

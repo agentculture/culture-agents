@@ -93,6 +93,8 @@ export interface SubmitOptions {
   keyNamespace?: string;
   /** The body the key's digest is taken over instead of `request`: a remote submit's deadline comes from this core's clock, so a repeat would differ. */
   digestOf?: object;
+  /** The submit came from another member of the fleet: an unknown admission signal refuses it (a local submit is admitted with a warning). */
+  remote?: boolean;
 }
 
 export interface RunListQuery {

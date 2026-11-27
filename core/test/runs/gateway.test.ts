@@ -20,7 +20,7 @@ test("admit, hold and unknown come from the admission object", () => {
 
 test("a missing field, a stale or future sample, or bad JSON reads unknown, never admit", () => {
   const bads = [
-    "not json", "[]", "{}", JSON.stringify({ admission: null }),
+    "not json", "[]", JSON.stringify({ admission: null }),
     body({ admit: undefined }), body({ admit: "yes" }), body({ at: undefined }), body({ at: "yesterday" }), body({ at: 12345 }),
     body({ stale_after_s: undefined }), body({ stale_after_s: 0 }),
     body({ at: new Date(NOW.getTime() - 11_000).toISOString() }),
@@ -70,8 +70,10 @@ test("a harness that does not use the gateway stays not consulted; one that does
 test("an unknown gateway warns; a hold does not refuse or warn", async () => {
   const env = { HEAT_GOVERNOR_STATE: "/x" };
   const heat = JSON.stringify({ at: NOW.getTime() / 1000 - 1, stale_after_s: 10, level: "normal", admit: true });
-  const unknown = await readAdmission(env, NOW, () => heat, source(reply("{}")), "opencode");
+  const unknown = await readAdmission(env, NOW, () => heat, source(reply(JSON.stringify({ admission: { admit: "yes" } }))), "opencode");
   assert.deepEqual(submitWarnings(unknown).map((w) => [w.code, w.signal]), [["signal_unknown", "gateway"]]);
+  const absent = await readAdmission(env, NOW, () => heat, source(reply("{}")), "opencode");
+  assert.deepEqual([absent.gateway.consulted, submitWarnings(absent)], [false, []], "no admission field: not consulted, no warning");
   const hold = await readAdmission(env, NOW, () => heat, source(reply(body({ admit: false }))), "opencode");
   assert.equal(hold.gateway.state, "hold");
   assert.deepEqual(submitWarnings(hold), []);
@@ -82,12 +84,12 @@ test("through the daemon: capability and submit read the gateway; unknown warns,
   const { HANG, makeEnv, ok, startDaemon, submitBody } = await import("./support.js");
   type Caps = import("../../src/contract/index.js").Capabilities;
   type Sub = import("../../src/contract/index.js").SubmitResponse;
-  let mode: "admit" | "hold" | "missing" | "hang" = "admit";
+  let mode: "admit" | "hold" | "missing" | "malformed" | "hang" = "admit";
   const server = createServer((_req, res) => {
     if (mode === "hang") return; // never answers
     const at = new Date().toISOString();
     res.setHeader("content-type", "application/json");
-    res.end(mode === "missing" ? "{}" : JSON.stringify({ admission: { admit: mode === "admit", at, stale_after_s: 30, reason: "busy" } }));
+    res.end(mode === "missing" ? "{}" : mode === "malformed" ? JSON.stringify({ admission: { admit: "yes" } }) : JSON.stringify({ admission: { admit: mode === "admit", at, stale_after_s: 30, reason: "busy" } }));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => { server.closeAllConnections(); server.close(); });
@@ -103,6 +105,9 @@ test("through the daemon: capability and submit read the gateway; unknown warns,
   const held = await ok<Sub>(env, "POST", "/v1/runs", 201, "control-action#submit_response", submitBody("fake", env.repoA));
   assert.deepEqual(held.warnings?.map((w) => w.signal), ["heat"], "a hold is admitted in part one, with no gateway warning");
   mode = "missing";
+  const absent = await ok<Sub>(env, "POST", "/v1/runs", 201, "control-action#submit_response", submitBody("fake", env.repoB));
+  assert.deepEqual(absent.warnings?.map((w) => w.signal), ["heat"], "no admission field: the gateway is not consulted, so it does not warn");
+  mode = "malformed";
   const unknown = await ok<Sub>(env, "POST", "/v1/runs", 201, "control-action#submit_response", submitBody("fake", env.repoB));
   assert.deepEqual(unknown.warnings?.map((w) => w.signal).sort(), ["gateway", "heat"]);
   mode = "hang";

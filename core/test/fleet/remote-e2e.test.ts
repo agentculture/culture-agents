@@ -36,6 +36,10 @@ async function twoCores(t: TestContext): Promise<{ thor: Env; caller: Env; thorD
   const callerKey = newFleetKey();
   const thor = makeEnv(t, [HANG]);
   const thorFleet = fleetEnv(thor, "thor", thorKey, [[CALLER_NODE, callerKey]]);
+  // A remote submit is admitted only on a known, admitting heat signal (t24): thor's says admit.
+  const heat = join(thorFleet, "heat.json");
+  writeFileSync(heat, JSON.stringify({ at: Date.now() / 1000, stale_after_s: 3600, level: "normal", admit: true }));
+  thor.vars["HEAT_GOVERNOR_STATE"] = heat;
   writeFileSync(join(thorFleet, "aliases.json"), JSON.stringify({ version: 1, aliases: [{ alias: ALIAS, repo: thor.repoA }] }));
   const thorDaemon = await startDaemon(t, thor);
   await waitFor(() => /fleet transport listening/.test(thorDaemon.stderr()), 10_000, "thor's fleet transport");

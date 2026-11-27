@@ -130,7 +130,7 @@ async function submit({ d, member, req, res }: Call): Promise<void> {
   const r = body as RemoteSubmitRequest;
   const request = await localRequest(d, r);
   const submitter: Submitter = { kind: "member", node: member.node };
-  const sent = await d.service.submit(request, submitter, { keyNamespace: `member:${member.node}`, digestOf: r, ...(r.base_commit !== undefined && { baseRef: r.base_commit }) });
+  const sent = await d.service.submit(request, submitter, { keyNamespace: `member:${member.node}`, digestOf: r, remote: true, ...(r.base_commit !== undefined && { baseRef: r.base_commit }) });
   return sendJson(res, 201, "remote#submit_response", { run: remoteView(sent.run), ...(sent.replayed === true && { replayed: true }), ...(sent.warnings && { warnings: sent.warnings }) });
 }
 
