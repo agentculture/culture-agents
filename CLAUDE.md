@@ -66,6 +66,11 @@ evidence, not the decision. Issue
 [#2](https://github.com/agentculture/culture-agents/issues/2) remains the
 authoritative plan; read it before designing anything. `docs/d0/decisions.md`
 lists which decisions are closed and which are still open.
+The network transport between cores is the one piece of part two on disk:
+`core/src/fleet/` (TLS 1.3, both sides authenticated by Ed25519 key against a
+local trust list; `docs/d2/fleet-transport.md`). It is off unless
+`CULTURE_AGENTS_FLEET_LISTEN` is set, and so far it serves members only the
+version route.
 
 D0 decisions in force: a TypeScript core plus a Python CLI as two packages;
 the first two harnesses are Claude Code and OpenCode v2; a run's repository
