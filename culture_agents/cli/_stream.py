@@ -33,7 +33,6 @@ import http.client
 import time
 from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
-from urllib.parse import quote
 
 from culture_agents.cli import _contract
 from culture_agents.cli._client import (
@@ -99,7 +98,7 @@ def follow(
 ) -> Iterator[dict[str, Any]]:
     """Yield the events of *run_id* after cursor *after*, each exactly once, to the terminal one."""
     client.connect()
-    route = f"/v1/runs/{quote(run_id, safe='')}"
+    route, shape = client.run_route(run_id)  # a run on another member: through /v1/fleet/runs
     cursor, stalled, opened_once = after, 0, False
     outage = _Outage(reconnect_window)
     while True:
@@ -125,7 +124,7 @@ def follow(
             stalled = 0
             continue
         stalled += 1
-        if _finished_after_empty_stream(client, route, cursor, stalled, outage):
+        if _finished_after_empty_stream(client, (route, shape), cursor, stalled, outage):
             return
 
 
@@ -151,7 +150,7 @@ def _new_events(resp: http.client.HTTPResponse, cursor: int) -> Iterator[dict[st
 
 
 def _finished_after_empty_stream(
-    client: CoreClient, route: str, cursor: int, stalled: int, outage: _Outage
+    client: CoreClient, target: tuple[str, str], cursor: int, stalled: int, outage: _Outage
 ) -> bool:
     """After the *stalled*-th stream in a row without an event: is the run over?
 
@@ -162,7 +161,7 @@ def _finished_after_empty_stream(
     if stalled > _MAX_STALLED_RECONNECTS:
         raise _unavailable(client.path, "the event stream keeps closing without events")
     try:
-        run = client._json("GET", route, "run")
+        run = client._json("GET", *target)
     except CoreError as err:
         _wait_out(err, outage, cursor)
         return False

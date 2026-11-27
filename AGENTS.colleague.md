@@ -50,7 +50,7 @@ which is a client of the core over a Unix socket.
 - `contract/` holds the JSON Schemas that are the source of truth for the
   control API, with fixtures; the core and the CLI are both tested against
   them.
-- CLI verbs: `agents agents list|status` and `agents runs
+- CLI verbs: `agents agents list|status|aliases` and `agents runs
   submit|list|show|attach|steer|cancel|logs|result|answer`, `agents branches list|remove`, plus `whoami`, `learn`,
   `explain`, `overview`, `doctor`, `cli overview`. With no core running they
   exit 2 with a hint.
@@ -81,14 +81,19 @@ chat integration. Nothing is archived: recovery is the condition for archiving
 [#2](https://github.com/agentculture/culture-agents/issues/2) is the
 authoritative plan; `docs/d0/decisions.md` lists open decisions. Never
 describe unbuilt verbs as available.
-The network transport between cores and the fleet member list are the pieces
+The network transport between cores, the fleet member list and remote runs are the pieces
 of part two on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
 Ed25519 key against a local trust list; `docs/d2/fleet-transport.md`). It is
 off unless `CULTURE_AGENTS_FLEET_LISTEN` is set. When on, a core announces
 itself every 5 s to the addresses in its local, untracked `peers.json`, lists a
 member only under the name its trust list gives the member's key, drops a
 silent one within 16 s, and refuses a node name held by another key
-(`docs/d2/fleet-members.md`; `agents agents list` shows the list).
+(`docs/d2/fleet-members.md`; `agents agents list` shows the list). On it,
+`agents runs submit --alias` runs a task on the member that `--agent` names,
+and `runs show|attach|steer|cancel` reach the member a run id names; the
+repository is an alias that member defines, the deadline a duration on its
+clock, and a member acts only on the runs it submitted
+(`docs/d2/remote-runs.md`, API 3.2).
 
 Boundaries (from [#1](https://github.com/agentculture/culture-agents/issues/1)
 and #2): culture-agents owns agent execution and direct control; culture-chat
@@ -154,7 +159,7 @@ uv run python scripts/harness-smoke.py --stage config --require config
 The core and the CLI share the socket path: `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`).
-The control API is version 3.1 (`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, and
+The control API is version 3.2 (`contract/api.json`): it holds the D2 part one shapes plus the fleet member list and remote runs, and
 `contract/README.md` marks the behaviour that is not built yet as (planned).
 
 ## Layout

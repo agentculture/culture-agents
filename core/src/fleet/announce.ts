@@ -13,7 +13,7 @@
  */
 import type { KeyObject } from "node:crypto";
 
-import { validate, type Announcement } from "../contract/index.js";
+import { API_VERSION_HEADER, validate, type Announcement } from "../contract/index.js";
 import { ANNOUNCE_INTERVAL_MS, type Members } from "./members.js";
 import type { PeerAddress } from "./peers.js";
 import { FLEET_TIMEOUT_MS, fleetCall, type FleetCallOptions, type FleetResponse } from "./transport.js";
@@ -49,6 +49,11 @@ export interface Announcer {
   start(): void;
   /** Stop announcing, then announce `leaving` to every address once. Idempotent. */
   stop(): Promise<void>;
+  /**
+   * The address in the local address list whose last reply came from member `node`, authenticated as
+   * that member's key; undefined when none did. A remote call goes only to such an address.
+   */
+  addressOf(node: string): PeerAddress | undefined;
 }
 
 const label = (p: PeerAddress): string => (p.host.includes(":") ? `[${p.host}]:${p.port}` : `${p.host}:${p.port}`);
@@ -81,6 +86,7 @@ export function createAnnouncer(o: AnnouncerOptions): Announcer {
   const intervalMs = o.intervalMs ?? ANNOUNCE_INTERVAL_MS;
   const inFlight = new Set<string>();
   const outcome = new Map<string, string>(); // last logged outcome per address
+  const answeredAs = new Map<string, { node: string; peer: PeerAddress }>(); // by address: the member whose key last replied there
   let timer: NodeJS.Timeout | null = null;
   let stopping: Promise<void> | null = null;
 
@@ -90,20 +96,27 @@ export function createAnnouncer(o: AnnouncerOptions): Announcer {
     o.log(`culture-agents core: fleet: ${line}`);
   };
 
-  const send = (peer: PeerAddress, state: Announcement["state"], timeoutMs: number): Promise<FleetResponse> =>
-    call({ key: o.key, trust: o.trust(), host: peer.host, port: peer.port, method: "POST", path: "/v1/fleet/announce", body: JSON.stringify(o.members.announcement(state)), timeoutMs, maxResponseBytes: MAX_REPLY_BYTES });
+  const send = (peer: PeerAddress, state: Announcement["state"], timeoutMs: number): Promise<FleetResponse> => {
+    const announcement = o.members.announcement(state);
+    const headers = { [API_VERSION_HEADER]: announcement.api_version }; // the rule between cores: same MAJOR (contract/README.md)
+    return call({ key: o.key, trust: o.trust(), host: peer.host, port: peer.port, method: "POST", path: "/v1/fleet/announce", body: JSON.stringify(announcement), headers, timeoutMs, maxResponseBytes: MAX_REPLY_BYTES });
+  };
 
   async function announceTo(peer: PeerAddress): Promise<void> {
     const where = label(peer);
     try {
       const res = await send(peer, "up", o.timeoutMs ?? Math.min(intervalMs, FLEET_TIMEOUT_MS));
+      answeredAs.delete(where);
       if (res.status !== 200) {
         note(where, `refused ${res.status}`, `${where} refused this core's announcement (${res.status}, ${errorText(res.body)})`);
         return;
       }
       const receipt = o.members.receive(res.member, replyOf(res));
-      if (receipt.ok) note(where, "ok", `announced to ${where}, which is member ${res.member.node}`);
+      if (!receipt.ok) return;
+      answeredAs.set(where, { node: res.member.node, peer });
+      note(where, "ok", `announced to ${where}, which is member ${res.member.node}`);
     } catch (e) {
+      answeredAs.delete(where);
       note(where, "failed", `cannot announce to ${where}: ${(e as Error).message}`);
     }
   }
@@ -132,6 +145,11 @@ export function createAnnouncer(o: AnnouncerOptions): Announcer {
 
   return {
     round,
+    addressOf(node) {
+      const listed = new Set(o.peers().map(label)); // an address the operator removed is not called
+      for (const [where, a] of answeredAs) if (a.node === node && listed.has(where)) return a.peer;
+      return undefined;
+    },
     start() {
       if (timer || stopping) return;
       tick();

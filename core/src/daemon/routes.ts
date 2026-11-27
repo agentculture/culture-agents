@@ -13,8 +13,10 @@ import {
   type Submitter,
 } from "../contract/index.js";
 import { memberListOff } from "../fleet/members.js";
+import type { Remote } from "../fleet/remote.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { branchesList, branchesRemove } from "./branch-routes.js";
+import { fleetAliases, fleetRunsAttach, fleetRunsControl, fleetRunsShow, fleetRunsSubmit, type FleetRouteCall } from "./fleet-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 import type { DeferredRequest, RunService } from "./ports.js";
@@ -33,6 +35,8 @@ export interface RouteContext {
   submitter: Submitter | null;
   /** The fleet member list; null when the fleet transport is off. */
   members: (() => MemberList) | null;
+  /** Calls to other fleet members (remote runs, 3.2); null when the fleet transport is off. */
+  remote: Remote | null;
 }
 
 interface Match {
@@ -64,7 +68,23 @@ const PATTERNS: readonly Pattern[] = [
   ["branches.list", "GET", "v1", "branches"],
   ["branches.remove", "POST", "v1", "branches", "remove"],
   ["fleet.members", "GET", "v1", "fleet", "members"],
+  ["fleet.runs.submit", "POST", "v1", "fleet", "runs"],
+  ["fleet.runs.show", "GET", "v1", "fleet", "runs", ":run_id"],
+  ["fleet.runs.attach", "GET", "v1", "fleet", "runs", ":run_id", "attach"],
+  ["fleet.runs.steer", "POST", "v1", "fleet", "runs", ":run_id", "steer"],
+  ["fleet.runs.cancel", "POST", "v1", "fleet", "runs", ":run_id", "cancel"],
+  ["fleet.aliases", "GET", "v1", "fleet", "aliases"],
 ];
+
+/** The remote-run routes (fleet-routes.ts): each forwards to the member the request names. */
+const FLEET_ROUTES: Record<string, (c: FleetRouteCall) => Promise<void>> = {
+  "fleet.runs.submit": fleetRunsSubmit,
+  "fleet.runs.show": fleetRunsShow,
+  "fleet.runs.attach": fleetRunsAttach,
+  "fleet.runs.steer": (c) => fleetRunsControl(c, "steer"),
+  "fleet.runs.cancel": (c) => fleetRunsControl(c, "cancel"),
+  "fleet.aliases": fleetAliases,
+};
 
 /** Deferred control routes: always `unsupported`, naming the capability. Value is the request schema. */
 const DEFERRED = {
@@ -279,6 +299,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
   const p = match.params;
   const svc = ctx.service;
   const call: RouteCall = { ctx, req, res, url, p };
+  const fleetRoute = FLEET_ROUTES[match.id];
+  if (fleetRoute) return fleetRoute({ remote: ctx.remote, node: ctx.node, req, res, url, runId: p["run_id"] ?? "", keepaliveMs: ctx.keepaliveMs, shutdown: ctx.shutdown });
 
   switch (match.id) {
     case "version":

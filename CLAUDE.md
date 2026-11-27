@@ -25,7 +25,7 @@ one, a single-host control plane without chat. On disk:
   verified;
 - the JSON Schemas in `contract/`, the source of truth for the control API,
   tested from both the core and the CLI against the same fixtures;
-- the `agents` CLI: `agents agents list|status` and `agents runs
+- the `agents` CLI: `agents agents list|status|aliases` and `agents runs
   submit|list|show|attach|steer|cancel|logs|result|answer`, `agents branches list|remove`, plus the agent-first
   baseline (`whoami`, `learn`, `explain`, `overview`, `doctor`, `cli
   overview`);
@@ -66,14 +66,19 @@ evidence, not the decision. Issue
 [#2](https://github.com/agentculture/culture-agents/issues/2) remains the
 authoritative plan; read it before designing anything. `docs/d0/decisions.md`
 lists which decisions are closed and which are still open.
-The network transport between cores and the fleet member list are the pieces
+The network transport between cores, the fleet member list and remote runs are the pieces
 of part two on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
 Ed25519 key against a local trust list; `docs/d2/fleet-transport.md`). It is
 off unless `CULTURE_AGENTS_FLEET_LISTEN` is set. When on, a core announces
 itself every 5 s to the addresses in its local, untracked `peers.json`, lists a
 member only under the name its trust list gives the member's key, drops a
 silent one within 16 s, and refuses a node name held by another key
-(`docs/d2/fleet-members.md`; `agents agents list` shows the list).
+(`docs/d2/fleet-members.md`; `agents agents list` shows the list). On it,
+`agents runs submit --alias` runs a task on the member that `--agent` names,
+and `runs show|attach|steer|cancel` reach the member a run id names; the
+repository is an alias that member defines, the deadline a duration on its
+clock, and a member acts only on the runs it submitted
+(`docs/d2/remote-runs.md`, API 3.2).
 
 D0 decisions in force: a TypeScript core plus a Python CLI as two packages;
 the first two harnesses are Claude Code and OpenCode v2; a run's repository
@@ -110,8 +115,8 @@ node dist/src/daemon/main.js   # start the core daemon (after build); socket pat
 The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`);
-the `agents` CLI uses the same resolution. The control API is version 3.1
-(`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, and `contract/README.md` marks
+the `agents` CLI uses the same resolution. The control API is version 3.2
+(`contract/api.json`): it holds the D2 part one shapes plus the fleet member list and remote runs, and `contract/README.md` marks
 the behaviour that is not built yet as (planned). With no core running, every `agents agents` and `agents runs` verb
 exits 2 with a hint.
 

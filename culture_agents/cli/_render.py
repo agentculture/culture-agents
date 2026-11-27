@@ -320,3 +320,16 @@ def event_page(payload: Any) -> Rendered:
     if _get(payload, "more") is True:
         lines.append(f"more events follow: last cursor is {_val(_get(payload, 'last_cursor'))}")
     return Rendered(payload, "\n".join(lines))
+
+
+def alias_list(payload: Any) -> Rendered:
+    """A member's aliases (API 3.2): each alias and the agent and harness pairs it permits."""
+    aliases = _items(_get(payload, "aliases"))
+    lines = [f"member: {_val(_get(payload, 'node'))}", f"aliases ({len(aliases)}):"]
+    for alias in aliases:
+        permits = [
+            f"{_val(_get(p, 'agent_id'))} on {_val(_get(p, 'harness'))}"
+            for p in _items(_get(alias, "permits"))
+        ]
+        lines.append(f"  {_val(_get(alias, 'alias'))}: {', '.join(permits) or 'nothing permitted'}")
+    return Rendered(payload, "\n".join(lines))

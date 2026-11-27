@@ -1,0 +1,13 @@
+{
+  "agent_id": "thor-culture-agents",
+  "harness": "claude-code",
+  "alias": "culture-agents",
+  "task": "Add a unit test for the parser's empty-input case.",
+  "caller": {
+    "kind": "operator",
+    "id": "thor-operator"
+  },
+  "idempotency_key": "ticket-1234:attempt-1",
+  "deadline_ms": 3600000,
+  "base_commit": "3f2a9c0d1e4b5a6978c0d1e2f3a4b5c6d7e8f901"
+}

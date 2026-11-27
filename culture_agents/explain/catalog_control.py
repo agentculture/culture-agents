@@ -67,9 +67,10 @@ run state; the CLI only asks.
 - `runs logs <run_id>` — a page of stored events.
 - `runs result <run_id>` — the outcome of a finished run.
 
-`pause`, `resume`, session continuation, delegation and multi-host placement
-are not verbs: the contract defers them and the core refuses them as
-`unsupported`. `answer` is a verb, but the core takes an answer to a run's
+`pause`, `resume`, session continuation and delegation are not verbs: the
+contract defers them and the core refuses them as `unsupported`. A run on
+another fleet member is `runs submit --alias`: the node of `--agent` names
+the member, and nothing schedules. `answer` is a verb, but the core takes an answer to a run's
 pending question only when the run's harness can ask, and otherwise refuses it
 as `unsupported`.
 
@@ -78,7 +79,8 @@ as `unsupported`.
 _SUBMIT = f"""\
 # agents runs submit
 
-Submits a task. Required: `--agent`, `--harness`, `--repo`, `--task`. The task
+Submits a task. Required: `--agent`, `--harness`, `--task`, and `--repo` (a
+path on this core's host) or `--alias` (a run on another fleet member). The task
 text is data and is sent verbatim. Dispatch is deny-by-default: the core needs
 an allow-list entry matching agent, harness and repo, and answers `denied`
 otherwise. A repository may have several active runs at once, each steered
@@ -93,11 +95,27 @@ same key, so one run exists),
 `--caller` and `--caller-kind` (default `<node>-operator`, kind `operator`),
 `--session-id` and `--parent-run-id` (the core refuses both as `unsupported`).
 
+## A run on another fleet member
+
+`--alias <name>` sends the run, through this core and over the fleet
+transport, to the member that the node of `--agent` names (the caller chooses;
+nothing schedules). The repository is the alias that member defines (see
+`agents agents aliases --member <node>`). The deadline is `--deadline-in
+<seconds>`, a duration counted on that member's clock; an absolute
+`--deadline` is refused. The base commit is the HEAD of the git checkout you
+run the CLI in, unless `--base <sha>` names another or `--no-base` names none
+(the run then starts from the member's HEAD); the member refuses a commit its
+checkout lacks with `invalid` and fetches nothing. The response names the
+commit. The run's submitter on that member is this core's member name.
+`runs show`, `attach`, `steer` and `cancel` reach the member a run id names.
+
 ## Usage
 
     agents runs submit --agent thor-culture-agents --harness claude-code \\
         --repo /srv/repos/demo --task "Add a unit test"
     agents runs submit ... --json
+    agents runs submit --agent thor-culture-agents --harness claude-code \\
+        --alias culture-agents --deadline-in 3600 --task "Add a unit test"
 
 {CORE_NOTE}"""
 
@@ -247,9 +265,27 @@ state `unknown` is never reported as succeeded.
 
 {CORE_NOTE}"""
 
+_AGENTS_ALIASES = f"""\
+# agents agents aliases --member <node>
+
+Reads, through this core and over the fleet transport, the repository aliases
+that fleet member defines, and for each the agent and harness pairs its
+allow-list permits. A member names its checkouts by alias; no path crosses the
+network. Use an alias with `agents runs submit --alias`. With the fleet
+transport off this core answers `unsupported`; a member that does not answer
+is `unavailable`.
+
+## Usage
+
+    agents agents aliases --member thor
+    agents agents aliases --member thor --json
+
+{CORE_NOTE}"""
+
 CONTROL_ENTRIES: dict[tuple[str, ...], str] = {
     ("agents", "list"): _AGENTS_LIST,
     ("agents", "status"): _AGENTS_STATUS,
+    ("agents", "aliases"): _AGENTS_ALIASES,
     ("runs",): _RUNS,
     ("runs", "submit"): _SUBMIT,
     ("runs", "list"): _LIST,

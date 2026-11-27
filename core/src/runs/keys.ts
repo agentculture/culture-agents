@@ -19,16 +19,19 @@ export type SubmitStep = "after-key" | "after-run-dir" | "after-spawn";
 /** Called at each step of a submit; a test kills the core there. Never set in production. */
 export type SubmitFault = (step: SubmitStep) => void;
 
+/** The key as its submitter sent it: a member's keys are held as `<namespace>/<key>`, and a key holds no `/`. */
+const shown = (key: string): string => key.slice(key.lastIndexOf("/") + 1);
+
 function conflict(entry: KeyEntry): ControlError {
-  return new ControlError("conflict", `Idempotency key ${entry.key} was already used with a different ${entry.scope} request (run ${entry.run_id}).`, {
+  return new ControlError("conflict", `Idempotency key ${shown(entry.key)} was already used with a different ${entry.scope} request (run ${entry.run_id}).`, {
     run_id: entry.run_id,
-    idempotency_key: entry.key,
+    idempotency_key: shown(entry.key),
     retryable: false,
   });
 }
 
 function pending(entry: KeyEntry): ControlError {
-  return new ControlError("unavailable", `The ${entry.scope} with idempotency key ${entry.key} is still being established; retry shortly.`, {
+  return new ControlError("unavailable", `The ${entry.scope} with idempotency key ${shown(entry.key)} is still being established; retry shortly.`, {
     run_id: entry.run_id,
     retry_after_ms: 500,
   });

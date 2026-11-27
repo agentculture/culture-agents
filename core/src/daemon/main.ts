@@ -283,8 +283,9 @@ async function serveUntilStopped(
   }
   const runs = service ? null : builtInRuns(options, { stateDir, node, allowlistPath, env, limits, questionLimitMs });
   // The member list exists before the socket listens, so the local route reads it; nothing is announced or heard until `start`.
-  const fleet = fleetConfig ? createFleet(fleetConfig, node, err) : null;
-  const daemon = await startOrReport({ ...options, ...(fleet && { members: () => fleet.members.view() }) }, service ?? (runs as RunService), node, stateLock, err);
+  const runService = service ?? (runs as RunService);
+  const fleet = fleetConfig ? createFleet(fleetConfig, node, err, {}, { service: runService, allowlist: () => loadAllowlist(allowlistPath), now: options.now ?? (() => new Date()) }) : null;
+  const daemon = await startOrReport({ ...options, ...(fleet && { members: () => fleet.members.view(), remote: fleet.remote }) }, runService, node, stateLock, err);
   if (daemon === null) return 2;
   if (fleet && !(await fleet.start())) {
     await daemon.stop();

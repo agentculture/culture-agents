@@ -1,5 +1,5 @@
 {
-  "api_version": "3.1",
+  "api_version": "3.2",
   "schema_base": "https://culture.dev/contract/agents/",
   "description": "Index of the culture-agents control-plane API. Semantics live in contract/README.md; payload shapes in the schema files named here, resolved against schema_base.",
   "transport": {
@@ -573,6 +573,171 @@
         "invalid",
         "incompatible_version",
         "internal"
+      ]
+    },
+    {
+      "id": "fleet.runs.submit",
+      "method": "POST",
+      "path": "/v1/fleet/runs",
+      "summary": "Submit a run to the fleet member that the agent_id's node names, over the fleet transport; the repository is an alias that member defines (added in 3.2).",
+      "cli": "agents runs submit --alias",
+      "d1": "supported",
+      "request": "remote.json#/$defs/submit_request",
+      "response": "remote.json#/$defs/submit_response",
+      "status": 201,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable",
+        "conflict",
+        "limit_reached",
+        "admission_held"
+      ]
+    },
+    {
+      "id": "fleet.runs.show",
+      "method": "GET",
+      "path": "/v1/fleet/runs/{run_id}",
+      "summary": "One run on the fleet member that the run id's node names, without its repository path (added in 3.2).",
+      "cli": "agents runs attach (remote run)",
+      "d1": "supported",
+      "request": null,
+      "response": "remote.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "fleet.runs.attach",
+      "method": "GET",
+      "path": "/v1/fleet/runs/{run_id}/attach",
+      "summary": "SSE: the events of a run on another member, read from it over the fleet transport, with cursor > after; closes after the terminal run.state event (added in 3.2).",
+      "cli": "agents runs attach (remote run)",
+      "d1": "supported",
+      "request": null,
+      "response": "event.json",
+      "status": 200,
+      "stream": true,
+      "content_type": "text/event-stream",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "fleet.runs.steer",
+      "method": "POST",
+      "path": "/v1/fleet/runs/{run_id}/steer",
+      "summary": "Deliver a mid-run instruction to a run on another member, over the fleet transport (added in 3.2).",
+      "cli": "agents runs steer (remote run)",
+      "d1": "supported",
+      "request": "control-action.json#/$defs/steer_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable",
+        "conflict"
+      ]
+    },
+    {
+      "id": "fleet.runs.cancel",
+      "method": "POST",
+      "path": "/v1/fleet/runs/{run_id}/cancel",
+      "summary": "Cancel a run on another member, over the fleet transport (added in 3.2).",
+      "cli": "agents runs cancel (remote run)",
+      "d1": "supported",
+      "request": "control-action.json#/$defs/cancel_request",
+      "response": "control-action.json#/$defs/accepted_response",
+      "status": 202,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable",
+        "conflict"
+      ]
+    },
+    {
+      "id": "fleet.aliases",
+      "method": "GET",
+      "path": "/v1/fleet/aliases",
+      "summary": "The aliases a fleet member defines and what its allow-list permits on each, read from it over the fleet transport (added in 3.2).",
+      "cli": "agents agents aliases",
+      "d1": "supported",
+      "request": null,
+      "response": "remote.json#/$defs/alias_list",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {
+        "member": {
+          "$ref": "common.json#/$defs/node"
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "unsupported",
+        "unavailable"
       ]
     }
   ]
