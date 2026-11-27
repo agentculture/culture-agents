@@ -10,7 +10,8 @@ import { readFileSync, statSync } from "node:fs";
 import { validate, type Run } from "../contract/index.js";
 import { atomicWriteJson, runFile } from "./files.js";
 
-const SUMMARY_VERSION = 1;
+// 2: a version-1 summary may hold a succeeded run without the branch its record holds (pr-15 finding 19).
+const SUMMARY_VERSION = 2;
 
 interface Summary {
   summary_version: number;

@@ -5,13 +5,14 @@
  * append must not report `succeeded` without the branch, and must not cache such a run.
  */
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, type TestContext } from "node:test";
 
 import type { Run, RunId } from "../../src/contract/index.js";
 import { EventLogWriter } from "../../src/store/event-log.js";
+import { runFile } from "../../src/store/files.js";
 import { createRun, readRecord, showRunAt, writeRecord } from "../../src/store/run-store.js";
 
 const ID = "thor-culture-agents.run.01M8CMHYHM3NW9NCT0KA000100" as RunId;
@@ -60,4 +61,15 @@ test("a run read while its worker completes it reports succeeded only with its b
   const later = showRunAt(dir, { controllable: false })?.run;
   assert.equal(later?.state, "succeeded");
   assert.equal(later?.branch, `runs/${ID}`, "the summary cache does not keep a branchless succeeded run");
+});
+
+test("a branchless summary written before the fix is not served: the run is derived again and reports its branch", (t) => {
+  const dir = runningRun(t);
+  completeLikeTheWorker(dir);
+  const run = showRunAt(dir, { controllable: false })?.run;
+  assert.equal(run?.branch, `runs/${ID}`);
+  // What a core with the race wrote: summary version 1, the current log size, and branch null.
+  const summary = JSON.parse(readFileSync(runFile(dir, "summary"), "utf8")) as { log_bytes: number };
+  writeFileSync(runFile(dir, "summary"), JSON.stringify({ summary_version: 1, log_bytes: summary.log_bytes, run: { ...run, branch: null } }));
+  assert.equal(showRunAt(dir, { controllable: false })?.run.branch, `runs/${ID}`);
 });
