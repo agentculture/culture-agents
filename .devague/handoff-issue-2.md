@@ -12,6 +12,28 @@ This is working state, not a design document. The authoritative records are:
   `docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md` and the
   derived `docs/current-spec.md`.
 
+## D2: part two built, in its pull request (written 2026-11-27, evening)
+
+Read this first; it supersedes the next section's "Part two" paragraph.
+
+All part two tasks are merged on `runs/d2-fleet`: t20 to t26, t32 and t28
+(API 3.3, version 0.17.0). t28 closed with host A x86_64 and host B an aarch64
+Jetson whose kernel has no Landlock (owner's choice, 2026-11-27: "close t28
+with Thor"), so a real harness across hosts and on aarch64 is NOT VERIFIED
+(`docs/d2/part-two-acceptance.md`). The fleet cores and the OpenShell gateway
+started on both hosts for t28 are stopped. Host B still holds the unpacked
+binaries and a clone under the owner's home; remove them only if the owner
+asks.
+
+Still to do: the pull request through cicd, `/validate-delivery` and
+`/summarize-delivery` for part two. Follow-up from acceptance: the missing-heat
+refusal carries the member's absolute heat-file path; `runs result` text joins
+lines with no separator; a real-harness check on an aarch64 host with
+Landlock. Owner items still open: who installs Langfuse, restarting the model
+gateway (its `/status` has no `admission` object), a task for secrets by file.
+The 45-minute OpenCode budget failed once (76 minutes over); the owner will add
+temporal awareness. Until then dispatch only to Claude Code.
+
 ## D2: part one released, part two building (written 2026-11-27, 10:40 UTC)
 
 Read this section first. It supersedes "Start here", "Open items" and
