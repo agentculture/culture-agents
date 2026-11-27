@@ -20,10 +20,14 @@ def test_list_text(core, capsys: pytest.CaptureFixture[str]) -> None:
 
 
 def test_list_json_is_the_contract_payload(core, capsys: pytest.CaptureFixture[str]) -> None:
+    # The agent list as the core sends it, plus the fleet member list under ``fleet`` (API 3.1, t22).
     r = run(capsys, "agents", "list", "--json")
     assert r.rc == 0
-    assert r.json() == fixture("agent", "agent_list.two-agents")
-    assert core.seen("GET", "/v1/agents")[0]["version_header"] == "3.0"
+    expected = fixture("agent", "agent_list.two-agents")
+    expected["fleet"] = fixture("fleet", "root.one-member-one-refusal")
+    assert r.json() == expected
+    assert core.seen("GET", "/v1/agents")[0]["version_header"] == "3.1"
+    assert core.seen("GET", "/v1/fleet/members")[0]["version_header"] == "3.1"
 
 
 def test_status_text(core, capsys: pytest.CaptureFixture[str]) -> None:

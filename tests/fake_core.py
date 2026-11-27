@@ -53,6 +53,7 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "POST /v1/runs/{id}/answer": (202, fixture("control-action", "accepted_response.answer")),
     "GET /v1/branches": (200, fixture("branches", "root.two-branches")),
     "POST /v1/branches/remove": (200, fixture("branches", "remove_response.mixed")),
+    "GET /v1/fleet/members": (200, fixture("fleet", "root.one-member-one-refusal")),
 }
 
 _PATTERNS = [
