@@ -44,7 +44,7 @@ Status: built, in control API 3.3 (`contract/README.md`, "Changes in 3.3"),
 
 ## Not verified
 
-- Two real hosts, and the 16 and 5 second bounds on a real network (task t28):
-  the halt was SIGSTOP of a process on loopback, and the silence limit was an
-  injected clock.
+- Two real hosts were run in task t28 (`docs/d2/part-two-acceptance.md`, check
+  5): `no_answer` at 5.0 s and `not_listed` after the silence. The halt there was
+  still SIGSTOP of the member's core, not of the network.
 - A partition of the network itself, as against a halted process.

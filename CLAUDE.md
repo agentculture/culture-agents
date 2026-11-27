@@ -11,8 +11,8 @@ TypeScript core `@culture.dev/agents` (`core/`, Node 22 or newer) and the
 Python CLI `agents` (package `culture_agents`, PyPI dist `culture-agents`),
 which is a client of the core.
 
-**Current state (be honest about this):** this is the D1 slice plus D2 part
-one, a single-host control plane without chat. On disk:
+**Current state (be honest about this):** this is the D1 slice plus D2 (part one on a single
+host, part two across hosts), a control plane without chat. On disk:
 
 - a core daemon that serves the control API over a Unix socket, stores runs
   on disk (one detached worker process per run), and runs harnesses inside an
@@ -54,20 +54,19 @@ one, a single-host control plane without chat. On disk:
   lands in the running turn.
 - the D2 part one acceptance suite in `tests/acceptance/d2/` (mock stage always
   runs; opt-in live stage) and the record `docs/d2/part-one-acceptance.md`, whose
-  live rows are NOT VERIFIED until filled in.
+  live rows are NOT VERIFIED until filled in; part two's record is
+  `docs/d2/part-two-acceptance.md`.
 
-**Not built:** D2 part two (more than one host: fleet view, placement,
-fetching a run's commits from another host) (planned), D3 through D6, `pause`
+**Not built:** automatic placement across hosts (planned), D3 through D6, `pause`
 and `resume` (both answer `unsupported`, as does delegation), `artifacts` (no
 route or verb) (planned), an ask path in the Claude Code and OpenCode drivers,
 Codex, and any chat integration. Nothing is archived: recovery is the condition
-for archiving `agent-lifecycle` and `cultureagent`, and part one supplies
+for archiving `agent-lifecycle` and `cultureagent`, and D2 supplies
 evidence, not the decision. Issue
 [#2](https://github.com/agentculture/culture-agents/issues/2) remains the
 authoritative plan; read it before designing anything. `docs/d0/decisions.md`
 lists which decisions are closed and which are still open.
-The network transport between cores, the fleet member list and remote runs are the pieces
-of part two on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
+D2 part two (more than one host) is on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
 Ed25519 key against a local trust list; `docs/d2/fleet-transport.md`). It is
 off unless `CULTURE_AGENTS_FLEET_LISTEN` is set. When on, a core announces
 itself every 5 s to the addresses in its local, untracked `peers.json`, lists a
@@ -82,7 +81,14 @@ clock, and a member acts only on the runs it submitted
 brings its `runs/<id>` branch into the caller's checkout from a git bundle
 read over the transport (no shell on that host), and `runs logs` reads its
 events unredacted; only the member that submitted a run reads it this way
-(`docs/d2/run-bundles.md`, API 3.3).
+(`docs/d2/run-bundles.md`, API 3.3). A member refuses a remote submit with `admission_held` when its heat or gateway
+signal says hold or reads unknown, read on that member at each submit. While a
+member does not answer, `agents runs show` reads its runs `unreachable`, a view
+the caller computes and never stores, and never `succeeded`
+(`docs/d2/unreachable-view.md`). Part two was accepted on 2 real hosts
+(x86_64 and aarch64) with the stub harness; a real harness across hosts, and
+any real harness on aarch64, is NOT VERIFIED (`docs/d2/part-two-acceptance.md`).
+There is no automatic placement: the caller names the member.
 
 D0 decisions in force: a TypeScript core plus a Python CLI as two packages;
 the first two harnesses are Claude Code and OpenCode v2; a run's repository
@@ -208,10 +214,10 @@ recovery tests. Both are checked out as siblings (`../agent-lifecycle`,
 
 Delivery gates (#2): **D0** inventory and contract (done; the TypeScript
 core plus Python CLI seam is decided, see `docs/d0/decisions.md`) → **D1** a
-single-host spike: dispatch, inspect, steer and cancel without chat (the
-current slice) → **D2** fleet and recovery → **D3** chat split → **D4**
+single-host spike: dispatch, inspect, steer and cancel without chat → **D2** fleet and recovery → **D3** chat split → **D4**
 culture-rules integration → **D5** embodiment integration → **D6** migration
-and deprecation. D2 part one is built; D2 part two to D6 are not (planned).
+and deprecation. D2 is built (part two accepted with the stub harness); D3 to D6 are not
+(planned).
 
 ## Code architecture (what exists today)
 
@@ -222,7 +228,9 @@ and deprecation. D2 part one is built; D2 part two to D6 are not (planned).
   (orchestration: configured limits, control forwarding, restart reconciliation),
   `sandbox/` (OpenShell sandbox provider and git-bundle working-tree
   handoff), `harness/` (Claude Code driver over the Vercel AI SDK, OpenCode v2
-  driver over its server API, a stub driver, the registry). `core/policy/`
+  driver over its server API, a stub driver, the registry), `fleet/` (the
+  transport between cores, the member list, remote runs, admission, the
+  unreachable view and run bundles). `core/policy/`
   holds the sandbox policy and provider profiles, `core/image/` the run
   image. AI SDK types must not leak into the public contract. Every npm
   dependency is an exact pin, installed with `npm ci`.

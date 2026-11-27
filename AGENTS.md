@@ -28,7 +28,8 @@ TypeScript core `@culture.dev/agents` (`core/`, Node 22 or newer) and the
 Python CLI `agents` (package `culture_agents`, PyPI dist `culture-agents`),
 which is a client of the core over a Unix socket.
 
-**Current state:** the D1 slice plus D2 part one, a single-host control plane without chat.
+**Current state:** the D1 slice plus D2 (part one on a single host, part two across hosts), a control plane
+without chat.
 
 - The core serves the control API on a Unix socket, stores runs on disk (one
   detached worker process per run), and runs harnesses inside an NVIDIA
@@ -62,8 +63,7 @@ which is a client of the core over a Unix socket.
   probe results; `docs/specs/` and `docs/plans/` hold the confirmed spec and
   plan; `spikes/` is throwaway probe code, never built or checked.
 
-**Not built:** D2 part two (more than one host: fleet view, placement,
-fetching a run's commits from another host) (planned), D3 through D6, `pause`,
+**Not built:** automatic placement across hosts (planned), D3 through D6, `pause`,
 `resume` and delegation (both answer `unsupported`), `artifacts` (no route or
 verb) (planned), an ask path in the Claude Code and OpenCode drivers, Codex,
 chat integration. Nothing is archived: recovery is the condition for archiving
@@ -71,8 +71,7 @@ chat integration. Nothing is archived: recovery is the condition for archiving
 [#2](https://github.com/agentculture/culture-agents/issues/2) is the
 authoritative plan; `docs/d0/decisions.md` lists open decisions. Never
 describe unbuilt verbs as available.
-The network transport between cores, the fleet member list and remote runs are the pieces
-of part two on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
+D2 part two (more than one host) is on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
 Ed25519 key against a local trust list; `docs/d2/fleet-transport.md`). It is
 off unless `CULTURE_AGENTS_FLEET_LISTEN` is set. When on, a core announces
 itself every 5 s to the addresses in its local, untracked `peers.json`, lists a
@@ -87,7 +86,14 @@ clock, and a member acts only on the runs it submitted
 brings its `runs/<id>` branch into the caller's checkout from a git bundle
 read over the transport (no shell on that host), and `runs logs` reads its
 events unredacted; only the member that submitted a run reads it this way
-(`docs/d2/run-bundles.md`, API 3.3).
+(`docs/d2/run-bundles.md`, API 3.3). A member refuses a remote submit with `admission_held` when its heat or gateway
+signal says hold or reads unknown, read on that member at each submit. While a
+member does not answer, `agents runs show` reads its runs `unreachable`, a view
+the caller computes and never stores, and never `succeeded`
+(`docs/d2/unreachable-view.md`). Part two was accepted on 2 real hosts
+(x86_64 and aarch64) with the stub harness; a real harness across hosts, and
+any real harness on aarch64, is NOT VERIFIED (`docs/d2/part-two-acceptance.md`).
+There is no automatic placement: the caller names the member.
 
 ## Plan and boundaries
 
