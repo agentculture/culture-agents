@@ -160,6 +160,8 @@ export interface FleetCallOptions {
   body?: string;
   /** When set, the server's key must be the one the trust list gives this node name. */
   expectNode?: string;
+  /** Extra request headers (the remote calls send `Agents-Api-Version`). */
+  headers?: Readonly<Record<string, string>>;
   timeoutMs?: number;
   maxResponseBytes?: number;
 }
@@ -203,7 +205,7 @@ function readCapped(res: IncomingMessage, max: number, member: TrustEntry, finis
 }
 
 function sendRequest(socket: TLSSocket, member: TrustEntry, o: FleetCallOptions, finish: Finish): void {
-  const headers: Record<string, string> = { host: "culture-agents-fleet", connection: "close" };
+  const headers: Record<string, string> = { ...o.headers, host: "culture-agents-fleet", connection: "close" };
   if (o.body !== undefined) {
     headers["content-type"] = "application/json";
     headers["content-length"] = String(Buffer.byteLength(o.body));

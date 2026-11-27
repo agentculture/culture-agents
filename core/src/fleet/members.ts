@@ -46,6 +46,8 @@ export interface MemberListOptions {
   now?: () => number;
   silenceMs?: number;
   intervalMs?: number;
+  /** The API version this core announces. Default: this build's (api.json); tests announce an older MINOR. */
+  apiVersion?: string;
   log: Log;
 }
 
@@ -148,7 +150,7 @@ export function createMemberList(o: MemberListOptions): Members {
       return { node: o.node, transport: "on", announce_interval_ms: o.intervalMs ?? ANNOUNCE_INTERVAL_MS, silence_ms: silenceMs, members, refused: refusals };
     },
     announcement(state) {
-      return { node: o.node, api_version: apiVersion, seq: seq++, state };
+      return { node: o.node, api_version: o.apiVersion ?? apiVersion, seq: seq++, state };
     },
   };
 }

@@ -48,7 +48,7 @@ export interface RunService {
    * idempotency key resolves to the first run with `replayed: true` and creates nothing.
    */
   /** `submitter` is what the core established about the caller, never a request field. */
-  submit(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse>;
+  submit(request: SubmitRequest, submitter?: Submitter, options?: SubmitOptions): Promise<SubmitResponse>;
   listRuns(query: RunListQuery): Promise<Run[]>;
   /** `null` when the id is well-formed but unknown. */
   getRun(runId: string): Promise<Run | null>;
@@ -80,6 +80,16 @@ export interface RunService {
   getAgent(agentId: string): Promise<Agent | null>;
   listHarnesses(): Promise<Capabilities[]>;
   getHarness(harness: string): Promise<Capabilities | null>;
+}
+
+/** What a submit from another fleet member adds (fleet/serve-runs.ts); a local submit passes none. */
+export interface SubmitOptions {
+  /** The commit the run starts from, already checked to be in `repo`. Default: the driver's start ref (HEAD). */
+  baseRef?: string;
+  /** The submit's idempotency key lives in this namespace (one per member), so two submitters never share a key. */
+  keyNamespace?: string;
+  /** The body the key's digest is taken over instead of `request`: a remote submit's deadline comes from this core's clock, so a repeat would differ. */
+  digestOf?: object;
 }
 
 export interface RunListQuery {

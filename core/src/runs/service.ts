@@ -37,7 +37,7 @@ import { existsSync } from "node:fs";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { resolveBaseCommit, startRef } from "./base-commit.js";
 import { ControlError, notFound } from "../daemon/errors.js";
-import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../daemon/ports.js";
+import type { DeferredKind, DeferredRequest, RunListQuery, RunService, SubmitOptions } from "../daemon/ports.js";
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
@@ -86,6 +86,12 @@ export interface RunServiceOptions {
   env?: Readonly<Record<string, string | undefined>>;
   /** How the heat state file is read (tests inject the payload). Default: `fs.readFileSync`. */
   readHeatFile?: (path: string) => string;
+}
+
+/** The key as the index holds it: a member's keys live in that member's namespace (`/` is not allowed in a key). */
+function indexKey(key: string | undefined, namespace: string | undefined): string | undefined {
+  if (key === undefined || namespace === undefined) return key;
+  return `${namespace}/${key}`;
 }
 
 /** Default `keyRetentionMs`: 7 days. */
@@ -159,18 +165,18 @@ export class StoreRunService implements RunService {
     return finished.length === 0 ? [] : reclaim.call(this.options.catalog, finished);
   }
 
-  submit(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
-    const next = this.submitChain.then(() => this.submitNow(request, submitter));
+  submit(request: SubmitRequest, submitter?: Submitter, options: SubmitOptions = {}): Promise<SubmitResponse> {
+    const next = this.submitChain.then(() => this.submitNow(request, submitter, options));
     this.submitChain = next.catch(() => undefined);
     return next;
   }
 
-  private async submitNow(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
+  private async submitNow(request: SubmitRequest, submitter: Submitter | undefined, options: SubmitOptions): Promise<SubmitResponse> {
     // Steps 4 and 5: harness known and available, capabilities in contract order.
     const entry = await submittableHarness(this.options.catalog, this.options.node, request);
     // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the limit check.
-    const key = request.idempotency_key;
-    const digest = key === undefined ? null : requestDigest("submit", request);
+    const key = indexKey(request.idempotency_key, options.keyNamespace);
+    const digest = key === undefined ? null : requestDigest("submit", options.digestOf ?? request);
     if (key !== undefined && digest !== null) {
       const replay = replaySubmit(this.keys, key, digest, (id) => this.read(id));
       if (replay !== null) return replay;
@@ -179,7 +185,7 @@ export class StoreRunService implements RunService {
     checkLimits(this.options.limits ?? NO_LIMITS, this.scan, request.repo);
     const warnings = submitWarnings(await readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile, this.options.catalog.gateway, entry.id)); // a local submit under an unknown signal is admitted with a warning
     // Step 8: create the session and run, start the worker, acknowledge once durable.
-    const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
+    const baseCommit = await resolveBaseCommit(request.repo, options.baseRef ?? startRef(entry.driver.options));
     const created = this.now();
     const run = buildRunId(request.agent_id, newUlid(created.getTime()));
     const record = newRunRecord(run, request, submitter, created, baseCommit);
