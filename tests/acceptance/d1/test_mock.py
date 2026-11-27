@@ -194,10 +194,12 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     assert all(r["state"] in STATES for r in listed.values())
     assert listed[finished["id"]]["state"] == "succeeded"
     assert listed[working["id"]]["state"] == "running", "the surviving worker is still at work"
-    assert listed[working["id"]]["live_control"], "D2: the core reattached to the survivor"
+    # Reattach runs beside reads: a listing right after the restart may come before it is done.
+    # A control call waits for it; a read is given a bounded moment here.
+    core.wait_run(working["id"], lambda r: r["live_control"], "reattached to the survivor", 10)
     assert listed[orphan["id"]]["state"] == "unknown", "a dead worker is unknown, never succeeded"
     assert listed[hung["id"]]["state"] == "running"
-    assert listed[hung["id"]]["live_control"], "D2: the core reattached to the survivor"
+    core.wait_run(hung["id"], lambda r: r["live_control"], "reattached to the survivor", 10)
     assert hung_pid in core.worker_pids(), "the restart did not signal the surviving worker"
     # D1 refused this as `unsupported`; since D2 (plan task t9) a restarted core takes back
     # live control of a worker that survived it.
