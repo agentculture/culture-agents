@@ -36,9 +36,17 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 to t19, t29 (all of part one) | merged |
+| t1 to t19, t29 (all of the first part one plan) | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
+| t30 contract 3.0: placement supportable and a typed held refusal (Claude Code, opus core) | running, dispatched 03:41 UTC on 2026-11-27, run `spark-culture-agents.run.01M8DHFX7A1XHVCY82YS03Z9AN` |
+| t31 capability report reads the gateway's admit field (Claude Code, sonnet) | running, dispatched 03:41 UTC, run `spark-culture-agents.run.01M8DHFXYWNTZHJ87A4DZER9YC` |
 | part two (t20 to t26, t28) | not started; t20 needs the owner's approval before t21 to t26 |
+
+The owner approved t30 and t31 on 2026-11-27 ("placement and a typed
+admission held refusal in contract 3.0 ... and reading the gateway's admit
+field goes into part one ... approved"), and confirmed deviations d1, d2 and
+d3. After t31 merges, run its live read against the real gateway on the host
+and fill in the acceptance record.
 
 Version bumped to 0.16.0 with its changelog entry (commit `76ba4cf`). The
 pre-PR review runs in OpenCode with `gateway/cortex` (started 23:57 UTC,
@@ -55,9 +63,15 @@ live stage: source the scratchpad `core-env.sh` in a subshell, put the
 OpenShell binary's directory on `PATH`, set
 `CULTURE_AGENTS_ACCEPTANCE_LIVE=1`.
 
-Deviation `d3` (proposed, waits for the owner): t13 built operator questions
-for the stub driver only; the Claude Code and OpenCode drivers have no ask
-path and report `answer` as unsupported.
+Deviation `d3` (approved by the owner 2026-11-27): t13 built operator
+questions for the stub driver only; the Claude Code and OpenCode drivers have
+no ask path and report `answer` as unsupported. The real ask paths are
+follow-up work, not in the part one pull request.
+
+Open finding, waiting on the owner: the trace endpoint
+(`core/src/trace/config.ts`) accepts any http or https URL, while the spec
+says traces do not go to another host. Recommended: refuse a non-loopback
+endpoint, as the broker config does.
 
 The OpenCode run of t15 (`01M8CMGNK4T2NR1DTBFN42CDAD`) ended as succeeded
 after 82 minutes with no file written: the model printed a malformed tool

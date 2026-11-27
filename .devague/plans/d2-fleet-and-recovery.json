@@ -5,7 +5,7 @@
   "schema_version": 5,
   "status": "exported",
   "created": "2026-11-26T17:07:54Z",
-  "updated": "2026-11-26T20:15:37Z",
+  "updated": "2026-11-27T03:41:24Z",
   "targets": [
     {
       "id": "c1",
@@ -1299,6 +1299,38 @@
         "h55"
       ],
       "instruction": "New module core/src/trace/ fed by the same log follower the broker publisher uses, so it also survives a core restart. Langfuse accepts OTLP over HTTP on its public OpenTelemetry endpoint with basic auth from its public and secret key; confirm the path against Langfuse's current self-hosting documentation before coding. Do not add a compose file for Langfuse to this repository; link to its own."
+    },
+    {
+      "id": "t30",
+      "summary": "Contract 3.0: let placement be reported as supported, and add a typed refusal for a submit that an admission signal holds",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The capabilities schema accepts a document that reports placement as supported with a caveat, valid and invalid fixtures prove it, and every harness of this core still reports it unsupported with a reason",
+        "error.json has one new code for a submit held by an admission signal; it must name the signal (heat or gateway), carry the signal's state and observed time, and be retryable; valid and invalid fixtures prove the shape, and both the core validator and the CLI validator accept it",
+        "contract/README.md no longer lists these two as undecided, states that part two can now add them as behaviour without a MAJOR bump, and the CLI maps the new code to an exit code and a hint with a test"
+      ],
+      "deps": [
+        "t17"
+      ],
+      "covers": [],
+      "instruction": "Files: contract/capabilities.json, contract/error.json, contract/api.json, contract/README.md, contract/fixtures, generated types (npm run gen:contract), culture_agents/cli/_errors.py and _client.py for the exit code and hint. Schema and documents only: no core behaviour changes, every harness keeps reporting placement as unsupported and no route returns the new refusal yet; mark both (planned) for part two. Follow how answer, worktree_isolation and reconnect were made supportable in 3.0, and how limit_reached carries its limit."
+    },
+    {
+      "id": "t31",
+      "summary": "Capability report reads the model gateway's admit field",
+      "origin": "user",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "For a harness that uses the gateway the report's gateway signal is consulted and reads admit, hold or unknown from the gateway's admission object; a missing field, a stale or future-stamped sample, a timeout, a refused connection or a non-loopback redirect reads unknown, never admit; for a harness that does not use the gateway the signal stays not consulted",
+        "A local submit under an unknown gateway signal is admitted with the signal_unknown warning, as for heat; a hold does not refuse a local submit in part one; a test with an injected fetch proves each case and that a slow gateway cannot delay a call past the timeout",
+        "A live read against the real gateway on the merge host is recorded as measured or NOT VERIFIED in docs/d2/part-one-acceptance.md"
+      ],
+      "deps": [
+        "t17"
+      ],
+      "covers": [],
+      "instruction": "Files: core/src/runs/admission.ts and its test, contract/README.md, docs/d2/part-one.md. The gateway (lobes-cli 0.99.0) answers GET /status with an admission object: admit (boolean), at (RFC 3339 string), stale_after_s (number), reason (optional string). Read it with Node fetch, with a short timeout, from the gateway URL the OpenCode harness is already configured with; never block a submit or a capability call on it for longer than that timeout. No new dependency. The reader must take an injected fetch so tests need no network."
     }
   ],
   "risks": [

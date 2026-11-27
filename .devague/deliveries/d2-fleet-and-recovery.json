@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-26T22:54:15Z",
+  "updated": "2026-11-27T03:40:44Z",
   "deviations": [
     {
       "id": "d1",
@@ -13,7 +13,7 @@
         "t3"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "acceptable",
       "seq": 1
     },
@@ -42,7 +42,7 @@
         "t19"
       ],
       "origin": "llm",
-      "status": "proposed",
+      "status": "approved",
       "classification": "needs-follow-up",
       "seq": 3
     }

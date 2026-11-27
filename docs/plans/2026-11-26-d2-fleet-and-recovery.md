@@ -297,6 +297,24 @@ slug: `d2-fleet-and-recovery` · status: `exported` · from frame: `d2-fleet-and
   - The exporter uses Node's fetch and adds no dependency; the Langfuse keys are read once at start and are absent from every worker's environment
   - docs/d2/observability.md says how to start Langfuse locally with its own compose file, how to point the core at it, and what an operator can read there; a live check against a real local Langfuse is recorded as measured or NOT VERIFIED
 
+### t30 — Contract 3.0: let placement be reported as supported, and add a typed refusal for a submit that an admission signal holds
+
+- instruction: Files: contract/capabilities.json, contract/error.json, contract/api.json, contract/README.md, contract/fixtures, generated types (npm run gen:contract), `culture_agents`/cli/`_errors.py` and `_client.py` for the exit code and hint. Schema and documents only: no core behaviour changes, every harness keeps reporting placement as unsupported and no route returns the new refusal yet; mark both (planned) for part two. Follow how answer, `worktree_isolation` and reconnect were made supportable in 3.0, and how `limit_reached` carries its limit.
+- depends on: t17
+- acceptance:
+  - The capabilities schema accepts a document that reports placement as supported with a caveat, valid and invalid fixtures prove it, and every harness of this core still reports it unsupported with a reason
+  - error.json has one new code for a submit held by an admission signal; it must name the signal (heat or gateway), carry the signal's state and observed time, and be retryable; valid and invalid fixtures prove the shape, and both the core validator and the CLI validator accept it
+  - contract/README.md no longer lists these two as undecided, states that part two can now add them as behaviour without a MAJOR bump, and the CLI maps the new code to an exit code and a hint with a test
+
+### t31 — Capability report reads the model gateway's admit field
+
+- instruction: Files: core/src/runs/admission.ts and its test, contract/README.md, docs/d2/part-one.md. The gateway (lobes-cli 0.99.0) answers GET /status with an admission object: admit (boolean), at (RFC 3339 string), `stale_after_s` (number), reason (optional string). Read it with Node fetch, with a short timeout, from the gateway URL the OpenCode harness is already configured with; never block a submit or a capability call on it for longer than that timeout. No new dependency. The reader must take an injected fetch so tests need no network.
+- depends on: t17
+- acceptance:
+  - For a harness that uses the gateway the report's gateway signal is consulted and reads admit, hold or unknown from the gateway's admission object; a missing field, a stale or future-stamped sample, a timeout, a refused connection or a non-loopback redirect reads unknown, never admit; for a harness that does not use the gateway the signal stays not consulted
+  - A local submit under an unknown gateway signal is admitted with the `signal_unknown` warning, as for heat; a hold does not refuse a local submit in part one; a test with an injected fetch proves each case and that a slow gateway cannot delay a call past the timeout
+  - A live read against the real gateway on the merge host is recorded as measured or NOT VERIFIED in docs/d2/part-one-acceptance.md
+
 ## Risks
 
 - [unknown_nonblocking] What makes two checkouts the same repository across hosts, and which commit a remote run starts from when the hosts' checkouts differ, is not decided. The owner said a repository can exist on more than one host. The part two design record must answer it before the remote submit task. (task t20)
@@ -313,3 +331,4 @@ slug: `d2-fleet-and-recovery` · status: `exported` · from frame: `d2-fleet-and
 - [follow_up] Not covered by this plan: a test that a retained sandbox is deleted after its 7 days, and the OpenCode retention path.
 - [follow_up] Found by dispatching through agents on 2026-11-26: when a harness reads a repository file containing the OpenShell credential placeholder text, the gateway's egress proxy refuses the next model request (provider.auth: a credential placeholder in the request body cannot be forwarded) and the run fails. Five tracked files here contain it. Any repository text with that marker can end a run; not handled by any D2 task.
 - [follow_up] Found the same way: a run whose turn fails collects nothing. Ten minutes of an agent's work, including any commits it made in the sandbox, was lost with the sandbox. D1 keeps the sandbox only when the turn completed and collection failed.
+- [follow_up] A run can end as succeeded with none of its task done: the t15 OpenCode run worked for 82 minutes on the local model, wrote no file, emitted a malformed tool call as plain text, and the turn ended; the core collected one commit holding only a stray core/`node_modules` symlink and reported succeeded. Run state says the turn ended cleanly, not that the task was done.
