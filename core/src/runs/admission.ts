@@ -19,8 +19,7 @@ import { activeRunList } from "../store/entries.js";
 
 type Env = Readonly<Record<string, string | undefined>>;
 
-export const GATEWAY_NOT_CONSULTED =
-  "not consulted: the gateway's admit field with a timestamp (lobes-cli issue 346) is not released, so the gateway does not affect admission";
+import { GATEWAY_NOT_USED, readGateway, type GatewaySource } from "./gateway.js";
 
 /** The heat-governor state file path, or null when neither variable names a place. */
 export function heatStatePath(env: Env): string | null {
@@ -70,10 +69,12 @@ export function readHeat(env: Env, now: Date, read: (path: string) => string = (
   return heatFromPayload(text, now);
 }
 
-export function readAdmission(env: Env, now: Date, read?: (path: string) => string): Admission {
+/** Both signals now. The gateway is read (under a short timeout) only for a harness that uses it. */
+export async function readAdmission(env: Env, now: Date, read?: (path: string) => string, gateway?: GatewaySource, harness?: string): Promise<Admission> {
+  const uses = gateway !== undefined && harness !== undefined && gateway.harnesses.includes(harness);
   return {
     heat: readHeat(env, now, read),
-    gateway: { state: "unknown", consulted: false, reason: GATEWAY_NOT_CONSULTED, observed_at: null },
+    gateway: uses ? await readGateway(gateway, now) : { state: "unknown", consulted: false, reason: GATEWAY_NOT_USED, observed_at: null },
   };
 }
 
@@ -84,6 +85,7 @@ export interface HostReport {
   env: Env;
   now: Date;
   readHeatFile?: (path: string) => string;
+  gateway?: GatewaySource;
 }
 
 /** The number of active runs on the host. The tracing gauge counts through the same list. */
@@ -92,8 +94,8 @@ export function countActiveRuns(stateDir: string): number {
 }
 
 /** The document with `limits`, `active_runs` and `admission` added (this core's own host only). */
-export function withHostReport(doc: Capabilities, report: HostReport): Capabilities {
-  return { ...doc, limits: { ...report.limits }, active_runs: countActiveRuns(report.stateDir), admission: readAdmission(report.env, report.now, report.readHeatFile) };
+export async function withHostReport(doc: Capabilities, report: HostReport): Promise<Capabilities> {
+  return { ...doc, limits: { ...report.limits }, active_runs: countActiveRuns(report.stateDir), admission: await readAdmission(report.env, report.now, report.readHeatFile, report.gateway, doc.harness) };
 }
 
 /** Warnings for a local submit: one per consulted signal that reads unknown. */

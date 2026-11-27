@@ -172,7 +172,7 @@ export class StoreRunService implements RunService {
     }
     // Step 7: a limit the operator configured has room (none applies by default). The chain makes check and spawn one step.
     checkLimits(this.options.limits ?? NO_LIMITS, this.scan, request.repo);
-    const warnings = submitWarnings(readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile)); // a local submit under an unknown signal is admitted with a warning
+    const warnings = submitWarnings(await readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile, this.options.catalog.gateway, entry.id)); // a local submit under an unknown signal is admitted with a warning
     // Step 8: create the session and run, start the worker, acknowledge once durable.
     const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
     const created = this.now();
@@ -383,8 +383,8 @@ export class StoreRunService implements RunService {
 
   /** Every capability document with this host's limits, active runs and admission. */
   private async documents(): Promise<Capabilities[]> {
-    const host: HostReport = { limits: this.options.limits ?? NO_LIMITS, stateDir: this.options.stateDir, env: this.hostEnv(), now: this.now(), ...(this.options.readHeatFile && { readHeatFile: this.options.readHeatFile }) };
-    return (await harnessDocuments(this.options.catalog)).map((doc) => withHostReport(doc, host));
+    const host: HostReport = { limits: this.options.limits ?? NO_LIMITS, stateDir: this.options.stateDir, env: this.hostEnv(), now: this.now(), ...(this.options.readHeatFile && { readHeatFile: this.options.readHeatFile }), ...(this.options.catalog.gateway && { gateway: this.options.catalog.gateway }) };
+    return Promise.all((await harnessDocuments(this.options.catalog)).map((doc) => withHostReport(doc, host)));
   }
 
   async getHarness(harness: string): Promise<Capabilities | null> {

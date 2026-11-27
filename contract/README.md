@@ -612,7 +612,13 @@ about the core's own host. They never describe another host.
 
 The heat signal is read from heat-governor's `state.json` as it publishes it
 (`$HEAT_GOVERNOR_STATE`, else `$XDG_RUNTIME_DIR/heat-governor/state.json`; `at`
-in epoch seconds, `stale_after_s`, `admit`). The gateway is not consulted yet.
+in epoch seconds, `stale_after_s`, `admit`). The gateway signal is consulted for a
+harness that uses the model gateway (OpenCode). The core asks `GET /status` at the origin of the
+gateway URL the harness is configured with (`opencode.baseUrl`), with a 1 second timeout, and reads
+its `admission` object (`admit`, `at` as RFC 3339, `stale_after_s`, optional `reason`; lobes-cli
+0.99.0). A missing field, a stale or future-stamped sample, a timeout, a refused connection, an
+error status or a redirect away from loopback reads `unknown`. For any other harness the signal is
+`consulted: false`. A `hold` does not refuse a local submit in part one.
 
 A local submit under an `unknown` consulted signal is admitted, and the submit response
 then carries a `warnings` entry with code `signal_unknown` naming the signal.

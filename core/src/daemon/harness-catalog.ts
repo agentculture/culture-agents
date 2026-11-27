@@ -12,6 +12,7 @@ export function registryCatalog(config: HarnessConfig): HarnessCatalog {
   return {
     list: () => entries,
     get: (id) => entries.find((entry) => entry.id === id),
+    gateway: { harnesses: ["opencode"], url: config.opencode.baseUrl },
     // Loaded on first use: the gateway client is not part of the daemon's start-up.
     reclaim: async (finishedRunIds) => (await import("../harness/reclaim.js")).reclaimSandboxes(config, finishedRunIds),
   };
