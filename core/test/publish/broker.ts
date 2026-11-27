@@ -92,7 +92,9 @@ export async function startBroker(t: TestContext): Promise<TestBroker | null> {
   const name = `ca-test-broker-${randomBytes(6).toString("hex")}`;
   // `mosquitto-no-auth.conf` ships in the image: one listener on 1883 with anonymous access.
   const run = docker(["run", "-d", "--name", name, "-p", `127.0.0.1:${port}:1883`, BROKER_IMAGE, "mosquitto", "-c", "/mosquitto-no-auth.conf"], 180_000);
-  const remove = (): void => void docker(["rm", "-f", name]);
+  const remove = (): void => {
+    docker(["rm", "-f", name]);
+  };
   if (!run.ok) {
     remove();
     return notVerified(`${BROKER_IMAGE} did not start: ${run.out.split("\n").at(-1) ?? ""}`);
@@ -117,30 +119,42 @@ export async function startBroker(t: TestContext): Promise<TestBroker | null> {
       if (!(await waitUntilUp(port))) throw new Error("the test broker did not come back");
     },
     subscribe(): Promise<Subscriber> {
-      return new Promise((resolve, reject) => {
-        const client = connect({ protocol: "mqtt", host: "127.0.0.1", port, reconnectPeriod: 0, connectTimeout: 5000 });
-        clients.push(client);
-        const received: Sent[] = [];
-        client.on("message", (topic, payload) => void received.push({ topic, payload: payload.toString("utf8") }));
-        client.once("error", reject);
-        client.once("connect", () => {
-          // One level under events/agents/run, as a dotted pattern `agents.run.*` compiles to.
-          client.subscribe("events/agents/run/+", { qos: 1 }, (err) => {
-            if (err) return reject(err);
-            client.on("error", () => undefined);
-            resolve({
-              received,
-              envelopes: () => received.map((m) => JSON.parse(m.payload) as Envelope),
-              async waitFor(count: number, ms = 15_000): Promise<void> {
-                if (!(await pollUntil(() => received.length >= count, { everyMs: 20, timeoutMs: ms }))) {
-                  throw new Error(`the subscriber got ${received.length} of ${count} messages`);
-                }
-              },
-              close: () => client.endAsync(true),
-            });
-          });
-        });
-      });
+      return subscribeTo(port, clients);
     },
   };
+}
+
+/** The subscriber over `client`, once it is subscribed; `received` fills as messages arrive. */
+function subscriberOf(client: MqttClient, received: Sent[]): Subscriber {
+  return {
+    received,
+    envelopes: () => received.map((m) => JSON.parse(m.payload) as Envelope),
+    async waitFor(count: number, ms = 15_000): Promise<void> {
+      if (!(await pollUntil(() => received.length >= count, { everyMs: 20, timeoutMs: ms }))) {
+        throw new Error(`the subscriber got ${received.length} of ${count} messages`);
+      }
+    },
+    close: () => client.endAsync(true),
+  };
+}
+
+/** Connect a subscriber to the broker on `port`; its client joins `clients`, which the test ends after it. */
+function subscribeTo(port: number, clients: MqttClient[]): Promise<Subscriber> {
+  return new Promise((resolve, reject) => {
+    const client = connect({ protocol: "mqtt", host: "127.0.0.1", port, reconnectPeriod: 0, connectTimeout: 5000 });
+    clients.push(client);
+    const received: Sent[] = [];
+    client.on("message", (topic, payload) => {
+      received.push({ topic, payload: payload.toString("utf8") });
+    });
+    client.once("error", reject);
+    client.once("connect", () => {
+      // One level under events/agents/run, as a dotted pattern `agents.run.*` compiles to.
+      client.subscribe("events/agents/run/+", { qos: 1 }, (err) => {
+        if (err) return reject(err);
+        client.on("error", () => undefined);
+        resolve(subscriberOf(client, received));
+      });
+    });
+  });
 }

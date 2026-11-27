@@ -246,7 +246,7 @@ export function attach(env: Env, id: string, after: number): Promise<Attach> {
 
 /** Make `dir` a git repository with one commit (a submit resolves its base commit when accepted). */
 export function commitedRepo(dir: string): void {
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: hostEnv() });
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: dir, env: { ...hostEnv(), PATH: "/usr/bin:/bin" } });
   git("init", "-q", "-b", "main");
   git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "--allow-empty", "-m", "one");
 }
