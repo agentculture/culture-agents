@@ -4,6 +4,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { prepareFleet, startFleet } from "../fleet/index.js";
 import { startPublishing } from "../publish/index.js";
 import { prepareTrace, startTracing } from "../trace/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
@@ -267,6 +268,9 @@ async function serveUntilStopped(
   takeSecrets(env, options.secretNames);
   // The trace keys leave the environment at the same point, before the socket listens (no host command can inherit them).
   const traceConfig = prepareTrace(env, err);
+  // The fleet transport is off unless configured; a configured one with a bad key or trust list stops the core here.
+  const fleetConfig = prepareFleet(env, err);
+  if (fleetConfig === undefined) return 2;
   const allowlistPath = options.allowlistPath ?? resolveAllowlistPath(env);
   const stateDir = options.stateDir ?? defaultStateDir(env);
   const operator = readOperatorLimits(service, options, env, err);
@@ -280,6 +284,12 @@ async function serveUntilStopped(
   const runs = service ? null : builtInRuns(options, { stateDir, node, allowlistPath, env, limits, questionLimitMs });
   const daemon = await startOrReport(options, service ?? (runs as RunService), node, stateLock, err);
   if (daemon === null) return 2;
+  const fleet = fleetConfig ? await startFleet(fleetConfig, node, err) : null;
+  if (fleetConfig && !fleet) {
+    await daemon.stop();
+    await stateLock?.release();
+    return 2;
+  }
   reconcileRuns(runs, err);
   // Run events also go to the events broker when one is configured. Never awaited by a request, never needed by a run.
   const publishing = runs ? await startPublishing({ stateDir, node, env, log: err }) : null;
@@ -294,6 +304,7 @@ async function serveUntilStopped(
   });
   stopHousekeeping();
   const stopping = (async () => {
+    await fleet?.stop();
     await publishing?.stop();
     await tracing?.stop();
     await daemon.stop();
