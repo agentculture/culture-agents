@@ -379,7 +379,10 @@ After a restart, the core rebuilds every run from disk:
 worker's own control socket and reports `live_control: true` again. `steer`,
 `cancel` and `attach` then work as before the restart. A worker whose control
 socket does not answer is never reattached by guess and never signalled: its
-run becomes `unknown`. A control request that arrives before the reattach
+run keeps the state its log shows with `live_control: false`, control requests
+get `unavailable` with `retry_after_ms`, and the core tries to reattach again on
+the next control request and on a bounded backoff while the worker is alive. A
+control request that arrives before the reattach
 attempt for its run has finished waits or gets `unavailable` with
 `retry_after_ms`. Controls of terminal runs are not rebuilt.
 
