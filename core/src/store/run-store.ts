@@ -53,6 +53,8 @@ export interface ShowOptions extends LivenessOptions {
   controllable?: boolean;
   /** Append `run.state` -> `unknown` when the run is orphaned (the core's duty as the only writer left). */
   settle?: boolean;
+  /** Ignore the summary cache and derive the run from its event log (retention does, before it deletes). */
+  fromLog?: boolean;
 }
 
 export interface ShownRun extends DerivedRun {
@@ -82,9 +84,10 @@ export function settleOrphan(dir: string, runId: RunId, options: LivenessOptions
  * unreadable for that request, and nothing is settled.
  */
 export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | null {
-  const cached = readSummary(dir, options.readFile);
-  if (cached !== null) return { run: cached, orphaned: false, liveness: { alive: false, pid: null, reason: "finished run, from its summary", heartbeat_at: null } };
+  // First, always: a directory written under a newer schema is not read at all, not even its summary.
   assertReadableVersion(dir);
+  const cached = options.fromLog ? null : readSummary(dir, options.readFile);
+  if (cached !== null) return { run: cached, orphaned: false, liveness: { alive: false, pid: null, reason: "finished run, from its summary", heartbeat_at: null } };
   const record = readRecord(dir);
   let liveness = checkLiveness(dir, options);
   let log = readLog(dir, record.id, options.readFile);
