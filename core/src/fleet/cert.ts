@@ -63,7 +63,12 @@ function derLength(n: number): Buffer {
 const tlv = (tag: number, body: Buffer): Buffer => Buffer.concat([Buffer.from([tag]), derLength(body.length), body]);
 const seq = (...parts: Buffer[]): Buffer => tlv(0x30, Buffer.concat(parts));
 const set = (...parts: Buffer[]): Buffer => tlv(0x31, Buffer.concat(parts));
-const int = (b: Buffer): Buffer => tlv(0x02, (b[0] ?? 0) & 0x80 ? Buffer.concat([Buffer.from([0]), b]) : b);
+/** A non-negative DER INTEGER, minimal as DER requires (OpenSSL refuses a redundant leading zero byte). */
+const int = (raw: Buffer): Buffer => {
+  let b = raw;
+  while (b.length > 1 && b[0] === 0) b = b.subarray(1);
+  return tlv(0x02, (b[0] ?? 0) & 0x80 ? Buffer.concat([Buffer.from([0]), b]) : b);
+};
 const oid = (bytes: number[]): Buffer => tlv(0x06, Buffer.from(bytes));
 const utf8 = (s: string): Buffer => tlv(0x0c, Buffer.from(s, "utf8"));
 const bits = (b: Buffer): Buffer => tlv(0x03, Buffer.concat([Buffer.from([0]), b]));

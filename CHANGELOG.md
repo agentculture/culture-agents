@@ -25,6 +25,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `core/node_modules` is ignored when it is a symlink, so a run no longer commits it.
 - A remote run's bundle is no longer cut off by the member's 5 s socket idle limit; the bundle route lifts it to the 60 s bundle limit plus 5 s (found by review).
 - `agents runs result` refuses to fetch when the member's result names a branch other than `runs/<run id>` of the requested run (found by review).
+- A member certificate's serial is now a minimal DER integer. About 1 key in 256 used to give a certificate OpenSSL could not parse (found by CI on this pull request). Certificates that parsed before keep the same bytes.
+- A housekeeping test retries removing a run directory the exiting worker may still write to.
 
 ## [0.16.2] - 2026-11-27
 
