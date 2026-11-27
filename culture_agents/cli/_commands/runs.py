@@ -78,11 +78,13 @@ SUBMIT_FLAGS = (
     ),
     Flag(names=("--task",), dest="task", required=True, help="the work to do (sent verbatim)"),
     Flag(
-        names=("--deadline",), dest="deadline", help="absolute UTC time, e.g. 2026-11-25T11:00:00Z"
+        names=("--deadline",),
+        dest="deadline",
+        help="absolute UTC time, e.g. 2026-11-25T11:00:00Z (or --deadline-in; the later one wins)",
     ),
     Flag(
         names=("--deadline-in",),
-        dest="deadline_in",
+        dest="deadline",  # one deadline: an int here is seconds, a str from --deadline a time
         type=int,
         help="seconds the run may take, counted on the executing core's clock",
     ),
@@ -179,8 +181,7 @@ def runs_submit(
     repo: str | None = None,
     alias: str | None = None,
     task: str | None = None,
-    deadline: str | None = None,
-    deadline_in: int | None = None,
+    deadline: str | int | None = None,
     base: str | None = None,
     no_base: bool = False,
     session_id: str | None = None,
@@ -189,10 +190,14 @@ def runs_submit(
     caller_kind: str | None = None,
     idempotency_key: str | None = None,
 ) -> Rendered:
-    """Submit a task to an agent; returns the queued run."""
+    """Submit a task to an agent; returns the queued run.
+
+    ``deadline`` is a str from --deadline (an absolute time) or an int from --deadline-in
+    (seconds); both flags set this one parameter, and the later one on the line wins.
+    """
     check_submit(repo, alias, {"--base": base, "--no-base": no_base})
-    if deadline is not None and deadline_in is not None:
-        raise usage("give --deadline or --deadline-in, not both")
+    deadline_in = deadline if isinstance(deadline, int) else None
+    deadline = deadline if isinstance(deadline, str) else None
     if deadline_in is not None and deadline_in < 1:
         raise usage("--deadline-in must be a number of seconds of 1 or more")
     client = CoreClient()

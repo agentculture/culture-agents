@@ -354,3 +354,26 @@ def test_an_invalid_payload_is_internal_exit_2(core, capsys: pytest.CaptureFixtu
     assert r.rc == 2
     assert r.err_json()["error_code"] == "internal"
     assert r.out == ""
+
+
+def test_submit_has_at_most_13_parameters_and_one_deadline() -> None:
+    """SonarCloud S107 caps a function at 13; --deadline and --deadline-in share one."""
+    import inspect
+
+    from culture_agents.cli._commands.runs import runs_submit
+
+    params = inspect.signature(runs_submit).parameters
+    assert len(params) <= 13
+    assert "deadline" in params
+    assert "deadline_in" not in params
+
+
+def test_submit_deadline_in_on_this_host_becomes_an_absolute_deadline(core, capsys) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    before = datetime.now(timezone.utc).replace(microsecond=0)
+    r = run(capsys, *SUBMIT, "--deadline-in", "600", "--json")
+    assert r.rc == 0, r.err
+    body = core.seen("POST", "/v1/runs")[0]["body"]
+    sent = datetime.strptime(body["deadline"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    assert before + timedelta(seconds=599) <= sent <= before + timedelta(seconds=602)

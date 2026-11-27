@@ -48,14 +48,14 @@ const page = (a: RemoteAttach, after: number): Promise<EventPage> =>
 
 const terminalEvent = (e: RunEvent): boolean => e.kind === "run.state" && isTerminal((e.data as StateData).to);
 
-/** Sleep `ms`, or less when `signal` aborts. */
-function pause(ms: number, signal: AbortSignal): Promise<void> {
+/** Sleep `ms`, or less when `signal` aborts. True when the stream goes on (the signal did not abort). */
+function pause(ms: number, signal: AbortSignal): Promise<boolean> {
   return new Promise((resolve) => {
     const timer = setTimeout(done, ms);
     function done(): void {
       clearTimeout(timer);
       signal.removeEventListener("abort", done);
-      resolve();
+      resolve(!signal.aborted);
     }
     signal.addEventListener("abort", done, { once: true });
   });
@@ -101,8 +101,8 @@ export async function streamRemoteAttach(a: RemoteAttach, log: (line: string) =>
     while (!over && !abort.signal.aborted) {
       ({ cursor, over } = writePage(a, current, cursor, log));
       if (over) break;
-      if (!current.more) await pause(a.pollMs ?? ATTACH_POLL_MS, abort.signal);
-      if (abort.signal.aborted) break;
+      const goOn = current.more ? !abort.signal.aborted : await pause(a.pollMs ?? ATTACH_POLL_MS, abort.signal);
+      if (!goOn) break;
       current = await page(a, cursor); // the early exits above depend on each page
     }
   } catch (e) {
