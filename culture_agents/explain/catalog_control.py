@@ -23,6 +23,13 @@ Lists every agent the core knows (state, harnesses, repositories, active runs)
 and every harness capability document. Capabilities are reported honestly: an
 unsupported one says so and why.
 
+It also lists the fleet members this core heard announce themselves over the
+fleet transport (`--json`: under `fleet`), and the announcements it refused
+because the node name they claimed is held by another key. The list is built
+from announcements only: a member that stops cleanly leaves at once, a silent
+one within 16 seconds. With the fleet transport off (the default) it says so
+and lists nobody. No list of hosts is kept in the repository.
+
 ## Usage
 
     agents agents list
@@ -52,6 +59,7 @@ run state; the CLI only asks.
 
 - `runs submit` — start a run; returns it queued.
 - `runs list` — runs, newest first.
+- `runs unreadable` — the run directories the core cannot read.
 - `runs show <run_id>` — one run.
 - `runs attach <run_id>` — follow events live.
 - `runs steer <run_id> <message>` — send a mid-run instruction.
@@ -60,9 +68,10 @@ run state; the CLI only asks.
 - `runs logs <run_id>` — a page of stored events.
 - `runs result <run_id>` — the outcome of a finished run.
 
-`pause`, `resume`, session continuation, delegation and multi-host placement
-are not verbs: the contract defers them and the core refuses them as
-`unsupported`. `answer` is a verb, but the core takes an answer to a run's
+`pause`, `resume`, session continuation and delegation are not verbs: the
+contract defers them and the core refuses them as `unsupported`. A run on
+another fleet member is `runs submit --alias`: the node of `--agent` names
+the member, and nothing schedules. `answer` is a verb, but the core takes an answer to a run's
 pending question only when the run's harness can ask, and otherwise refuses it
 as `unsupported`.
 
@@ -71,7 +80,8 @@ as `unsupported`.
 _SUBMIT = f"""\
 # agents runs submit
 
-Submits a task. Required: `--agent`, `--harness`, `--repo`, `--task`. The task
+Submits a task. Required: `--agent`, `--harness`, `--task`, and `--repo` (a
+path on this core's host) or `--alias` (a run on another fleet member). The task
 text is data and is sent verbatim. Dispatch is deny-by-default: the core needs
 an allow-list entry matching agent, harness and repo, and answers `denied`
 otherwise. A repository may have several active runs at once, each steered
@@ -86,11 +96,27 @@ same key, so one run exists),
 `--caller` and `--caller-kind` (default `<node>-operator`, kind `operator`),
 `--session-id` and `--parent-run-id` (the core refuses both as `unsupported`).
 
+## A run on another fleet member
+
+`--alias <name>` sends the run, through this core and over the fleet
+transport, to the member that the node of `--agent` names (the caller chooses;
+nothing schedules). The repository is the alias that member defines (see
+`agents agents aliases --member <node>`). The deadline is `--deadline-in
+<seconds>`, a duration counted on that member's clock; an absolute
+`--deadline` is refused. The base commit is the HEAD of the git checkout you
+run the CLI in, unless `--base <sha>` names another or `--no-base` names none
+(the run then starts from the member's HEAD); the member refuses a commit its
+checkout lacks with `invalid` and fetches nothing. The response names the
+commit. The run's submitter on that member is this core's member name.
+`runs show`, `attach`, `steer` and `cancel` reach the member a run id names.
+
 ## Usage
 
     agents runs submit --agent thor-culture-agents --harness claude-code \\
         --repo /srv/repos/demo --task "Add a unit test"
     agents runs submit ... --json
+    agents runs submit --agent thor-culture-agents --harness claude-code \\
+        --alias culture-agents --deadline-in 3600 --task "Add a unit test"
 
 {CORE_NOTE}"""
 
@@ -98,12 +124,29 @@ _LIST = f"""\
 # agents runs list
 
 Lists runs, newest first. Filters: `--state`, `--agent`, `--limit` (1-500,
-default 50).
+default 50). When the core cannot read some run directories it skips them, and
+this prints one warning line naming how many and `agents runs unreadable`;
+`--json` carries that count as `unreadable_count`.
 
 ## Usage
 
     agents runs list
     agents runs list --state running --json
+
+{CORE_NOTE}"""
+
+_UNREADABLE = f"""\
+# agents runs unreadable
+
+Lists every run directory the core cannot read: its run id, why (`newer_version`,
+`corrupt_record`, `unreadable_log` or `other`) and the core's message. These
+runs are skipped by `runs list`; they are not absent. Listing them changes
+nothing in their directories.
+
+## Usage
+
+    agents runs unreadable
+    agents runs unreadable --json
 
 {CORE_NOTE}"""
 
@@ -221,6 +264,10 @@ Reads a page of the run's stored events, oldest first: `--after <cursor>`
 (default 0) and `--limit` (1-5000, default 500). When more events exist the
 text output says so and `--json` carries `more: true` and `last_cursor`.
 
+On a run on another fleet member (API 3.3) the page is read from that member,
+unredacted, at most 50 events a page; only a member that submitted the run may
+read it.
+
 ## Usage
 
     agents runs logs <run_id> --after 6 --json
@@ -234,18 +281,46 @@ Shows the outcome of a terminal run: state, branch, commits, summary, error. On
 a run that is still active the core answers `conflict` (retryable); a run in
 state `unknown` is never reported as succeeded.
 
+On a run on another fleet member (API 3.3) the result is read from that member,
+and its branch `runs/<run_id>` is brought into the checkout the CLI runs in (or
+`--into <checkout>`) from a git bundle that this core reads from the member over
+the fleet transport: no shell on that host. The bundle holds only that run's
+ref and the commits after its base commit, so the checkout must hold the base.
+Outside a checkout, or with `--no-fetch`, nothing is fetched; `--json` carries
+`fetched` (null, or the branch, checkout and tip).
+
 ## Usage
 
     agents runs result <run_id> --json
+    agents runs result <run_id> --into ../culture-agents
+
+{CORE_NOTE}"""
+
+_AGENTS_ALIASES = f"""\
+# agents agents aliases --member <node>
+
+Reads, through this core and over the fleet transport, the repository aliases
+that fleet member defines, and for each the agent and harness pairs its
+allow-list permits. A member names its checkouts by alias; no path crosses the
+network. Use an alias with `agents runs submit --alias`. With the fleet
+transport off this core answers `unsupported`; a member that does not answer
+is `unavailable`.
+
+## Usage
+
+    agents agents aliases --member thor
+    agents agents aliases --member thor --json
 
 {CORE_NOTE}"""
 
 CONTROL_ENTRIES: dict[tuple[str, ...], str] = {
     ("agents", "list"): _AGENTS_LIST,
     ("agents", "status"): _AGENTS_STATUS,
+    ("agents", "aliases"): _AGENTS_ALIASES,
     ("runs",): _RUNS,
     ("runs", "submit"): _SUBMIT,
     ("runs", "list"): _LIST,
+    ("runs", "unreadable"): _UNREADABLE,
     ("runs", "show"): _SHOW,
     ("runs", "attach"): _ATTACH,
     ("runs", "steer"): _STEER,

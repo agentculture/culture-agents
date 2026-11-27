@@ -8,8 +8,12 @@ import type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId
 import type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
 import type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 import type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
+import type { MemberList, Fingerprint, Member, Refusal, AnnounceRefusal, Announcement } from "./fleet.js";
+import type { RunView, Unreachable } from "./reachability.js";
+import type { RemoteRun, RepoAlias, RemoteSubmitRequest, RemoteSubmitResponse, AliasList, AliasFile } from "./remote.js";
 import type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 import type { Session } from "./session.js";
+import type { UnreadableRunList, UnreadableRun } from "./unreadable.js";
 import type { Version } from "./version.js";
 
 export type { Agent, AgentList } from "./agent.js";
@@ -20,8 +24,12 @@ export type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId
 export type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
 export type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 export type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
+export type { MemberList, Fingerprint, Member, Refusal, AnnounceRefusal, Announcement } from "./fleet.js";
+export type { RunView, Unreachable } from "./reachability.js";
+export type { RemoteRun, RepoAlias, RemoteSubmitRequest, RemoteSubmitResponse, AliasList, AliasFile } from "./remote.js";
 export type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 export type { Session } from "./session.js";
+export type { UnreadableRunList, UnreadableRun } from "./unreadable.js";
 export type { Version } from "./version.js";
 
 /** Schema target (`<file stem>` or `<file stem>#<$defs name>`) to its payload type. */
@@ -98,6 +106,20 @@ export interface SchemaTypes {
   "event#question_data": QuestionData;
   "event#answer_data": AnswerData;
   "event#event_page": EventPage;
+  "fleet": MemberList;
+  "fleet#fingerprint": Fingerprint;
+  "fleet#member": Member;
+  "fleet#refusal": Refusal;
+  "fleet#announce_refusal": AnnounceRefusal;
+  "fleet#announcement": Announcement;
+  "reachability": RunView;
+  "reachability#unreachable": Unreachable;
+  "remote": RemoteRun;
+  "remote#alias": RepoAlias;
+  "remote#submit_request": RemoteSubmitRequest;
+  "remote#submit_response": RemoteSubmitResponse;
+  "remote#alias_list": AliasList;
+  "remote#alias_file": AliasFile;
   "run": Run;
   "run#state": RunState;
   "run#active_state": ActiveState;
@@ -106,5 +128,7 @@ export interface SchemaTypes {
   "run#run_list": RunList;
   "run#run_result": RunResult;
   "session": Session;
+  "unreadable": UnreadableRunList;
+  "unreadable#unreadable_run": UnreadableRun;
   "version": Version;
 }

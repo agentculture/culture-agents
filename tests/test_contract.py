@@ -33,6 +33,10 @@ REQUIRED_SCHEMAS = {
     "version.json",
     "allowlist.json",
     "branches.json",
+    "fleet.json",
+    "remote.json",
+    "unreadable.json",
+    "reachability.json",
 }
 
 

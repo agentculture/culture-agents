@@ -36,6 +36,10 @@ test("a worker process runs the stub harness from its registry entry to succeede
   assert.deepEqual(states, ["queued", "running", "succeeded"]);
   for (const e of events) assert.ok(validate("event", e).ok, `event ${e.cursor} validates`);
   assert.ok(events.some((e) => e.kind === "run.output"), "output was logged");
+  // Each text output is one whole line, so a result summary (the texts joined) reads as lines.
+  const texts = events.filter((e) => e.kind === "run.output" && (e.data as { channel: string }).channel === "text").map((e) => (e.data as { text: string }).text);
+  assert.ok(texts.length >= 2, "a start line and an end line");
+  assert.ok(texts.every((line) => line.endsWith("\n")), "every stub text line ends with a newline");
   assert.deepEqual(branchFiles(git, run.id), ["README", "from-worker.txt"]);
   assert.equal(git("rev-parse", "--abbrev-ref", "HEAD"), "main");
 });

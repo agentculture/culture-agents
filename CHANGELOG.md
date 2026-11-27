@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-11-27
+
+### Added
+
+- D2 part two: cores on more than one host. A network transport between cores (TLS 1.3, both sides authenticated by Ed25519 key against a local trust list), off unless CULTURE_AGENTS_FLEET_LISTEN is set; a fleet member list (`agents agents list`); member-defined repository aliases (`agents agents aliases`).
+- Remote runs: `agents runs submit --agent <member> --alias <alias>` runs a task on another member; `runs show|attach|steer|cancel|logs|result` reach the member a run id names; `runs result` brings a remote run's branch into the caller's checkout from a git bundle read over the transport. Control API 3.1, 3.2 and 3.3.
+- Admission on the member: a remote submit is refused `admission_held` when that member's heat or gateway signal says hold or reads unknown.
+- The unreachable view: while a member does not answer, its runs read `unreachable` on the caller (computed, never stored), never `succeeded`.
+- `agents runs unreadable` names the run directories the core could not read.
+- `docs/d2/part-two-acceptance.md`: part two on 2 real hosts (x86_64 and aarch64) with the stub harness; a real harness across hosts and on aarch64 is NOT VERIFIED.
+
+### Changed
+
+- The five prompt files and CLAUDE.md describe D2 as built.
+
+### Fixed
+
+- `core/node_modules` is ignored when it is a symlink, so a run no longer commits it.
+- A remote run's bundle is no longer cut off by the member's 5 s socket idle limit; the bundle route lifts it to the 60 s bundle limit plus 5 s (found by review).
+- `agents runs result` refuses to fetch when the member's result names a branch other than `runs/<run id>` of the requested run (found by review).
+- A member certificate's serial is now a minimal DER integer. About 1 key in 256 used to give a certificate OpenSSL could not parse (found by CI on this pull request). Certificates that parsed before keep the same bytes.
+- A housekeeping test retries removing a run directory the exiting worker may still write to.
+- `agents runs submit`: `--deadline` and `--deadline-in` set one parameter (SonarCloud S107: at most 13 parameters); giving both is still refused, now at parse time.
+- Found by review, all fixed here:
+  - A member is its key: a run records the submitting member's key fingerprint (`submitter.key`, contract 3.3), and a node name moved to another key inherits none of its runs.
+  - A member's steer and cancel idempotency keys are held in its own namespace, as its submit keys are.
+  - One remote address may hold at most 8 fleet connections; refused and failed handshakes are logged at most once per address a minute.
+  - A remote result is read under 8 MiB, not 1 MiB, and a member cuts an events page to 4 MiB, so neither fails on every read.
+  - A member that answers more than the cap, or with a key its trust entry does not hold, is `unavailable` saying so, not "did not answer" and not unreachable.
+  - A member whose key leaves the trust list leaves the member list at once.
+  - `agents runs submit --alias` in a SHA-256 checkout is refused, instead of silently sending no base commit.
+  - `agents runs result` names a bundle git cannot read as such; `runs logs --limit` says 1-50 for a remote run.
+- Found during acceptance, fixed here: the missing-heat refusal no longer carries the member's heat-file path; the stub harness ends each text line with a newline, so a result summary reads as lines.
+- Remote attach follows a run's pages by scheduling each step from the last one's callback, with no `await` in a loop (SonarCloud S9382); new unit tests cover the poll wait, a client that leaves and a terminal event.
+
 ## [0.16.2] - 2026-11-27
 
 ### Changed

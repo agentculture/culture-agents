@@ -80,3 +80,13 @@ test("configured limits appear in the report", async (t) => {
   const run = await submit(env, "fake", env.repoA);
   await ok(env, "POST", `/v1/runs/${run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
 });
+
+test("an unreadable heat file reads unknown, and its reason names no path of this host (it reaches another member)", () => {
+  const path = "/srv/heat/state.json";
+  const signal = readHeat({ HEAT_GOVERNOR_STATE: path }, new Date(), () => {
+    throw new Error("ENOENT");
+  });
+  assert.equal(signal.state, "unknown");
+  assert.ok(!(signal.reason ?? "").includes(path), signal.reason ?? "");
+  assert.match(signal.reason ?? "", /HEAT_GOVERNOR_STATE/);
+});

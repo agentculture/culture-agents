@@ -246,7 +246,7 @@
       "description": "A final state. `unanswered`: a question the run asked its operator passed its own time limit. `unknown`: the outcome cannot be established; it is never a success."
     },
     "submitter": {
-      "description": "Who submitted a run, as the core established it. `local_user`: the request arrived on the core's own control socket, and `uid` is the operating-system user that owns that socket. `member`: the request arrived from another core, and `node` is the fleet member the connection authenticated as. No request field sets or changes it.",
+      "description": "Who submitted a run, as the core established it. `local_user`: the request arrived on the core's own control socket, and `uid` is the operating-system user that owns that socket. `member`: the request arrived from another core, and `node` is the fleet member the connection authenticated as, `key` (3.3) the fingerprint of the key it authenticated with. No request field sets or changes it.",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -273,6 +273,11 @@
         "node": {
           "description": "member only: the node name of the authenticated fleet member.",
           "$ref": "common.json#/$defs/node"
+        },
+        "key": {
+          "description": "member only (3.3, optional): the SHA-256 fingerprint, hex, of the public key the member authenticated with at submit. A member acts on a run only with this key (a node name moved to another key does not inherit its runs); a run without it is matched by node.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
         }
       },
       "allOf": [
@@ -292,8 +297,17 @@
               "uid"
             ],
             "not": {
-              "required": [
-                "node"
+              "anyOf": [
+                {
+                  "required": [
+                    "node"
+                  ]
+                },
+                {
+                  "required": [
+                    "key"
+                  ]
+                }
               ]
             }
           }

@@ -54,7 +54,7 @@ test("a question survives a core restart and its answer is delivered into the sa
   assert.deepEqual(done.pending_questions, []);
   const log = await events(env, run.id);
   assert.equal(log.filter((e) => e.kind === "run.answer").length, 1, "exactly one answer recorded");
-  assert.ok(log.some((e) => e.kind === "run.output" && (e.data as OutputData).text === "stub got the answer: ultraviolet"), "delivered into the same turn");
+  assert.ok(log.some((e) => e.kind === "run.output" && (e.data as OutputData).text === "stub got the answer: ultraviolet\n"), "delivered into the same turn (a stub text line ends with a newline)");
   assert.ok(log.findIndex((e) => e.kind === "run.question") < log.findIndex((e) => e.kind === "run.answer"));
 });
 

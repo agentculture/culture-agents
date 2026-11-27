@@ -1,0 +1,16 @@
+{
+  "id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "agent_id": "thor-culture-agents",
+  "harness": "claude-code",
+  "state": "queued",
+  "terminal": false,
+  "cursor": 1,
+  "submitter": {
+    "kind": "member",
+    "node": "thor"
+  },
+  "base_commit": "3f2a9c0d1e4b5a6978c0d1e2f3a4b5c6d7e8f901",
+  "deadline": "2026-11-25T11:00:00Z",
+  "created_at": "2026-11-25T10:00:00Z",
+  "updated_at": "2026-11-25T10:00:00Z"
+}

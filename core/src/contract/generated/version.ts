@@ -2,7 +2,7 @@
 
 import type { ApiVersion, MeshNode } from "./common.js";
 
-/** Response of GET /v1/version, the first call a client makes on connect (README: versioning). A core built from this contract reports `api_version` 3.0. */
+/** Response of GET /v1/version, the first call a client makes on connect (README: versioning). A core built from this contract reports `api_version` 3.3. */
 export type Version = {
   api_version: ApiVersion;
   /** The core package's own release version (semver); informational, never used for compatibility. */

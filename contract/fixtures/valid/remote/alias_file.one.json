@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "aliases": [
+    {
+      "alias": "culture-agents",
+      "repo": "/srv/repos/culture-agents"
+    }
+  ]
+}

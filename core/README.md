@@ -73,9 +73,32 @@ environment in `/proc/<pid>/environ`, which any process of the same user can rea
 stay readable there for the life of the core. The way to avoid that is to give the core its secrets
 by file or descriptor instead of the environment (planned, not built). The list is declared in one place,
 `INJECTED_SECRETS` in `src/daemon/secrets.ts`: `GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`,
-`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and `LOBES_GATEWAY_KEY`. The worker spawner, the host
-command runner and the sandbox environment filter also drop these names from any environment they
-are given.
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, `LOBES_GATEWAY_KEY` and `CULTURE_AGENTS_FLEET_KEY`.
+The worker spawner, the host command runner and the sandbox environment filter also drop these names
+from any environment they are given.
+
+## Fleet transport (off by default)
+
+A TLS 1.3 listener for other cores, authenticated in both directions by Ed25519 key against a local
+trust list (`src/fleet/`). It opens only when `CULTURE_AGENTS_FLEET_LISTEN` is set to `<ip>:<port>`.
+The key comes as `CULTURE_AGENTS_FLEET_KEY` (above), so it stays readable in the core's
+`/proc/<pid>/environ` to the same user. `culture-agents-fleet keygen` makes a key, and
+`culture-agents-fleet cert` prints the trust entry other members add. See
+`docs/d2/fleet-transport.md`.
+
+With the transport on, the core announces itself every 5 s to the addresses in its local, untracked
+`culture-agents/fleet/peers.json` (IP addresses only), and keeps a member list built from
+announcements only: a member is listed under the name its trust-list entry gives its key, dropped
+after 15 s of silence or at once when it leaves, and an announcement claiming a node name held by
+another key is refused (409) and logged. `GET /v1/fleet/members` on the control socket returns the
+list (API 3.1). See `docs/d2/fleet-members.md`.
+
+Remote runs (API 3.2): `POST /v1/fleet/runs` on the control socket sends a submit to the member that
+the node of its `agent_id` names, with the repository named by an alias that member defines in its
+local, untracked `culture-agents/fleet/aliases.json`; `/v1/fleet/runs/{run_id}` (show, attach, steer,
+cancel) reaches the member a run id names. The member records itself as the run's submitter, acts
+only on the runs it submitted, and takes the deadline as a duration on its own clock. Every call has
+a 5 s timeout and a read cap. See `docs/d2/remote-runs.md`.
 
 ## License
 

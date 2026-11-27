@@ -33,12 +33,14 @@ The CLI is built on agentfront: one registry of verbs and docs, so `learn`,
 - `agents overview` — descriptive snapshot of the agent.
 - `agents doctor` — check the agent-identity invariants.
 - `agents cli overview` — describe the CLI surface.
-- `agents agents list|status` — the agents the core knows and their harnesses.
+- `agents agents list|status|aliases` — the agents the core knows, their harnesses,
+  the fleet members and a member's aliases.
 - `agents runs submit|list|show|attach|steer|cancel|answer|logs|result` — runs.
 - `agents branches list|remove` — the runs branches of a repository.
 
 `agents explain agents` is this root page. For the `agents agents` noun group
-use `agents explain agents list` and `agents explain agents status`.
+use `agents explain agents list`, `agents explain agents status` and
+`agents explain agents aliases`.
 
 ## Exit-code policy
 

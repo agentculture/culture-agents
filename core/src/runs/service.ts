@@ -32,12 +32,13 @@ import {
   type SubmitRequest,
   type Submitter,
   type SubmitResponse,
+  type UnreadableRunList,
 } from "../contract/index.js";
 import { existsSync } from "node:fs";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { resolveBaseCommit, startRef } from "./base-commit.js";
 import { ControlError, notFound } from "../daemon/errors.js";
-import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../daemon/ports.js";
+import type { DeferredKind, DeferredRequest, ControlOptions, RunListQuery, RunService, SubmitOptions } from "../daemon/ports.js";
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
@@ -45,13 +46,14 @@ import { KeyIndex, pruneKeys, recoverKeys, requestDigest, settleKey, sweepKeyTem
 import { followEvents, readEvents } from "../store/run-store.js";
 import { readRetained } from "../worker/retained.js";
 import { reconnectWorker, type WorkerControl } from "../worker/spawn.js";
-import { withHostReport, readAdmission, submitWarnings, type HostReport } from "./admission.js";
+import { withHostReport, readAdmission, admitSubmit, type HostReport } from "./admission.js";
 import { buildAgents, harnessDocuments } from "./agents.js";
 import { answer as answerRun } from "./answer.js";
 import { control, recordDeferredRefusal, WorkerRefusedError, type ControlKind, type ControlTarget } from "./control.js";
 import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
 import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
+import { listUnreadableRuns } from "./unreadable.js";
 import { readRun, resultOf, scanRuns, UnreadableRunError, type ScanOptions } from "./scan.js";
 import { checkLimits, NO_LIMITS } from "./limits.js";
 import { newRunRecord, startWorker, submittableHarness } from "./submit.js";
@@ -86,6 +88,12 @@ export interface RunServiceOptions {
   env?: Readonly<Record<string, string | undefined>>;
   /** How the heat state file is read (tests inject the payload). Default: `fs.readFileSync`. */
   readHeatFile?: (path: string) => string;
+}
+
+/** The key as the index holds it: a member's keys live in that member's namespace (`/` is not allowed in a key). */
+function indexKey(key: string | undefined, namespace: string | undefined): string | undefined {
+  if (key === undefined || namespace === undefined) return key;
+  return `${namespace}/${key}`;
 }
 
 /** Default `keyRetentionMs`: 7 days. */
@@ -159,27 +167,28 @@ export class StoreRunService implements RunService {
     return finished.length === 0 ? [] : reclaim.call(this.options.catalog, finished);
   }
 
-  submit(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
-    const next = this.submitChain.then(() => this.submitNow(request, submitter));
+  submit(request: SubmitRequest, submitter?: Submitter, options: SubmitOptions = {}): Promise<SubmitResponse> {
+    const next = this.submitChain.then(() => this.submitNow(request, submitter, options));
     this.submitChain = next.catch(() => undefined);
     return next;
   }
 
-  private async submitNow(request: SubmitRequest, submitter?: Submitter): Promise<SubmitResponse> {
+  private async submitNow(request: SubmitRequest, submitter: Submitter | undefined, options: SubmitOptions): Promise<SubmitResponse> {
     // Steps 4 and 5: harness known and available, capabilities in contract order.
     const entry = await submittableHarness(this.options.catalog, this.options.node, request);
     // Step 6: a known idempotency key: the first run (replayed) or `conflict`, before the limit check.
-    const key = request.idempotency_key;
-    const digest = key === undefined ? null : requestDigest("submit", request);
+    const key = indexKey(request.idempotency_key, options.keyNamespace);
+    const digest = key === undefined ? null : requestDigest("submit", options.digestOf ?? request);
     if (key !== undefined && digest !== null) {
       const replay = replaySubmit(this.keys, key, digest, (id) => this.read(id));
       if (replay !== null) return replay;
     }
     // Step 7: a limit the operator configured has room (none applies by default). The chain makes check and spawn one step.
     checkLimits(this.options.limits ?? NO_LIMITS, this.scan, request.repo);
-    const warnings = submitWarnings(await readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile, this.options.catalog.gateway, entry.id)); // a local submit under an unknown signal is admitted with a warning
+    // Then the signals, decided on this host: a hold refuses any submit; unknown refuses a remote one and warns on a local one.
+    const warnings = admitSubmit(await readAdmission(this.hostEnv(), this.now(), this.options.readHeatFile, this.options.catalog.gateway, entry.id), options.remote === true ? "remote" : "local");
     // Step 8: create the session and run, start the worker, acknowledge once durable.
-    const baseCommit = await resolveBaseCommit(request.repo, startRef(entry.driver.options));
+    const baseCommit = await resolveBaseCommit(request.repo, options.baseRef ?? startRef(entry.driver.options));
     const created = this.now();
     const run = buildRunId(request.agent_id, newUlid(created.getTime()));
     const record = newRunRecord(run, request, submitter, created, baseCommit);
@@ -208,6 +217,10 @@ export class StoreRunService implements RunService {
     return runs
       .filter((run) => (query.state === undefined || run.state === query.state) && (query.agent_id === undefined || run.agent_id === query.agent_id))
       .slice(0, query.limit);
+  }
+
+  listUnreadable(): Promise<UnreadableRunList> {
+    return Promise.resolve(listUnreadableRuns(this.options.stateDir, this.options.readFile));
   }
 
   /** One run, or null when there is none. A run that exists but cannot be read is `internal` on every route, never "no such run". */
@@ -246,12 +259,12 @@ export class StoreRunService implements RunService {
     return resultOf(this.scan, run);
   }
 
-  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse> {
-    return this.keyed("steer", runId, request);
+  steer(runId: string, request: SteerRequest, options: ControlOptions = {}): Promise<AcceptedResponse> {
+    return this.keyed("steer", runId, request, options.keyNamespace);
   }
 
-  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse> {
-    return this.keyed("cancel", runId, request);
+  cancel(runId: string, request: CancelRequest, options: ControlOptions = {}): Promise<AcceptedResponse> {
+    return this.keyed("cancel", runId, request, options.keyNamespace);
   }
 
   /**
@@ -260,8 +273,8 @@ export class StoreRunService implements RunService {
    * once the worker accepted, and released when the worker refused it. With no answer (a timeout)
    * the key is settled from the log, and stays reserved while the outcome is not known yet.
    */
-  private async keyed(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse> {
-    const key = request.idempotency_key;
+  private async keyed(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest, namespace?: string): Promise<AcceptedResponse> {
+    const key = indexKey(request.idempotency_key, namespace);
     if (key === undefined) return { action: await this.act(kind, runId, request) };
     return this.keys.exclusive(kind, key, async () => {
       const digest = requestDigest(kind, request, runId);

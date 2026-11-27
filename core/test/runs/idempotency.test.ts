@@ -120,7 +120,7 @@ test("the daemon prunes keys on its housekeeping interval, not only at start", a
   await post(env, `/v1/runs/${made.run.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
   await waitRun(env, made.run.id, (r) => r.terminal, "terminal");
   assert.ok(existsSync(keyFile(env, "submit", "housekeep-1")));
-  rmSync(runDir(env.stateDir, made.run.id), { recursive: true, force: true }); // the run left the store
+  rmSync(runDir(env.stateDir, made.run.id), { recursive: true, force: true, maxRetries: 10, retryDelay: 50 }); // the run left the store (retried: the exiting worker may still write a file)
   await waitFor(() => !existsSync(keyFile(env, "submit", "housekeep-1")), 3000, "the key of a run that left the store to be pruned");
 });
 

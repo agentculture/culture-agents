@@ -29,7 +29,21 @@ D1_ROUTES = {
     "runs.result",
     "branches.list",
     "branches.remove",
+    "fleet.members",  # added in 3.1 (t22)
+    "fleet.runs.submit",  # added in 3.2 (t23)
+    "fleet.runs.show",
+    "fleet.runs.attach",
+    "fleet.runs.steer",
+    "fleet.runs.cancel",
+    "fleet.aliases",
+    "runs.unreadable",  # added in 3.2 (t32)
+    "fleet.runs.view",  # added in 3.3 (t25)
+    "fleet.runs.logs",  # added in 3.3 (t26)
+    "fleet.runs.result",
+    "fleet.runs.bundle",
 }
+#: Routes whose success body is not JSON: a git bundle (3.3, t26). Refusals are still JSON errors.
+BINARY_ROUTES = {"fleet.runs.bundle": "application/x-git-bundle"}
 DEFERRED_ROUTES = {"runs.pause", "runs.resume", "runs.answer"}
 #: Pinned to unsupported by the schema in 3.0.
 DEFERRED_CAPABILITIES = {
@@ -117,6 +131,9 @@ def test_route_errors_and_streaming_are_consistent(route):
     if route["stream"]:
         assert route["response"] == "event.json"
         assert route["content_type"] == "text/event-stream"
+    elif route["id"] in BINARY_ROUTES:
+        assert route["content_type"] == BINARY_ROUTES[route["id"]]
+        assert route["response"] is None
     else:
         assert route["content_type"] == "application/json"
         assert route["response"] != "event.json"

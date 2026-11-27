@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/reachability.json",
+  "title": "RunView",
+  "description": "Response of GET /v1/fleet/runs/{run_id}/view (added in 3.3): a run on another fleet member as this caller sees it now. `reachable` carries the member's own answer, its true state. `unreachable` says the member does not answer this caller; it says nothing about the run, which may be running, finished or gone. `unreachable` is a view computed by the calling core on each read and never stored, there or on the member: no state, event or file is written for it. A run's stored terminal state `unknown` is still written only by the core that owns the run, with evidence that its worker is gone. A run read as unreachable can end in any terminal state, and shows it as soon as its member answers again.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "node", "view"],
+  "properties": {
+    "run_id": { "$ref": "common.json#/$defs/run_id" },
+    "node": {
+      "description": "The member the run id names.",
+      "$ref": "common.json#/$defs/node"
+    },
+    "view": {
+      "description": "`reachable`: `run` is the member's answer just now. `unreachable`: `unreachable` says why. Never `succeeded` or any other run state: a caller that cannot read a run does not know its state.",
+      "enum": ["reachable", "unreachable"]
+    },
+    "run": {
+      "description": "Present exactly when `view` is `reachable`: the run as the member answered.",
+      "$ref": "remote.json"
+    },
+    "unreachable": {
+      "description": "Present exactly when `view` is `unreachable`.",
+      "$ref": "#/$defs/unreachable"
+    }
+  },
+  "allOf": [
+    { "if": { "properties": { "view": { "const": "reachable" } } }, "then": { "required": ["run"], "not": { "required": ["unreachable"] } } },
+    { "if": { "properties": { "view": { "const": "unreachable" } } }, "then": { "required": ["unreachable"], "not": { "required": ["run"] } } }
+  ],
+  "$defs": {
+    "unreachable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reason", "detail"],
+      "properties": {
+        "reason": {
+          "description": "`not_listed`: the member is in this core's trust list but is not in its member list: it never announced itself, or has been silent for longer than the silence limit (15 s, so a halted member reads unreachable within 16 s of its last announcement). `no_answer`: the member is listed but the call to it failed or timed out (within 5 s of the call).",
+          "enum": ["not_listed", "no_answer"]
+        },
+        "detail": {
+          "description": "This core's message about why, at most 500 characters.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      }
+    }
+  }
+}

@@ -15,6 +15,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import type { Admission, Capabilities, Limits, Signal, SignalName, Warning } from "../contract/index.js";
+import { ControlError } from "../daemon/errors.js";
 import { activeRunList } from "../store/entries.js";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -64,7 +65,9 @@ export function readHeat(env: Env, now: Date, read: (path: string) => string = (
   try {
     text = read(path);
   } catch {
-    return unknownHeat(`the heat-governor state file ${path} is missing or unreadable`);
+    // No path in the reason: it reaches the caller of a remote submit, which is another host.
+    const where = env["HEAT_GOVERNOR_STATE"] ? "named by HEAT_GOVERNOR_STATE" : "under XDG_RUNTIME_DIR";
+    return unknownHeat(`the heat-governor state file (${where}) is missing or unreadable`);
   }
   return heatFromPayload(text, now);
 }
@@ -108,4 +111,31 @@ export function submitWarnings(admission: Admission): Warning[] {
     }
   }
   return out;
+}
+
+/**
+ * Where a submit comes from. A `remote` submit is one from another member of the fleet: the
+ * executing core decides it on its own harness, limits and signals, and an unknown signal refuses it
+ * (spec c8: unknown is never permission). A `local` submit is seen by an operator who can see the
+ * machine, so an unknown signal admits it with a warning (`submitWarnings`).
+ */
+export type SubmitOrigin = "local" | "remote";
+
+/**
+ * The decision of the admission signals for one submit, after the harness and the limits passed.
+ * Returns the warnings of a local submit; throws `admission_held` naming the first signal (heat,
+ * then gateway) that holds, or that is unknown for a remote submit. A signal that was not consulted
+ * (a gateway the harness does not use, or whose status has no admit field) is never read as hold or
+ * unknown. Nothing is queued by a refusal.
+ */
+export function admitSubmit(admission: Admission, origin: SubmitOrigin): Warning[] {
+  if (origin === "local") return submitWarnings(admission);
+  for (const name of ["heat", "gateway"] as SignalName[]) {
+    const signal = admission[name];
+    if (!signal.consulted || signal.state === "admit") continue;
+    const state = signal.state === "hold" ? "hold" : "unknown";
+    const verb = state === "hold" ? "says hold" : "reads unknown, which refuses a submit from another host";
+    throw new ControlError("admission_held", `The ${name} signal ${verb} (${signal.reason ?? "no reading"}); nothing was queued, retry later or submit to another host.`, { signal: { name, state, observed_at: signal.observed_at } });
+  }
+  return [];
 }

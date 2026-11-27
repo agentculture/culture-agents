@@ -1,0 +1,10 @@
+{
+  "agent_id": "thor-culture-agents",
+  "harness": "claude-code",
+  "alias": "../culture-agents",
+  "task": "Add a unit test for the parser's empty-input case.",
+  "caller": {
+    "kind": "operator",
+    "id": "thor-operator"
+  }
+}

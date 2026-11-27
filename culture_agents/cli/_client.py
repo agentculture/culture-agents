@@ -24,14 +24,14 @@ import socket
 import time
 from collections.abc import Iterator
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from culture_agents.cli import _contract
 from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CoreError
 
 #: The contract's ``api.json`` -> ``api_version``. ``tests/test_cli_client.py``
 #: fails if this drifts from the contract.
-CLIENT_API_VERSION = "3.0"
+CLIENT_API_VERSION = "3.3"
 VERSION_HEADER = "Agents-Api-Version"
 SOCKET_ENV = "CULTURE_AGENTS_SOCKET"
 
@@ -83,6 +83,8 @@ RECONNECT_WINDOW = 30.0
 #: Seconds one request may take before the CLI treats the core as not answering.
 DEFAULT_TIMEOUT = 10.0
 #: A keyed request is sent at most this many times in all, always with the same key.
+#: Seconds to wait for a run's bundle: the core's call to the member may take 60 s (API 3.3).
+BYTES_TIMEOUT = 90.0
 KEYED_ATTEMPTS = 3
 KEYED_PAUSE = 0.2
 
@@ -244,10 +246,48 @@ class CoreClient:
     def node(self) -> str:
         return str(self.connect()["node"])
 
+    def run_route(self, run_id: str) -> tuple[str, str]:
+        """The route of a run and the shape ``GET`` on it returns.
+
+        A run id names the node of the core that executes the run. A run on
+        another node is reached through this core's ``/v1/fleet/runs`` routes
+        (API 3.2), which call that fleet member; its view has no path.
+        """
+        quoted = quote(run_id, safe="")
+        if self.is_remote(run_id):
+            return f"/v1/fleet/runs/{quoted}", "remote_run"
+        return f"/v1/runs/{quoted}", "run"
+
+    def is_remote(self, run_id: str) -> bool:
+        """Whether the run id names another node than this core's."""
+        return "-" in run_id and run_id.split("-", 1)[0] != self.node
+
+    def run_view_route(self, run_id: str) -> str:
+        """The unreachable view of a run on another member (API 3.3)."""
+        return f"/v1/fleet/runs/{quote(run_id, safe='')}/view"
+
     # -- routes ------------------------------------------------------------
     def get(self, route: str, shape: str, query: dict[str, Any] | None = None) -> Any:
         self.connect()
         return self._json("GET", route + _query(query), shape)
+
+    def get_bytes(self, route: str) -> bytes:
+        """GET a route whose success body is bytes (a run's bundle, API 3.3).
+
+        A refusal is still the core's typed JSON error, raised as :class:`CoreError`.
+        """
+        self.connect()
+        conn, resp = self._open("GET", route, timeout=max(self.timeout, BYTES_TIMEOUT))
+        try:
+            raw = resp.read()
+            status = resp.status
+        except (OSError, http.client.HTTPException) as exc:
+            raise _unavailable(self.path, _describe(exc)) from exc
+        finally:
+            conn.close()
+        if not 200 <= status < 300:
+            raise error_from_body(status, _loads(raw))
+        return raw
 
     def post(self, route: str, shape: str, body: dict[str, Any]) -> Any:
         self.connect()

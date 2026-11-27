@@ -1,0 +1,9 @@
+{
+  "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "node": "thor",
+  "view": "unreachable",
+  "unreachable": {
+    "reason": "not_listed",
+    "detail": "thor is in the trust list but has not announced itself within the silence limit."
+  }
+}

@@ -1,6 +1,6 @@
 [project]
 name = "culture-agents"
-version = "0.16.2"
+version = "0.17.0"
 description = "Control plane for AgentCulture agents: direct dispatch, sessions, and lifecycle (dispatch, attach, steer, delegate, cancel, resume, supervise) over harness adapters, independent of chat."
 readme = "README.md"
 license = "Apache-2.0"
@@ -46,6 +46,10 @@ packages = ["culture_agents"]
 "contract/control-action.json" = "culture_agents/contract/control-action.json"
 "contract/error.json" = "culture_agents/contract/error.json"
 "contract/event.json" = "culture_agents/contract/event.json"
+"contract/fleet.json" = "culture_agents/contract/fleet.json"
+"contract/remote.json" = "culture_agents/contract/remote.json"
+"contract/unreadable.json" = "culture_agents/contract/unreadable.json"
+"contract/reachability.json" = "culture_agents/contract/reachability.json"
 "contract/run.json" = "culture_agents/contract/run.json"
 "contract/session.json" = "culture_agents/contract/session.json"
 "contract/version.json" = "culture_agents/contract/version.json"

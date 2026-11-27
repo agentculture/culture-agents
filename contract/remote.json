@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/remote.json",
+  "title": "RemoteRun",
+  "description": "A run on another fleet member, as a caller sees it (added in 3.2): response of GET /v1/fleet/runs/{run_id}, and the `run` of a remote submit. It is the executing core's run without its repository path, which stays private to the executing host (docs/d2/part-two-design.md, Decision 4). Every timestamp is the executing core's clock; a caller never compares one with its own clock.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "agent_id", "harness", "state", "terminal", "cursor", "submitter", "base_commit", "deadline", "created_at", "updated_at"],
+  "properties": {
+    "id": { "$ref": "common.json#/$defs/run_id" },
+    "agent_id": { "$ref": "common.json#/$defs/mesh_id" },
+    "harness": { "$ref": "common.json#/$defs/harness_id" },
+    "state": { "$ref": "run.json#/$defs/state" },
+    "terminal": { "type": "boolean" },
+    "cursor": {
+      "description": "Cursor of the newest event in the run's event log on the executing core.",
+      "$ref": "common.json#/$defs/cursor"
+    },
+    "submitter": {
+      "description": "Who submitted the run, as the executing core established it. For a run submitted over the fleet transport it is `member` with the node name the executing core's trust list gives the caller's key.",
+      "$ref": "run.json#/$defs/submitter"
+    },
+    "base_commit": {
+      "description": "The commit of the aliased checkout the run starts from: the named `base_commit` of the submit, else the executing host's HEAD when it accepted the submit.",
+      "$ref": "common.json#/$defs/git_sha"
+    },
+    "deadline": {
+      "description": "When the run must be terminal, on the executing core's clock: its clock at acceptance plus the submit's `deadline_ms`. Null without a deadline.",
+      "$ref": "common.json#/$defs/nullable_timestamp"
+    },
+    "created_at": { "$ref": "common.json#/$defs/timestamp" },
+    "updated_at": { "$ref": "common.json#/$defs/timestamp" }
+  },
+  "$defs": {
+    "alias": {
+      "description": "A name the operator of a host gives one of its checkouts. The operator asserts that the same alias names the same repository on each host; the core never infers it and checks only a named commit.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"
+    },
+    "submit_request": {
+      "description": "Body of POST /v1/fleet/runs (added in 3.2), on the control socket and over the fleet transport alike. The node of `agent_id` names the member that executes the run: the caller chooses the host, and nothing schedules. The repository is named by `alias`, as the executing host defines it; no path crosses the network. Optional fields are omitted, never null. No field sets the run's `submitter`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["agent_id", "harness", "alias", "task", "caller"],
+      "properties": {
+        "agent_id": { "$ref": "common.json#/$defs/mesh_id" },
+        "harness": { "$ref": "common.json#/$defs/harness_id" },
+        "alias": { "$ref": "#/$defs/alias" },
+        "task": { "$ref": "common.json#/$defs/text" },
+        "caller": { "$ref": "common.json#/$defs/principal" },
+        "idempotency_key": { "$ref": "common.json#/$defs/idempotency_key" },
+        "deadline_ms": {
+          "description": "How long the run may take, in milliseconds, counted on the executing core's clock from when it accepts the submit. A duration, never an absolute time: no timestamp from the caller's clock is sent (spec c42). At most 30 days.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2592000000
+        },
+        "base_commit": {
+          "description": "The full commit id the run must start from. The executing core refuses the submit with `invalid` when its aliased checkout lacks that commit, and fetches nothing. When omitted, the run starts from the executing host's HEAD at acceptance, which the response returns.",
+          "$ref": "common.json#/$defs/git_sha"
+        }
+      }
+    },
+    "submit_response": {
+      "description": "201 response of POST /v1/fleet/runs. For a new run it is in state `queued`. When `replayed` is true the idempotency key matched an earlier submit of the same member: nothing was created and `run` is that first run as it is now.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run"],
+      "properties": {
+        "run": { "$ref": "#" },
+        "replayed": {
+          "description": "True when the request repeated an earlier submit with the same idempotency key. Omitted otherwise.",
+          "type": "boolean"
+        },
+        "warnings": {
+          "description": "Things the caller should know about a run that was admitted all the same. Omitted when there are none.",
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "control-action.json#/$defs/warning" }
+        }
+      },
+      "if": {
+        "required": ["replayed"],
+        "properties": { "replayed": { "const": true } }
+      },
+      "else": {
+        "properties": { "run": { "properties": { "state": { "const": "queued" } } } }
+      }
+    },
+    "alias_list": {
+      "description": "Response of GET /v1/fleet/aliases (added in 3.2): the aliases a member defines, each with the agent and harness pairs its allow-list permits on the aliased checkout. No path is reported.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "aliases"],
+      "properties": {
+        "node": {
+          "description": "The member whose aliases these are.",
+          "$ref": "common.json#/$defs/node"
+        },
+        "aliases": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["alias", "permits"],
+            "properties": {
+              "alias": { "$ref": "#/$defs/alias" },
+              "permits": {
+                "type": "array",
+                "maxItems": 256,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["agent_id", "harness"],
+                  "properties": {
+                    "agent_id": { "$ref": "common.json#/$defs/mesh_id" },
+                    "harness": { "$ref": "common.json#/$defs/harness_id" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "alias_file": {
+      "description": "The core's local alias file, `${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/fleet/aliases.json` (added in 3.2). Not an API payload: no route reads or writes it, and it is never tracked. Each alias resolves to an absolute path on this host; a submit through it is allowed only when the allow-list permits the agent and harness on that path.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "aliases"],
+      "properties": {
+        "version": { "const": 1 },
+        "aliases": {
+          "type": "array",
+          "maxItems": 256,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["alias", "repo"],
+            "properties": {
+              "alias": { "$ref": "#/$defs/alias" },
+              "repo": { "$ref": "common.json#/$defs/repo_path" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

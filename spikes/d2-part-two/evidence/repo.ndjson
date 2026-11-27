@@ -1,0 +1,8 @@
+{"t":0.724,"event":"identity_root_commit","host_a":["25128819e8"],"host_b":["25128819e8"],"same_on_a_and_b":true,"unrelated_repo":["9f28dc9844"],"fork_with_new_commits":["25128819e8"],"fork_shares_root":true,"shallow_clone":["7108a60e7d"],"shallow_clone_matches":false}
+{"t":0.741,"event":"identity_origin_url","host_a_origin_is_path":true,"host_b_origin_is_file_url":true,"strings_equal":false,"local_only_repo_has_origin":false,"note":"one upstream, two spellings; a repository made locally has no origin at all"}
+{"t":0.768,"event":"checkouts_differ","caller_head_on_a":"cbe89cae14","head_on_b":"7108a60e7d","b_has_a_commit":false,"b_has_common_base":true,"note":"starting from B's HEAD would run on code the caller does not have in front of it"}
+{"t":0.773,"event":"option_named_commit","commit":"7108a60e7d","present_on_b":true,"check_ms":2.6,"missing_commit_error":"fatal: Not a valid object name cbe89cae14d866661b235e749a7104a557c63194^{commit}"}
+{"t":0.849,"event":"option_ship_bundle","thin_bundle_bytes":374,"full_bundle_bytes":6536,"verify_on_b":true,"fetched_into_run_ref":true,"b_has_a_commit_now":true,"thin_bundle_verifies_in_repo_without_base":false}
+{"t":0.863,"event":"bundle_of_a_named_commit","bare_commit_id":"fatal: Refusing to create empty bundle.","via_run_scoped_ref":true}
+{"t":0.926,"event":"this_repository_full_bundle","bytes":1699443,"commits":144}
+{"t":0.928,"event":"versions","git":"git version 2.43.0"}

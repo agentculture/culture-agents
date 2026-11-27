@@ -50,7 +50,7 @@ export type ActiveState = "queued" | "running" | "cancelling";
 /** A final state. `unanswered`: a question the run asked its operator passed its own time limit. `unknown`: the outcome cannot be established; it is never a success. */
 export type TerminalState = "succeeded" | "failed" | "cancelled" | "timed_out" | "unknown" | "unanswered";
 
-/** Who submitted a run, as the core established it. `local_user`: the request arrived on the core's own control socket, and `uid` is the operating-system user that owns that socket. `member`: the request arrived from another core, and `node` is the fleet member the connection authenticated as. No request field sets or changes it. */
+/** Who submitted a run, as the core established it. `local_user`: the request arrived on the core's own control socket, and `uid` is the operating-system user that owns that socket. `member`: the request arrived from another core, and `node` is the fleet member the connection authenticated as, `key` (3.3) the fingerprint of the key it authenticated with. No request field sets or changes it. */
 export type Submitter = {
   kind: "local_user" | "member";
   /** local_user only: the numeric id of the user that owns the control socket. */
@@ -59,6 +59,8 @@ export type Submitter = {
   user?: string;
   /** member only: the node name of the authenticated fleet member. */
   node?: MeshNode;
+  /** member only (3.3, optional): the SHA-256 fingerprint, hex, of the public key the member authenticated with at submit. A member acts on a run only with this key (a node name moved to another key does not inherit its runs); a run without it is matched by node. */
+  key?: string;
 };
 
 /** Response of GET /v1/runs: newest first by created_at. */

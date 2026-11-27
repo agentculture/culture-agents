@@ -7,12 +7,27 @@ import {
   parseApiVersion,
   validate,
   type RunState,
+  type MemberList,
   type SchemaName,
   type SubmitRequest,
   type Submitter,
 } from "../contract/index.js";
+import { memberListOff } from "../fleet/members.js";
+import type { Remote } from "../fleet/remote.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { branchesList, branchesRemove } from "./branch-routes.js";
+import {
+  fleetAliases,
+  fleetRunsAttach,
+  fleetRunsBundle,
+  fleetRunsControl,
+  fleetRunsLogs,
+  fleetRunsResult,
+  fleetRunsShow,
+  fleetRunsSubmit,
+  fleetRunsView,
+  type FleetRouteCall,
+} from "./fleet-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 import type { DeferredRequest, RunService } from "./ports.js";
@@ -29,6 +44,10 @@ export interface RouteContext {
   shutdown: AbortSignal;
   /** Who the core established for requests on its control socket; set once the socket is bound. */
   submitter: Submitter | null;
+  /** The fleet member list; null when the fleet transport is off. */
+  members: (() => MemberList) | null;
+  /** Calls to other fleet members (remote runs, 3.2); null when the fleet transport is off. */
+  remote: Remote | null;
 }
 
 interface Match {
@@ -48,6 +67,7 @@ const PATTERNS: readonly Pattern[] = [
   ["harnesses.show", "GET", "v1", "harnesses", ":harness"],
   ["runs.submit", "POST", "v1", "runs"],
   ["runs.list", "GET", "v1", "runs"],
+  ["runs.unreadable", "GET", "v1", "runs", "unreadable"],
   ["runs.show", "GET", "v1", "runs", ":run_id"],
   ["runs.attach", "GET", "v1", "runs", ":run_id", "attach"],
   ["runs.logs", "GET", "v1", "runs", ":run_id", "events"],
@@ -59,7 +79,32 @@ const PATTERNS: readonly Pattern[] = [
   ["runs.answer", "POST", "v1", "runs", ":run_id", "answer"],
   ["branches.list", "GET", "v1", "branches"],
   ["branches.remove", "POST", "v1", "branches", "remove"],
+  ["fleet.members", "GET", "v1", "fleet", "members"],
+  ["fleet.runs.submit", "POST", "v1", "fleet", "runs"],
+  ["fleet.runs.show", "GET", "v1", "fleet", "runs", ":run_id"],
+  ["fleet.runs.view", "GET", "v1", "fleet", "runs", ":run_id", "view"],
+  ["fleet.runs.attach", "GET", "v1", "fleet", "runs", ":run_id", "attach"],
+  ["fleet.runs.steer", "POST", "v1", "fleet", "runs", ":run_id", "steer"],
+  ["fleet.runs.cancel", "POST", "v1", "fleet", "runs", ":run_id", "cancel"],
+  ["fleet.runs.logs", "GET", "v1", "fleet", "runs", ":run_id", "events"],
+  ["fleet.runs.result", "GET", "v1", "fleet", "runs", ":run_id", "result"],
+  ["fleet.runs.bundle", "GET", "v1", "fleet", "runs", ":run_id", "bundle"],
+  ["fleet.aliases", "GET", "v1", "fleet", "aliases"],
 ];
+
+/** The remote-run routes (fleet-routes.ts): each forwards to the member the request names. */
+const FLEET_ROUTES: Record<string, (c: FleetRouteCall) => Promise<void>> = {
+  "fleet.runs.submit": fleetRunsSubmit,
+  "fleet.runs.show": fleetRunsShow,
+  "fleet.runs.view": fleetRunsView,
+  "fleet.runs.attach": fleetRunsAttach,
+  "fleet.runs.steer": (c) => fleetRunsControl(c, "steer"),
+  "fleet.runs.cancel": (c) => fleetRunsControl(c, "cancel"),
+  "fleet.runs.logs": fleetRunsLogs,
+  "fleet.runs.result": fleetRunsResult,
+  "fleet.runs.bundle": fleetRunsBundle,
+  "fleet.aliases": fleetAliases,
+};
 
 /** Deferred control routes: always `unsupported`, naming the capability. Value is the request schema. */
 const DEFERRED = {
@@ -274,6 +319,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
   const p = match.params;
   const svc = ctx.service;
   const call: RouteCall = { ctx, req, res, url, p };
+  const fleetRoute = FLEET_ROUTES[match.id];
+  if (fleetRoute) return fleetRoute({ remote: ctx.remote, node: ctx.node, req, res, url, runId: p["run_id"] ?? "", keepaliveMs: ctx.keepaliveMs, shutdown: ctx.shutdown });
 
   switch (match.id) {
     case "version":
@@ -292,6 +339,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
     }
     case "runs.list":
       return runsList(call);
+    case "runs.unreadable":
+      return sendJson(res, 200, "unreadable", await svc.listUnreadable());
     case "runs.show":
       return sendJson(res, 200, "run", await requireRun(ctx, p["run_id"] ?? ""));
     case "runs.attach":
@@ -311,6 +360,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return branchesList({ service: svc, allowlist: ctx.allowlist, req, res, url });
     case "branches.remove":
       return branchesRemove({ service: svc, allowlist: ctx.allowlist, req, res, url });
+    case "fleet.members":
+      return sendJson(res, 200, "fleet", ctx.members ? ctx.members() : memberListOff(ctx.node));
     default:
       return refuseDeferred(call, match.id);
   }

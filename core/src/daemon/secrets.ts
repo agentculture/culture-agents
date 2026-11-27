@@ -16,6 +16,8 @@ export const INJECTED_SECRETS: readonly string[] = [
   "CLAUDE_CODE_OAUTH_TOKEN",
   "ANTHROPIC_API_KEY",
   "LOBES_GATEWAY_KEY",
+  // The fleet member's private key (fleet/cert.ts), read only when the transport is configured.
+  "CULTURE_AGENTS_FLEET_KEY",
 ];
 
 type MutableEnv = Record<string, string | undefined>;

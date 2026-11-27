@@ -110,14 +110,49 @@ def agent_lines(agent: Any) -> list[str]:
     ]
 
 
-def agent_list(payload: Any) -> Rendered:
+def _seconds(ms: Any) -> str:
+    return f"{ms / 1000:.1f} s" if isinstance(ms, int) else "-"
+
+
+def fleet_lines(fleet: Any) -> list[str]:
+    """The member list: who announced themselves, and which announcements were refused."""
+    if _get(fleet, "transport") != "on":
+        return ["fleet: transport off (no members; set CULTURE_AGENTS_FLEET_LISTEN to join)"]
+    interval, silence = _get(fleet, "announce_interval_ms"), _get(fleet, "silence_ms")
+    members, refused = _items(_get(fleet, "members")), _items(_get(fleet, "refused"))
+    lines = [
+        f"fleet: transport on, announcing every {_seconds(interval)}, "
+        f"a member silent for {_seconds(silence)} is dropped",
+        f"members ({len(members)}):",
+    ]
+    for m in members:
+        key = _val(_get(m, "fingerprint"))[:16]
+        heard = _seconds(_get(m, "heard_ms_ago"))
+        api = _val(_get(m, "api_version"))
+        lines.append(f"  {_val(_get(m, 'node'))}  key {key}  api {api}  heard {heard} ago")
+    if refused:
+        lines.append(f"refused announcements ({len(refused)}):")
+    for r in refused:
+        lines.append(
+            f"  claimed {_val(_get(r, 'node'))} by key {_val(_get(r, 'fingerprint'))[:16]} "
+            f"(trusted as {_val(_get(r, 'trusted_as'))}), {_val(_get(r, 'count'))} time(s), "
+            f"last {_seconds(_get(r, 'heard_ms_ago'))} ago: {_val(_get(r, 'reason'))}"
+        )
+    return lines
+
+
+def agent_list(payload: Any, fleet: Any = None) -> Rendered:
     agents = _items(_get(payload, "agents"))
     lines = [f"node: {_val(_get(payload, 'node'))}", f"agents ({len(agents)}):"]
     for agent in agents:
         lines.extend(agent_lines(agent))
     for doc in _items(_get(payload, "harnesses")):
         lines.extend(capability_lines(doc))
-    return Rendered(payload, "\n".join(lines))
+    if fleet is None:
+        return Rendered(payload, "\n".join(lines))
+    lines.extend(fleet_lines(fleet))
+    data = {**payload, "fleet": fleet} if isinstance(payload, dict) else {"fleet": fleet}
+    return Rendered(data, "\n".join(lines))
 
 
 def agent_status(agent: Any, harnesses: Any) -> Rendered:
@@ -125,6 +160,26 @@ def agent_status(agent: Any, harnesses: Any) -> Rendered:
     for doc in _items(harnesses):
         lines.extend(capability_lines(doc))
     return Rendered({"agent": agent, "harnesses": harnesses}, "\n".join(lines))
+
+
+def run_view(view: Any) -> Rendered:
+    """A run on another member: its detail when the member answered, else that it is unreachable.
+
+    The JSON of an answered run is the run itself, as for every other remote read; an
+    unreachable run's JSON is the view (``"view": "unreachable"``), which has no state.
+    """
+    if _get(view, "view") != "unreachable":
+        return run_detail(_get(view, "run"))
+    why = _get(view, "unreachable")
+    lines = [
+        f"id: {_val(_get(view, 'run_id'))}",
+        f"state: unreachable ({_val(_get(why, 'reason'))})",
+        f"node: {_val(_get(view, 'node'))}",
+        f"detail: {_val(_get(why, 'detail'))}",
+        "note: this core cannot reach the member, so the run's state is not known here;"
+        " it is not failed and not finished, and shows its real state when the member answers",
+    ]
+    return Rendered(view, "\n".join(lines))
 
 
 def run_detail(run: Any) -> Rendered:
@@ -191,10 +246,34 @@ def question_lines(question: Any, label: str) -> list[str]:
     return lines
 
 
-def run_list(payload: Any) -> Rendered:
+def unreadable_warning(count: Any) -> str:
+    """The one line ``runs list`` adds when the core skipped run directories it cannot read."""
+    n = count if isinstance(count, int) else 0
+    noun = "run" if n == 1 else "runs"
+    return f"warning: {n} {noun} could not be read; list them with: agents runs unreadable"
+
+
+def run_list(payload: Any, unreadable: Any = None) -> Rendered:
+    """The runs; given the core's unreadable list, a warning line and ``unreadable_count``."""
     runs = _items(_get(payload, "runs"))
     text = "\n".join(run_line(r) for r in runs) if runs else "no runs"
-    return Rendered(payload, text)
+    count = _get(unreadable, "count")
+    if unreadable is None or not isinstance(count, int):
+        return Rendered(payload, text)
+    data = {**payload, "unreadable_count": count} if isinstance(payload, dict) else payload
+    return Rendered(data, f"{text}\n{unreadable_warning(count)}" if count else text)
+
+
+def unreadable_list(payload: Any) -> Rendered:
+    """Every run directory the core cannot read: its run id, why, and the core's message."""
+    runs = _items(_get(payload, "runs"))
+    if not runs:
+        return Rendered(payload, "no unreadable runs")
+    lines = [f"unreadable runs ({len(runs)}):"]
+    for r in runs:
+        fields = (_get(r, key) for key in ("run_id", "reason", "detail"))
+        lines.append("  " + "  ".join(_val(field) for field in fields))
+    return Rendered(payload, "\n".join(lines))
 
 
 def submitted(payload: Any) -> Rendered:
@@ -284,4 +363,17 @@ def event_page(payload: Any) -> Rendered:
     lines = [event_line(e) for e in _items(_get(payload, "events"))] or ["no events"]
     if _get(payload, "more") is True:
         lines.append(f"more events follow: last cursor is {_val(_get(payload, 'last_cursor'))}")
+    return Rendered(payload, "\n".join(lines))
+
+
+def alias_list(payload: Any) -> Rendered:
+    """A member's aliases (API 3.2): each alias and the agent and harness pairs it permits."""
+    aliases = _items(_get(payload, "aliases"))
+    lines = [f"member: {_val(_get(payload, 'node'))}", f"aliases ({len(aliases)}):"]
+    for alias in aliases:
+        permits = [
+            f"{_val(_get(p, 'agent_id'))} on {_val(_get(p, 'harness'))}"
+            for p in _items(_get(alias, "permits"))
+        ]
+        lines.append(f"  {_val(_get(alias, 'alias'))}: {', '.join(permits) or 'nothing permitted'}")
     return Rendered(payload, "\n".join(lines))

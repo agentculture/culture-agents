@@ -15,7 +15,8 @@ TypeScript core `@culture.dev/agents` (`core/`, Node 22 or newer) and the
 Python CLI `agents` (package `culture_agents`, PyPI dist `culture-agents`),
 which is a client of the core over a Unix socket.
 
-**Current state:** the D1 slice plus D2 part one, a single-host control plane without chat.
+**Current state:** the D1 slice plus D2 (part one on a single host, part two across hosts), a control plane
+without chat.
 
 - The core serves the control API on a Unix socket, stores runs on disk (one
   detached worker process per run), and runs harnesses inside an NVIDIA
@@ -27,7 +28,7 @@ which is a client of the core over a Unix socket.
 - `contract/` holds the JSON Schemas that are the source of truth for the
   control API, with fixtures; the core and the CLI are both tested against
   them.
-- CLI verbs: `agents agents list|status` and `agents runs
+- CLI verbs: `agents agents list|status|aliases` and `agents runs
   submit|list|show|attach|steer|cancel|logs|result|answer`, `agents branches list|remove`, plus `whoami`, `learn`,
   `explain`, `overview`, `doctor`, `cli overview`. With no core running they
   exit 2 with a hint.
@@ -49,8 +50,7 @@ which is a client of the core over a Unix socket.
   probe results; `docs/specs/` and `docs/plans/` hold the confirmed spec and
   plan; `spikes/` is throwaway probe code, never built or checked.
 
-**Not built:** D2 part two (more than one host: fleet view, placement,
-fetching a run's commits from another host) (planned), D3 through D6, `pause`,
+**Not built:** automatic placement across hosts (planned), D3 through D6, `pause`,
 `resume` and delegation (both answer `unsupported`), `artifacts` (no route or
 verb) (planned), an ask path in the Claude Code and OpenCode drivers, Codex,
 chat integration. Nothing is archived: recovery is the condition for archiving
@@ -58,6 +58,29 @@ chat integration. Nothing is archived: recovery is the condition for archiving
 [#2](https://github.com/agentculture/culture-agents/issues/2) is the
 authoritative plan; `docs/d0/decisions.md` lists open decisions. Never
 describe unbuilt verbs as available.
+D2 part two (more than one host) is on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
+Ed25519 key against a local trust list; `docs/d2/fleet-transport.md`). It is
+off unless `CULTURE_AGENTS_FLEET_LISTEN` is set. When on, a core announces
+itself every 5 s to the addresses in its local, untracked `peers.json`, lists a
+member only under the name its trust list gives the member's key, drops a
+silent one within 16 s, and refuses a node name held by another key
+(`docs/d2/fleet-members.md`; `agents agents list` shows the list). On it,
+`agents runs submit --alias` runs a task on the member that `--agent` names,
+and `runs show|attach|steer|cancel` reach the member a run id names; the
+repository is an alias that member defines, the deadline a duration on its
+clock, and a member acts only on the runs it submitted
+(`docs/d2/remote-runs.md`, API 3.2). `agents runs result` on a remote run
+brings its `runs/<id>` branch into the caller's checkout from a git bundle
+read over the transport (no shell on that host), and `runs logs` reads its
+events unredacted; only the member that submitted a run reads it this way
+(`docs/d2/run-bundles.md`, API 3.3). A member refuses a remote submit with `admission_held` when its heat or gateway
+signal says hold or reads unknown, read on that member at each submit. While a
+member does not answer, `agents runs show` reads its runs `unreachable`, a view
+the caller computes and never stores, and never `succeeded`
+(`docs/d2/unreachable-view.md`). Part two was accepted on 2 real hosts
+(x86_64 and aarch64) with the stub harness; a real harness across hosts, and
+any real harness on aarch64, is NOT VERIFIED (`docs/d2/part-two-acceptance.md`).
+There is no automatic placement: the caller names the member.
 
 It is a sibling to [`guildmaster`](https://github.com/agentculture/guildmaster)
 (the **skills supplier**), [`steward`](https://github.com/agentculture/steward)
@@ -124,7 +147,7 @@ cited from teken's `python-cli` reference. Agent-first verbs:
 - `agents doctor` — check the agent-identity invariants.
 - `agents cli overview` — describe the CLI surface itself.
 
-Control-plane verbs, clients of the core socket: `agents agents list|status`
+Control-plane verbs, clients of the core socket: `agents agents list|status|aliases`
 and `agents runs submit|list|show|attach|steer|cancel|logs|result|answer`, `agents branches list|remove`.
 
 Conventions: every command supports `--json`; results go to stdout, errors and
@@ -179,7 +202,7 @@ uv run python scripts/harness-smoke.py --stage config --require config
 The core and the CLI share the socket path: `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`).
-The control API is version 3.0 (`contract/api.json`): it holds the D2 part one shapes, and
+The control API is version 3.3 (`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, remote runs, the unreadable runs list and a remote run's logs, result and bundle, and
 `contract/README.md` marks the behaviour that is not built yet as (planned).
 
 ## Layout

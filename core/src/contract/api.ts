@@ -42,6 +42,26 @@ export function isCompatible(clientVersion: string, serverVersion: string): bool
   return c !== null && s !== null && c.major === s.major && s.minor >= c.minor;
 }
 
+/**
+ * The rule between two cores (contract/README.md, "Calls between cores"): a core calling a fleet
+ * member and the member it calls are compatible exactly when their MAJOR numbers are equal,
+ * whatever their two MINOR numbers. A member serves the routes its own MINOR has; the caller sends
+ * a route only to a member whose announced MINOR has it (`servesSince`). So a fleet upgrades one
+ * host at a time. An unparseable version is never compatible.
+ */
+export function isPeerCompatible(callerVersion: string, memberVersion: string): boolean {
+  const c = parseApiVersion(callerVersion);
+  const m = parseApiVersion(memberVersion);
+  return c !== null && m !== null && c.major === m.major;
+}
+
+/** Whether a member at `memberVersion` serves a route added in `since` (both `MAJOR.MINOR`, same MAJOR). */
+export function servesSince(memberVersion: string, since: string): boolean {
+  const m = parseApiVersion(memberVersion);
+  const s = parseApiVersion(since);
+  return m !== null && s !== null && m.major === s.major && m.minor >= s.minor;
+}
+
 /** HTTP status for an error code (api.json `errors`). */
 export function httpStatusFor(code: ErrorCode): number {
   return api.errors[code].http_status;

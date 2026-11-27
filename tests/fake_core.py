@@ -45,6 +45,7 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "GET /v1/harnesses/{id}": (200, fixture("capabilities", "root.opencode-no-steer")),
     "POST /v1/runs": (201, fixture("control-action", "submit_response.queued")),
     "GET /v1/runs": (200, fixture("run", "run_list.two-runs")),
+    "GET /v1/runs/unreadable": (200, fixture("unreadable", "root.empty")),
     "GET /v1/runs/{id}": (200, fixture("run", "root.running")),
     "GET /v1/runs/{id}/events": (200, fixture("event", "event_page.first-page")),
     "GET /v1/runs/{id}/result": (200, fixture("run", "run_result.succeeded")),
@@ -53,6 +54,17 @@ DEFAULTS: dict[str, tuple[int, Any]] = {
     "POST /v1/runs/{id}/answer": (202, fixture("control-action", "accepted_response.answer")),
     "GET /v1/branches": (200, fixture("branches", "root.two-branches")),
     "POST /v1/branches/remove": (200, fixture("branches", "remove_response.mixed")),
+    "GET /v1/fleet/members": (200, fixture("fleet", "root.one-member-one-refusal")),
+    "POST /v1/fleet/runs": (201, fixture("remote", "submit_response.queued")),
+    "GET /v1/fleet/runs/{id}": (200, fixture("remote", "root.queued")),
+    "GET /v1/fleet/runs/{id}/view": (200, fixture("reachability", "root.reachable")),
+    "POST /v1/fleet/runs/{id}/steer": (202, fixture("control-action", "accepted_response.steer")),
+    "POST /v1/fleet/runs/{id}/cancel": (202, fixture("control-action", "accepted_response.cancel")),
+    "GET /v1/fleet/aliases": (200, fixture("remote", "alias_list.two")),
+    "GET /v1/fleet/runs/{id}/events": (200, fixture("event", "event_page.first-page")),
+    "GET /v1/fleet/runs/{id}/result": (200, fixture("run", "run_result.succeeded")),
+    #: A run's bundle (3.3) is bytes; tests that fetch one put a real bundle here.
+    "GET /v1/fleet/runs/{id}/bundle": (404, error_body("root.not-found")),
 }
 
 _PATTERNS = [
@@ -122,9 +134,12 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(404, error_body("root.not-found"))
 
     def _json(self, status: int, payload: Any) -> None:
-        data = json.dumps(payload).encode("utf-8")
+        binary = isinstance(payload, bytes)  # a run's bundle (3.3)
+        data = payload if binary else json.dumps(payload).encode("utf-8")
         self.send_response(status)
-        self.send_header("Content-Type", "application/json")
+        self.send_header(
+            "Content-Type", "application/x-git-bundle" if binary else "application/json"
+        )
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)

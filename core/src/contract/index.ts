@@ -17,6 +17,8 @@ export {
   exitCodeFor,
   httpStatusFor,
   isCompatible,
+  isPeerCompatible,
+  servesSince,
   parseApiVersion,
   retryableFor,
 } from "./api.js";

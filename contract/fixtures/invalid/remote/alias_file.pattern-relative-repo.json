@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "aliases": [
+    {
+      "alias": "demo",
+      "repo": "repos/demo"
+    }
+  ]
+}

@@ -30,7 +30,7 @@ def test_submit_text_and_request_matches_the_contract(
     key = sent["body"].pop("idempotency_key")  # the CLI generates one when the user gives none
     assert key.startswith("cli-")
     assert sent["body"] == fixture("control-action", "submit_request.minimal")
-    assert sent["version_header"] == "3.0"
+    assert sent["version_header"] == "3.3"
 
 
 def test_submit_json_with_every_optional_field(core, capsys: pytest.CaptureFixture[str]) -> None:
@@ -83,7 +83,7 @@ def test_list_text_json_and_query(core, capsys: pytest.CaptureFixture[str]) -> N
     assert f"{RUN_ID}  succeeded  claude-code  /srv/repos/demo" in text.out
     j = run(capsys, "runs", "list", "--state", "running", "--agent", "thor-reviewer",
             "--limit", "5", "--json")  # fmt: skip
-    assert j.json() == fixture("run", "run_list.two-runs")
+    assert j.json() == {**fixture("run", "run_list.two-runs"), "unreadable_count": 0}
     query = core.seen("GET", "/v1/runs")[-1]["query"]
     assert query == {"state": "running", "agent_id": "thor-reviewer", "limit": "5"}
 
@@ -310,7 +310,7 @@ def test_refused_connection_is_the_same(tmp_path, monkeypatch, capsys) -> None:
 # --- incompatible core -------------------------------------------------------
 
 
-@pytest.mark.parametrize("server", ["4.0", "2.9"])
+@pytest.mark.parametrize("server", ["4.0", "2.9", "3.0", "3.1", "3.2"])
 def test_incompatible_core_is_refused_naming_both_versions(core, capsys, server) -> None:
     core.respond(
         "GET /v1/version", 200, {**fixture("version", "root.current"), "api_version": server}
@@ -318,13 +318,13 @@ def test_incompatible_core_is_refused_naming_both_versions(core, capsys, server)
     r = run(capsys, "runs", "list")
     assert r.rc == 2
     assert r.out == ""
-    assert "this client speaks 3.0" in r.err
+    assert "this client speaks 3.3" in r.err
     assert f"the core speaks {server}" in r.err
     assert [q["path"] for q in core.requests] == ["/v1/version"]  # never reached the route
     j = run(capsys, "runs", "list", "--json")
     assert j.rc == 2
     detail = j.err_json()
-    assert (detail["client_api_version"], detail["server_api_version"]) == ("3.0", server)
+    assert (detail["client_api_version"], detail["server_api_version"]) == ("3.3", server)
 
 
 def test_older_minor_is_refused_newer_minor_is_accepted(core, capsys) -> None:
@@ -354,3 +354,40 @@ def test_an_invalid_payload_is_internal_exit_2(core, capsys: pytest.CaptureFixtu
     assert r.rc == 2
     assert r.err_json()["error_code"] == "internal"
     assert r.out == ""
+
+
+def test_submit_has_at_most_13_parameters_and_one_deadline() -> None:
+    """SonarCloud S107 caps a function at 13; --deadline and --deadline-in share one."""
+    import inspect
+
+    from culture_agents.cli._commands.runs import runs_submit
+
+    params = inspect.signature(runs_submit).parameters
+    assert len(params) <= 13
+    assert "deadline" in params
+    assert "deadline_in" not in params
+
+
+def test_submit_deadline_in_on_this_host_becomes_an_absolute_deadline(core, capsys) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    before = datetime.now(timezone.utc).replace(microsecond=0)
+    r = run(capsys, *SUBMIT, "--deadline-in", "600", "--json")
+    assert r.rc == 0, r.err
+    body = core.seen("POST", "/v1/runs")[0]["body"]
+    sent = datetime.strptime(body["deadline"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    assert before + timedelta(seconds=599) <= sent <= before + timedelta(seconds=602)
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--deadline", "2026-11-25T11:00:00Z", "--deadline-in", "600"],
+        ["--deadline-in", "600", "--deadline", "2026-11-25T11:00:00Z"],
+    ],
+)
+def test_submit_refuses_both_deadline_flags_in_either_order(core, capsys, flags) -> None:
+    r = run(capsys, *SUBMIT, *flags)
+    assert r.rc != 0
+    assert "not both" in r.err
+    assert core.seen("POST", "/v1/runs") == []

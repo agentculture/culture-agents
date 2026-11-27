@@ -27,7 +27,7 @@ const pascal = (s) =>
     .join("");
 
 // Names that would collide with a global or another type if derived mechanically.
-const ROOT_NAMES = { "error.json": "ErrorResponse", "event.json": "RunEvent" };
+const ROOT_NAMES = { "error.json": "ErrorResponse", "event.json": "RunEvent", "fleet.json": "MemberList", "remote.json": "RemoteRun", "unreadable.json": "UnreadableRunList", "reachability.json": "RunView" };
 const DEF_NAMES = {
   "common.json#node": "MeshNode",
   "common.json#text": "CallerText",
@@ -35,6 +35,9 @@ const DEF_NAMES = {
   "error.json#code": "ErrorCode",
   "event.json#kind": "EventKind",
   "run.json#state": "RunState",
+  "remote.json#alias": "RepoAlias",
+  "remote.json#submit_request": "RemoteSubmitRequest",
+  "remote.json#submit_response": "RemoteSubmitResponse",
 };
 
 const stemOf = (file) => file.replace(/\.json$/, "");

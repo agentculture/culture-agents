@@ -1,0 +1,19 @@
+{
+  "node": "thor",
+  "transport": "on",
+  "announce_interval_ms": 5000,
+  "silence_ms": 15000,
+  "members": [
+    { "node": "thor", "fingerprint": "3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b3b", "api_version": "3.1", "seq": 12, "heard_ms_ago": 2140 }
+  ],
+  "refused": [
+    {
+      "node": "thor",
+      "trusted_as": "thor",
+      "fingerprint": "c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7c7",
+      "reason": "the node name thor is held by this core's own key",
+      "count": 3,
+      "heard_ms_ago": 900
+    }
+  ]
+}

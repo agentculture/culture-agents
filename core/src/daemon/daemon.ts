@@ -1,13 +1,14 @@
 import { chmodSync, lstatSync, mkdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 
-import { apiVersion } from "../contract/index.js";
+import { apiVersion, type MemberList } from "../contract/index.js";
 import { version as coreVersion } from "../index.js";
 import { loadAllowlist, type AllowlistState } from "./allowlist.js";
 import { socketSubmitter } from "./submitter.js";
 import { sendError } from "./http.js";
 import { acquireLock, removeInstanceInfo, writeInstanceInfo, type HeldLock } from "./lock.js";
 import { resolveAllowlistPath, resolvePaths, type DaemonPaths } from "./paths.js";
+import type { Remote } from "../fleet/remote.js";
 import type { RunService } from "./ports.js";
 import { handle, type RouteContext } from "./routes.js";
 
@@ -21,6 +22,10 @@ export interface DaemonOptions {
   now?: () => Date;
   /** Idle SSE keepalive interval; the contract requires 15 s or less. */
   keepaliveMs?: number;
+  /** The fleet member list (fleet/members.ts). Absent when the fleet transport is off. */
+  members?: () => MemberList;
+  /** Calls to other fleet members (fleet/remote.ts). Absent when the fleet transport is off. */
+  remote?: Remote;
 }
 
 export interface Daemon {
@@ -120,6 +125,8 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     keepaliveMs: Math.max(1, options.keepaliveMs ?? 15_000), // never a zero-delay interval
     shutdown: shutdown.signal,
     submitter: null,
+    members: options.members ?? null,
+    remote: options.remote ?? null,
   };
   const server = createServer((req, res) => {
     handle(ctx, req, res).catch((e: unknown) => sendError(res, e));
