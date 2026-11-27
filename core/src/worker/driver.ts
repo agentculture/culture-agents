@@ -51,6 +51,11 @@ export type DriverEvent =
   | { type: "output"; data: OutputData }
   /** The harness asks its operator and waits (a `run.question` event; the run's deadline pauses). */
   | { type: "question"; question: AskedQuestion }
+  /**
+   * The harness dropped a question it raised (by its `ref`) without waiting for an answer. The
+   * worker logs it and the question leaves the pending set; the deadline resumes when none is left.
+   */
+  | { type: "withdraw"; ref: string }
   /** A non-fatal error (a `run.error` event with `fatal: false`). */
   | { type: "error"; error: ErrorBody }
   /** Outcome: the harness reported its turn completed (`succeeded`). */

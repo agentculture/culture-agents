@@ -334,7 +334,9 @@ Refusals at any other step are returned to the caller only.
 - `cancelled`: it ended after an operator cancel. `timed_out`: it ended after
   its deadline. Both are reached only through `cancelling`. If the harness
   completes its turn before the stop takes effect, the run ends `succeeded`
-  or `failed` as reported.
+  or `failed` as reported. The same holds for the stop that a question limit
+  starts: if the harness completes during it, the run ends `succeeded`, not
+  `unanswered`.
 - `unanswered`: it ended because a question it asked its operator passed
   that question's own time limit. Like `timed_out`, it is reached only through
   `cancelling`, here with reason `question_limit`. It is not a success and
@@ -543,7 +545,16 @@ measured.
   or less when the operator configured less (`questions.limitSeconds` in the
   core's config file, 1 to 43200; a higher value stops the core at start). When it passes with no answer,
   the run moves to `cancelling` with reason `question_limit` and ends
-  `unanswered`.
+  `unanswered`. A question being delivered still counts toward its own
+  limit, so a slow delivery cannot hold the run past it.
+- Delivering an answer to the harness takes at most 30 seconds (the worker's
+  `answerTimeoutMs`). Past that the delivery failed: the answer was not
+  delivered, no `run.answer` is written, a non-fatal `run.error` is logged,
+  the caller gets `unavailable` (retryable) and the question is pending again.
+- A harness may withdraw a question it raised. No 3.0 event kind fits, so the
+  worker logs a diagnostic `run.output` line `question withdrawn: <question
+  id>`. The question leaves `pending_questions`, an answer to it is refused
+  `conflict`, and the deadline resumes when no question is left pending.
 - A harness that cannot ask reports `answer` as unsupported, and an answer
   sent to its run gets `unsupported` naming `answer`.
 - An answer's `idempotency_key` is recorded on its action but not
