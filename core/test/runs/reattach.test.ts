@@ -97,7 +97,7 @@ test("a control request before the reattach attempt finished waits, then retry-s
   await service.cancel(run.id, { caller: CALLER });
 });
 
-test("a worker whose control socket does not answer is reported unknown and is never signalled; terminal runs are not rebuilt", async (t) => {
+test("a worker whose control socket does not answer keeps its logged state, is refused unavailable and is never signalled; terminal runs are not rebuilt", async (t) => {
   const env = makeEnv(t, [HANG, TIMED]);
   const first = await startDaemon(t, env);
   const mute = await submit(env, "fake", env.repoA);
@@ -119,17 +119,18 @@ test("a worker whose control socket does not answer is reported unknown and is n
     warn: () => undefined,
   });
   service.reconcile();
-  const refusal = await service.steer(mute.id, { caller: CALLER, message: "x" }).catch((e: { body: { code: string } }) => e.body);
-  assert.equal((refusal as { code: string }).code, "conflict", "unknown is terminal");
+  const refusal = await service.steer(mute.id, { caller: CALLER, message: "x" }).catch((e: { body: { code: string; retry_after_ms?: number } }) => e.body);
+  assert.equal((refusal as { code: string }).code, "unavailable", "a live worker is not terminal");
+  assert.ok(((refusal as { retry_after_ms?: number }).retry_after_ms ?? 0) > 0);
   const shown = await service.getRun(mute.id);
-  assert.equal(shown?.state, "unknown");
+  assert.equal(shown?.state, "running", "a live worker is never reported unknown");
+  assert.equal(shown?.terminal, false);
   assert.equal(shown?.live_control, false);
-  assert.match(shown?.state_reason ?? "", /did not answer/);
   assert.ok(processExists(mute.worker_pid as number), "no signal was sent");
-  assert.deepEqual(calls, [mute.id], "the terminal run was not reattached");
+  assert.ok(calls.length >= 1 && calls.every((id) => id === mute.id), "the terminal run was not reattached");
   const late = await service.cancel(done.id, { caller: CALLER }).catch((e: { body: { code: string } }) => e.body);
   assert.equal((late as { code: string }).code, "conflict");
-  assert.deepEqual(calls, [mute.id]);
+  assert.ok(calls.every((id) => id === mute.id));
 });
 
 test("SIGKILL of the core signals no worker; the worker alone enforces its deadline and writes its terminal event", async (t) => {

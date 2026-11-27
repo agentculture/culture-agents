@@ -18,7 +18,7 @@ retry. The **operator** is the person who owns the host and sets its limits.
 
 | D1 behaviour (control API 2.0) | Part one behaviour | Where |
 | --- | --- | --- |
-| A restarted core read a surviving worker's state but could not steer, cancel or attach; `reconnectWorker` was only called by tests | The core rebuilds live control of every surviving worker at start; a worker that does not answer reads `unknown` | `core/src/runs/reattach.ts`, `core/src/runs/service.ts` (`reconcile`) |
+| A restarted core read a surviving worker's state but could not steer, cancel or attach; `reconnectWorker` was only called by tests | The core rebuilds live control of every surviving worker at start; a live worker that does not answer keeps its logged state with `live_control: false` and is retried | `core/src/runs/reattach.ts`, `core/src/runs/service.ts` (`reconcile`) |
 | A second submit to a repository with an active run was refused as `busy` | No implicit limit. An operator may configure limits; a submit past one is refused as `limit_reached` | `core/src/runs/limits.ts` |
 | The idempotency key was stored on the run and never compared | A repeated key takes effect once; a changed request with the same key is `conflict`; keys survive a restart | `core/src/store/idempotency.ts` |
 | `answer` was always refused as unsupported | A run can ask its operator a question; it waits on disk and is answered once, after a restart too (stub harness only, see gaps) | `core/src/worker/questions.ts` |
@@ -50,8 +50,9 @@ After a **restart** of the core:
 
 - Runs whose worker survived are live again: steer, cancel and attach work. Until the
   reattach attempt for a run ends, a control request waits, then answers `unavailable`
-  with `retry_after_ms` (retry it). A worker that does not answer reads `unknown`; it is
-  never reattached by guess and never signalled.
+  with `retry_after_ms` (retry it). A live worker that does not answer keeps its logged
+  state with `live_control: false`; it is never reattached by guess and never signalled,
+  and the core retries the reattach (next control request, bounded backoff) while it lives.
 - A run whose worker is gone is never reported `succeeded` without the worker's own
   `succeeded` event. `succeeded` means the turn ended cleanly, **not** that the task was
   done.

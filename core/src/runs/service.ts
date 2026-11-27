@@ -108,7 +108,7 @@ export class StoreRunService implements RunService {
         process.stderr.write(`${line}\n`);
       });
     this.reattacher = new Reattacher({ stateDir: options.stateDir, controls: this.controls, reconnect: options.reconnect ?? ((dir, id) => reconnectWorker(dir, id)), warn });
-    this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), unresponsive: (id) => this.reattacher.unresponsive(id), warn, ...(options.readFile && { readFile: options.readFile }) };
+    this.scan = { stateDir: options.stateDir, controllable: (id) => this.controls.has(id), warn, ...(options.readFile && { readFile: options.readFile }) };
   }
 
   /**
