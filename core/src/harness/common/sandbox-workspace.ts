@@ -130,7 +130,12 @@ export class SandboxWorkspace implements Workspace {
   private async commitCount(): Promise<number> {
     const count = `cd ${shq(this.workdir)} && git rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`;
     const res = await withTimeout("counting the run's commits in the sandbox", COMMIT_TIMEOUT_MS, (signal) => this.sandbox.exec(count, { signal }));
-    return res.exitCode === 0 ? Number(text(res.stdout).trim()) : 0;
+    // A count that fails is not zero commits: read as zero, the run would succeed without its work.
+    const value = Number(text(res.stdout).trim());
+    if (res.exitCode !== 0 || text(res.stdout).trim() === "" || !Number.isInteger(value)) {
+      throw new Error(`could not count the run's commits in the sandbox (exit ${res.exitCode}): ${text(res.stderr).trim()}`);
+    }
+    return value;
   }
 
   retention(): { sandbox: string; recover: string } {

@@ -105,6 +105,21 @@ test("a long failure reason gives way to the recovery instructions, which are ne
   assert.match(outcome.error.message, /^Could not commit the run's changes: x+\.\.\.\. The turn had completed/);
 });
 
+test("a turn that committed work whose collect brings back nothing fails and keeps the sandbox, never succeeds without its branch", async () => {
+  const { factory, backend, driver } = setup(null);
+  const done = drive(driver.start());
+  await backend.turnStarted;
+  const ws = factory.workspace;
+  assert.ok(ws);
+  ws.collect = async () => null; // commitAll counted 1 commit; collect says there is nothing
+  backend.turn.end({ kind: "completed", summary: "done" });
+  const outcome = lastEvent(await done);
+  assert.ok(outcome?.type === "failed", JSON.stringify(outcome));
+  assert.match(outcome.error.message, /^Could not collect the run's commits: .*1 commit/);
+  assert.deepEqual(outcome.retained, { sandbox: "t-abc123", until: new Date(NOW + 7 * DAY).toISOString() });
+  assert.equal(ws.destroyed, 0, "the sandbox holding the only copy of the work is not deleted");
+});
+
 test("retention set to 0 days, or a workspace that cannot be kept, deletes as before", async () => {
   for (const options of [{ days: 0 }, { retainable: false }]) {
     const { factory, backend, driver } = setup("collect", options);

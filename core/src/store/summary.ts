@@ -27,6 +27,8 @@ import { basename } from "node:path";
 import { validate, type Run, type StateData } from "../contract/index.js";
 import { atomicWriteJson, runFile } from "./files.js";
 
+// 2: a version-1 summary carried only the log's size, and could hold a succeeded run without the
+// branch its record holds (pr-15 finding 19). No version-1 summary is believed.
 const SUMMARY_VERSION = 2;
 /** How much of the end of the log is hashed and searched for the terminal event. */
 export const TAIL_BYTES = 4096;

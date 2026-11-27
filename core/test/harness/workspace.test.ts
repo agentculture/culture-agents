@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import { newProcesses, parsePs, PS_SCRIPT, PS_SELF } from "../../src/harness/common/processes.js";
-import { SandboxWorkspaceFactory, type SandboxDeps, type SandboxSettings } from "../../src/harness/common/sandbox-workspace.js";
+import { SandboxWorkspace, SandboxWorkspaceFactory, type SandboxDeps, type SandboxSettings } from "../../src/harness/common/sandbox-workspace.js";
 import { OpenCodeBackend, openCodeConfig, type SandboxBacked } from "../../src/harness/opencode/backend.js";
 import type { RunProcess, RunSandbox, RunSandboxes } from "../../src/sandbox/index.js";
 
@@ -91,6 +91,14 @@ test("a failed repository handoff deletes the sandbox before the error propagate
   const factory = new SandboxWorkspaceFactory("r", "/host", settings, deps);
   await assert.rejects(factory.open(new AbortController().signal), /bundle clone failed/);
   assert.deepEqual(log, ["open culture-agents-run:dev lobes t11-", "destroy"]);
+});
+
+test("a commit count that fails in the sandbox fails the collect; it is not read as nothing to collect", async () => {
+  const sandbox = { ...fakeSandbox([]), exec: async () => ({ exitCode: 1, stdout: new Uint8Array(), stderr: new TextEncoder().encode("fatal: index.lock exists") }) };
+  const prepared = { branch: "runs/r", baseCommit: "a".repeat(40), path: "/sandbox/work" };
+  const never = () => new Promise<never>(() => undefined);
+  const ws = new SandboxWorkspace({} as RunSandboxes, sandbox, prepared, "r", "/host", settings, { openRunSandboxes: never, prepare: never, collect: never });
+  await assert.rejects(ws.collect(), /could not count the run's commits.*exit 1.*index\.lock/);
 });
 
 function fakeProcess(stdout: string): RunProcess & { cancelled: number } {

@@ -88,9 +88,12 @@ export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | nu
   assertReadableVersion(dir);
   const cached = options.fromLog ? null : readSummary(dir, options.readFile);
   if (cached !== null) return { run: cached, orphaned: false, liveness: { alive: false, pid: null, reason: "finished run, from its summary", heartbeat_at: null } };
-  const record = readRecord(dir);
+  const { id } = readRecord(dir);
   let liveness = checkLiveness(dir, options);
-  let log = readLog(dir, record.id, options.readFile);
+  let log = readLog(dir, id, options.readFile);
+  // The record is read again after the log: the worker writes it before the event that depends on
+  // it (the branch before `succeeded`), so a record read first could miss what that log reflects.
+  let record = readRecord(dir);
   const derive = () =>
     deriveRun({
       record,
@@ -104,7 +107,8 @@ export function showRunAt(dir: string, options: ShowOptions = {}): ShownRun | nu
   if (derived?.orphaned && options.settle) {
     settleOrphan(dir, record.id, options);
     liveness = checkLiveness(dir, options);
-    log = readLog(dir, record.id, options.readFile);
+    log = readLog(dir, id, options.readFile);
+    record = readRecord(dir);
     derived = derive();
   }
   if (derived === null) return null;

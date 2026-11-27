@@ -223,6 +223,8 @@ export class RunDriver<W extends Workspace> implements Driver {
       }
       this.stage = "collect the run's commits";
       this.collected = commits > 0 ? await workspace.collect() : null;
+      // Work that was committed but not brought back is a failed collect, never a run without commits.
+      if (commits > 0 && this.collected === null) throw new Error(`the workspace holds ${commits} commit(s), but none was brought to the host`);
       return true;
     } catch (err) {
       if (this.stopping) await this.stopAll();
