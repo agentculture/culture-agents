@@ -22,7 +22,8 @@ def test_every_keyed_verb_sends_a_generated_key_and_prints_it(core, capsys) -> N
         assert r.rc == 0
         key = r.json()["idempotency_key"]
         body = core.seen("POST", route)[0]["body"]
-        assert body["idempotency_key"] == key and key.startswith("cli-")
+        assert body["idempotency_key"] == key
+        assert key.startswith("cli-")
         sent[route] = key
     assert len(set(sent.values())) == 3
     text = run(capsys, "runs", "cancel", RUN_ID)
@@ -70,7 +71,8 @@ def test_retries_stop_and_the_error_names_the_key(core, capsys, monkeypatch) -> 
     r = run(capsys, *SUBMIT, "--idempotency-key", "k-1", "--json")
     assert r.rc == 2
     err = r.err_json()
-    assert err["error_code"] == "unavailable" and "--idempotency-key k-1" in err["remediation"]
+    assert err["error_code"] == "unavailable"
+    assert "--idempotency-key k-1" in err["remediation"]
     assert len(core.seen("POST", "/v1/runs")) == 3
 
 
@@ -89,7 +91,8 @@ def test_an_invalid_core_response_is_internal_exit_2(core, capsys) -> None:
     ):
         core.respond(key, 202 if "{id}" in key else 201, {"nonsense": True})
         r = run(capsys, *args, "--json")
-        assert r.rc == 2 and r.err_json()["error_code"] == "internal"
+        assert r.rc == 2
+        assert r.err_json()["error_code"] == "internal"
 
 
 # --- answer ---------------------------------------------------------------------------------
@@ -107,7 +110,8 @@ def test_answer_delivers_and_matches_the_contract(core, capsys) -> None:
     assert body == fixture("control-action", "answer_request.choice")
     text = run(capsys, "runs", "answer", RUN_ID, "--question", QID, "--decision", "deny",
                "--answer", "too risky")  # fmt: skip
-    assert text.rc == 0 and text.out.startswith(f"answer accepted for {RUN_ID}")
+    assert text.rc == 0
+    assert text.out.startswith(f"answer accepted for {RUN_ID}")
     sent = core.seen("POST", f"/v1/runs/{RUN_ID}/answer")[1]["body"]
     assert_valid("control-action.json#/$defs/answer_request", sent)
     assert "idempotency_key" not in sent
@@ -115,7 +119,8 @@ def test_answer_delivers_and_matches_the_contract(core, capsys) -> None:
 
 def test_answer_needs_something_to_say(core, capsys) -> None:
     r = run(capsys, "runs", "answer", RUN_ID, "--question", QID)
-    assert r.rc == 1 and not core.seen("POST", f"/v1/runs/{RUN_ID}/answer")
+    assert r.rc == 1
+    assert not core.seen("POST", f"/v1/runs/{RUN_ID}/answer")
 
 
 @pytest.mark.parametrize(
@@ -128,9 +133,12 @@ def test_answer_typed_errors_in_text_and_json_and_never_retried(
 ) -> None:
     core.respond("POST /v1/runs/{id}/answer", status, fixture("error", name))
     text = run(capsys, *ANSWER)
-    assert text.rc == 1 and code in text.err and word in text.err
+    assert text.rc == 1
+    assert code in text.err
+    assert word in text.err
     j = run(capsys, *ANSWER, "--json")
-    assert j.rc == 1 and j.err_json()["error_code"] == code
+    assert j.rc == 1
+    assert j.err_json()["error_code"] == code
     assert len(core.seen("POST", f"/v1/runs/{RUN_ID}/answer")) == 2  # one send per invocation
 
 
@@ -140,4 +148,5 @@ def test_answer_is_not_retried_after_a_timeout(core, capsys, monkeypatch) -> Non
     monkeypatch.setattr(_client, "DEFAULT_TIMEOUT", 0.2)
     core.post_stalls = [0.5]
     r = run(capsys, *ANSWER)
-    assert r.rc == 2 and len(core.seen("POST", f"/v1/runs/{RUN_ID}/answer")) == 1
+    assert r.rc == 2
+    assert len(core.seen("POST", f"/v1/runs/{RUN_ID}/answer")) == 1

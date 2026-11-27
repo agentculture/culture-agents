@@ -149,14 +149,20 @@ def _mesh_node(value: str) -> str | None:
     return node if hyphen and node else None
 
 
-def scan_line(line: str) -> list[tuple[str, str]]:
-    """``(kind, node)`` for each foreign node the line names, left to right by kind."""
+def _typed_id_findings(line: str) -> tuple[list[tuple[str, str]], list[tuple[int, int]]]:
+    """Foreign run ids in ``line``, and the spans of every typed id."""
     found: list[tuple[str, str]] = []
-    typed_spans = []
+    spans: list[tuple[int, int]] = []
     for match in _TYPED_ID.finditer(line):
-        typed_spans.append(match.span())
+        spans.append(match.span())
         if not names_no_other_node(match.group(1)):
             found.append(("run id", match.group(1)))
+    return found, spans
+
+
+def _agent_id_findings(line: str, typed_spans: list[tuple[int, int]]) -> list[tuple[str, str]]:
+    """Foreign agent ids in ``line``, skipping those inside a typed id."""
+    found: list[tuple[str, str]] = []
     for pattern in _AGENT_IDS:
         for match in pattern.finditer(line):
             start = match.start(1)
@@ -165,10 +171,24 @@ def scan_line(line: str) -> list[tuple[str, str]]:
             node = _mesh_node(match.group(1))
             if node is not None and not names_no_other_node(node):
                 found.append(("agent id", node))
-    for pattern in _NODE_FIELDS:
-        for match in pattern.finditer(line):
-            if not names_no_other_node(match.group(1)):
-                found.append(("node field", match.group(1)))
+    return found
+
+
+def _node_field_findings(line: str) -> list[tuple[str, str]]:
+    """Foreign nodes named by a node field in ``line``."""
+    return [
+        ("node field", match.group(1))
+        for pattern in _NODE_FIELDS
+        for match in pattern.finditer(line)
+        if not names_no_other_node(match.group(1))
+    ]
+
+
+def scan_line(line: str) -> list[tuple[str, str]]:
+    """``(kind, node)`` for each foreign node the line names, left to right by kind."""
+    found, typed_spans = _typed_id_findings(line)
+    found.extend(_agent_id_findings(line, typed_spans))
+    found.extend(_node_field_findings(line))
     return found
 
 

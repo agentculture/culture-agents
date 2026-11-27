@@ -43,7 +43,8 @@ def test_check1_restart_with_2_runs_in_1_repository_then_steer_one_and_cancel_th
     core.start()
     for run_id, pid in pids.items():
         shown = core.show(run_id)
-        assert shown["state"] == RUNNING and shown["live_control"], "reattached to the survivor"
+        assert shown["state"] == RUNNING, "reattached to the survivor"
+        assert shown["live_control"], "reattached to the survivor"
         assert pid in core.worker_pids(), "the restart signalled no worker"
 
     steer = core.ok("runs", "steer", first["id"], "after the restart")
@@ -67,7 +68,8 @@ def test_check2_one_key_sent_twice_gives_one_run_and_a_changed_request_conflicts
     repo = core.add_repo()
     one = _submit_keyed(core, repo, "files: a.txt", "acc-key-1")
     two = _submit_keyed(core, repo, "files: a.txt", "acc-key-1")
-    assert one.rc == 0 and two.rc == 0, (one.err, two.err)
+    assert one.rc == 0, (one.err, two.err)
+    assert two.rc == 0, (one.err, two.err)
     assert one.json()["run"]["id"] == two.json()["run"]["id"]
     assert [r["id"] for r in core.ok("runs", "list")["runs"]] == [one.json()["run"]["id"]]
 
@@ -93,7 +95,8 @@ def test_check3_a_question_survives_a_restart_and_is_answered(make_core: MakeCor
     core.start()
     after = core.show(run["id"])
     assert [q["id"] for q in after["pending_questions"]] == [question], "still pending"
-    assert after["state"] == RUNNING and after["live_control"]
+    assert after["state"] == RUNNING
+    assert after["live_control"]
 
     answered = core.ok("runs", "answer", run["id"], "--question", question, "--answer", "blue")
     assert answered["action"]["outcome"] == "accepted"
@@ -102,9 +105,11 @@ def test_check3_a_question_survives_a_restart_and_is_answered(make_core: MakeCor
     again = core.cli(
         "runs", "answer", run["id"], "--question", question, "--answer", "red", "--json"
     )
-    assert again.rc == 1 and again.error_code() == "conflict", "a question takes one answer"
+    assert again.rc == 1, "a question takes one answer"
+    assert again.error_code() == "conflict", "a question takes one answer"
     kinds = [e["kind"] for e in core.events(run["id"])]
-    assert kinds.count("run.question") == 1 and kinds.count("run.answer") == 1
+    assert kinds.count("run.question") == 1
+    assert kinds.count("run.answer") == 1
     record("mock.d2.question", survived_restart=True, answers_logged=1)
 
 
@@ -169,7 +174,8 @@ def test_third_submit_to_another_repository_is_fast_and_cancel_is_under_10_secon
     _running(core, second["id"])
 
     third, submit_seconds = core.submit("stub", other, "hang")
-    assert third["id"] and submit_seconds < 2.0, f"submit took {submit_seconds:.2f} s"
+    assert third["id"], f"submit took {submit_seconds:.2f} s"
+    assert submit_seconds < 2.0, f"submit took {submit_seconds:.2f} s"
     _running(core, third["id"])
 
     start = time.monotonic()

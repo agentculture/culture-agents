@@ -57,7 +57,7 @@ _KNOWN_TOKEN_PATTERNS = [
     (r"-----BEGIN (?:RSA |EC |OPENSSH |DSA |PGP )?PRIVATE KEY-----", "private key block"),
     # Not a secret, but text that ends a run: once a harness reads this marker inside a sandbox,
     # the OpenShell egress proxy refuses its next model request (plan risk r13, 2026-11-26).
-    (r"openshell" r":resolve:", "OpenShell credential placeholder marker"),
+    (r"openshell" + r":resolve:", "OpenShell credential placeholder marker"),
 ]
 
 # key = value / key: "value" assignments where the key name is secret-ish.

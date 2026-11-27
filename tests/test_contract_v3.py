@@ -113,7 +113,8 @@ def test_the_contract_is_version_3_0():
 def test_the_incompatible_version_fixture_is_a_2_0_client_against_this_core():
     error = cs.load_json(_fixture("error/root.incompatible-version"))["error"]
     assert (error["client_api_version"], error["server_api_version"]) == ("2.0", "3.0")
-    assert "2.0" in error["message"] and "3.0" in error["message"]
+    assert "2.0" in error["message"]
+    assert "3.0" in error["message"]
     assert API["errors"]["incompatible_version"]["exit_code"] == 2
 
 
@@ -157,8 +158,10 @@ def test_the_local_and_the_member_submitter_are_told_apart():
     local = cs.load_json(_fixture("run/root.running-with-submitter-and-base-commit"))["submitter"]
     member = cs.load_json(_fixture("run/root.submitted-by-member"))["submitter"]
     assert (local["kind"], member["kind"]) == ("local_user", "member")
-    assert "uid" in local and "node" not in local
-    assert member["node"] == "thor" and "uid" not in member
+    assert "uid" in local
+    assert "node" not in local
+    assert member["node"] == "thor"
+    assert "uid" not in member
 
 
 # --- errors -------------------------------------------------------------------
@@ -179,21 +182,24 @@ def test_the_limit_error_names_the_limit_and_its_value():
 def test_an_idempotency_conflict_is_a_conflict_that_names_the_key_and_is_not_retryable():
     error = cs.load_json(_fixture("error/root.conflict-idempotency-key"))["error"]
     assert (error["code"], error["retryable"]) == ("conflict", False)
-    assert error["idempotency_key"] and error["run_id"]
+    assert error["idempotency_key"]
+    assert error["run_id"]
     assert "conflict" in next(r for r in API["routes"] if r["id"] == "runs.submit")["errors"]
 
 
 def test_retry_shortly_is_an_unavailable_error_with_a_wait():
     error = cs.load_json(_fixture("error/root.unavailable-retry-shortly"))["error"]
     assert (error["code"], error["retryable"]) == ("unavailable", True)
-    assert error["retry_after_ms"] >= 0 and error["run_id"]
+    assert error["retry_after_ms"] >= 0
+    assert error["run_id"]
 
 
 def test_the_busy_refusal_is_gone_now_that_concurrent_runs_are_built():
     assert "busy" not in API["errors"]
     assert "busy" not in SCHEMAS["error.json"]["$defs"]["code"]["enum"]
     props = SCHEMAS["error.json"]["$defs"]["error"]["properties"]
-    assert "active_run_id" not in props and "repo" not in props
+    assert "active_run_id" not in props
+    assert "repo" not in props
     assert all("busy" not in route["errors"] for route in API["routes"])
     assert re.search(r"`busy` is removed[^\n]*\bt8\b", README), "README must say t8 removed busy"
     assert "limit_reached" in next(r for r in API["routes"] if r["id"] == "runs.submit")["errors"]
@@ -213,7 +219,8 @@ def test_question_and_answer_are_event_kinds_and_answer_is_a_route():
 def test_a_question_carries_its_own_time_limit_and_the_answer_names_the_question():
     question = cs.load_json(_fixture("event/root.question"))["data"]["question"]
     answer = cs.load_json(_fixture("event/root.answer"))["data"]
-    assert question["answer_by"] and question["kind"] == "question"
+    assert question["answer_by"]
+    assert question["kind"] == "question"
     assert answer["question_id"] == question["id"]
     assert (answer["action"]["kind"], answer["action"]["outcome"]) == ("answer", "accepted")
     agent = cs.load_json(_fixture("event/root.question"))["run_id"].split(".run.")[0]
@@ -313,7 +320,8 @@ def test_readme_lists_every_breaking_change_from_2_0(token):
 def test_readme_says_part_two_shapes_come_as_minor_additions():
     start = README.index("## Changes from 2.0")
     section = README[start : README.index("\n## ", start + 1)]
-    assert "3.x" in section and "MINOR" in section
+    assert "3.x" in section
+    assert "MINOR" in section
     for word in ("members", "unreachable", "bundle"):
         assert word in section, word
 
@@ -358,4 +366,5 @@ def test_the_generated_types_cover_the_new_shapes():
     text = "\n".join(p.read_text(encoding="utf-8") for p in GENERATED.glob("*.ts"))
     for name in ("Submitter", "Question", "QuestionData", "AnswerData", "Limits", "Admission"):
         assert re.search(rf"export type {name} =", text), name
-    assert '"unanswered"' in text and '"limit_reached"' in text
+    assert '"unanswered"' in text
+    assert '"limit_reached"' in text

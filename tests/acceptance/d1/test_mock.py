@@ -132,7 +132,8 @@ def test_dispatch_is_denied_by_default_and_a_second_run_in_a_repository_is_accep
     # t8 removed the busy rule: with no limit configured a second run in one repository is accepted.
     assert second.rc == 0, second.err
     second_run = second.json()["run"]
-    assert second_run["id"] != run["id"] and second_run["repo"] == run["repo"]
+    assert second_run["id"] != run["id"]
+    assert second_run["repo"] == run["repo"]
     other_harness = core.cli(
         *("runs", "submit", "--agent", AGENT, "--harness", "claude-code"),
         *("--repo", str(repo), "--task", "hang", "--json"),
@@ -261,7 +262,8 @@ def test_a_2_0_client_is_refused_by_the_3_0_core_with_exit_2_naming_both_version
         )
         assert res.returncode == 2, res.stderr
         assert res.stdout == ""
-        assert "2.0" in res.stderr and "3.0" in res.stderr, res.stderr
+        assert "2.0" in res.stderr, res.stderr
+        assert "3.0" in res.stderr, res.stderr
     detail = json.loads(res.stderr)  # the last one ran with --json
     assert (detail["client_api_version"], detail["server_api_version"]) == ("2.0", "3.0")
     assert core.show_version_refusal("2.0") == ("incompatible_version", "2.0", "3.0", 412)

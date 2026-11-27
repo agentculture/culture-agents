@@ -51,7 +51,8 @@ def test_a_3_0_client_is_refused_by_a_2_0_core_the_same_way(
     )
     r = run(capsys, "runs", "list")
     assert r.rc == 2
-    assert "this client speaks 3.0" in r.err and "the core speaks 2.0" in r.err
+    assert "this client speaks 3.0" in r.err
+    assert "the core speaks 2.0" in r.err
 
 
 def test_the_cores_own_refusal_of_a_2_0_client_is_exit_2_naming_both_versions(
@@ -62,7 +63,8 @@ def test_the_cores_own_refusal_of_a_2_0_client_is_exit_2_naming_both_versions(
     r = run(capsys, "runs", "list")
     assert r.rc == 2
     assert "incompatible_version" in r.err
-    assert "2.0" in r.err and "3.0" in r.err
+    assert "2.0" in r.err
+    assert "3.0" in r.err
 
 
 # --- the new shapes are accepted, not passed on unvalidated ----------------------
@@ -95,7 +97,8 @@ def test_a_limit_refusal_on_submit_is_exit_1_and_names_the_limit(
     argv += ("--repo", request["repo"], "--task", request["task"])
     r = run(capsys, *argv)
     assert r.rc == 1
-    assert "limit_reached" in r.err and "runs_per_repository" in r.err
+    assert "limit_reached" in r.err
+    assert "runs_per_repository" in r.err
     j = run(capsys, *argv, "--json")
     assert j.err_json()["limit"] == fixture("error", "root.limit-reached")["error"]["limit"]
 
@@ -111,8 +114,11 @@ def test_a_held_submit_is_exit_1_names_the_signal_and_hints_to_wait_or_go_elsewh
     argv += ("--repo", request["repo"], "--task", request["task"])
     r = run(capsys, *argv)
     assert r.rc == 1
-    assert "admission_held" in r.err and "heat" in r.err
-    assert "hint:" in r.err and "nothing was queued" in r.err and "another host" in r.err
+    assert "admission_held" in r.err
+    assert "heat" in r.err
+    assert "hint:" in r.err
+    assert "nothing was queued" in r.err
+    assert "another host" in r.err
     j = run(capsys, *argv, "--json")
     detail = j.err_json()
     assert (detail["error_code"], detail["retryable"]) == ("admission_held", True)
