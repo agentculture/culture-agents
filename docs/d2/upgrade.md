@@ -15,7 +15,8 @@ At startup the 3.0 core, before it answers any request:
 
 1. Removes run directories that have no first event and leftover temporary files
    (`*.tmp-<pid>-<n>`). A directory with at least one event is kept. A directory whose worker is
-   alive, or whose liveness cannot be read, is left entirely alone.
+   alive, whose liveness cannot be read, or whose store schema is newer than the core knows, is
+   left entirely alone, and so is a run entry that is a symlink.
 2. Reads every run directory. A directory without `store.json` was written by 2.0 and is read as
    schema 0: the same files, no version. State comes from the event log and the worker's liveness,
    exactly as for a 3.0 run, so a finished 2.0 run is listed with its true state.
@@ -34,14 +35,17 @@ add one to a 2.0 directory.
 ## A run directory the core cannot read
 
 A directory whose record, log, `store.json` or liveness evidence cannot be read, or whose schema is
-newer than the core knows, is listed as unreadable with its run id and the reason. It is never
-dropped from the listing, never counted as active for a concurrency limit, and its worker is never
-signalled. Resolve it by hand (inspect the directory, stop the worker yourself if it is stray).
+newer than the core knows, is skipped by the listing: it is not shown over the API (`agents runs
+list` does not name it), and the core logs a warning with its run id and the reason. It is never
+counted as active for a concurrency limit, its worker is never signalled, and it is never removed:
+neither start-up cleanup nor retention modifies or deletes anything inside a directory whose schema
+this core cannot read. Resolve it by hand (inspect the directory, stop the worker yourself if it is
+stray).
 
 ## Procedure
 
 1. Optional: wait for active runs to end (`agents runs list`).
 2. Stop the 2.0 core. Workers keep running.
 3. Install and start the 3.0 core on the same state directory.
-4. List runs. Finished 2.0 runs show their true state, surviving workers show `live_control`
-   true or `unknown`, and any unreadable directory is named.
+4. List runs. Finished 2.0 runs show their true state and surviving workers show `live_control`
+   true or `unknown`. An unreadable directory is not listed; the core's log names it.
