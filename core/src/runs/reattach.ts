@@ -8,8 +8,7 @@
  * A control request that arrives while the attempt is still running waits for it (`settle`).
  */
 import type { RunId } from "../contract/index.js";
-import type { Reconnect } from "../worker/spawn.js";
-import type { WorkerControl } from "../worker/spawn.js";
+import type { Reconnect, WorkerControl } from "../worker/spawn.js";
 
 export type ReconnectFn = (stateDir: string, runId: RunId) => Promise<Reconnect>;
 

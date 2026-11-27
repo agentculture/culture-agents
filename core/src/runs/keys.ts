@@ -61,6 +61,6 @@ export function replaySubmit(index: KeyIndex, key: string, digest: string, read:
 /** A repeated steer or cancel: the first action record, or null when the key is free. */
 export function replayAction(index: KeyIndex, scope: "steer" | "cancel", key: string, digest: string): AcceptedResponse | null {
   const entry = lookup(index, scope, key, digest);
-  if (entry === null || entry.action === null) return null;
+  if (!entry?.action) return null;
   return { action: { ...entry.action, outcome: "accepted" }, replayed: true };
 }
