@@ -30,7 +30,7 @@ def test_submit_text_and_request_matches_the_contract(
     key = sent["body"].pop("idempotency_key")  # the CLI generates one when the user gives none
     assert key.startswith("cli-")
     assert sent["body"] == fixture("control-action", "submit_request.minimal")
-    assert sent["version_header"] == "3.2"
+    assert sent["version_header"] == "3.3"
 
 
 def test_submit_json_with_every_optional_field(core, capsys: pytest.CaptureFixture[str]) -> None:
@@ -310,7 +310,7 @@ def test_refused_connection_is_the_same(tmp_path, monkeypatch, capsys) -> None:
 # --- incompatible core -------------------------------------------------------
 
 
-@pytest.mark.parametrize("server", ["4.0", "2.9", "3.0", "3.1"])
+@pytest.mark.parametrize("server", ["4.0", "2.9", "3.0", "3.1", "3.2"])
 def test_incompatible_core_is_refused_naming_both_versions(core, capsys, server) -> None:
     core.respond(
         "GET /v1/version", 200, {**fixture("version", "root.current"), "api_version": server}
@@ -318,13 +318,13 @@ def test_incompatible_core_is_refused_naming_both_versions(core, capsys, server)
     r = run(capsys, "runs", "list")
     assert r.rc == 2
     assert r.out == ""
-    assert "this client speaks 3.2" in r.err
+    assert "this client speaks 3.3" in r.err
     assert f"the core speaks {server}" in r.err
     assert [q["path"] for q in core.requests] == ["/v1/version"]  # never reached the route
     j = run(capsys, "runs", "list", "--json")
     assert j.rc == 2
     detail = j.err_json()
-    assert (detail["client_api_version"], detail["server_api_version"]) == ("3.2", server)
+    assert (detail["client_api_version"], detail["server_api_version"]) == ("3.3", server)
 
 
 def test_older_minor_is_refused_newer_minor_is_accepted(core, capsys) -> None:

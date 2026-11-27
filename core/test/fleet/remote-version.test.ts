@@ -24,7 +24,7 @@ const direct = (from: Core, to: Core, path: string, version: string, body?: unkn
   fleetCall({ key: from.key, trust: loadTrust(join(from.fleetDir, "trust.json")), host: LOOPBACK, port: to.port(), method: body === undefined ? "GET" : "POST", path, ...(body !== undefined && { body: JSON.stringify(body) }), headers: { "Agents-Api-Version": version }, expectNode: to.node });
 
 test("the rule between cores is the same MAJOR, whatever the MINORs; the client rule is not symmetric", () => {
-  assert.equal(apiVersion, "3.2");
+  assert.equal(apiVersion, "3.3");
   assert.equal(isCompatible("3.2", "3.1"), false, "a 3.2 client refuses a 3.1 core");
   assert.equal(isPeerCompatible("3.2", "3.1"), true);
   assert.equal(isPeerCompatible("3.1", "3.2"), true);
@@ -33,16 +33,16 @@ test("the rule between cores is the same MAJOR, whatever the MINORs; the client 
   assert.deepEqual([servesSince("3.1", "3.2"), servesSince("3.2", "3.2"), servesSince("3.9", "3.2"), servesSince("4.2", "3.2")], [false, true, true, false]);
 });
 
-test("a 3.2 core and a core that reports 3.1 call each other in both directions", async () => {
+test("this core (3.3) and a core that reports 3.1 call each other in both directions", async () => {
   const thorKey = newFleetKey();
   const callerKey = newFleetKey();
   const thor = await startCore("thor", thorKey, [[CALLER_NODE, callerKey]], { apiVersion: "3.1" });
   const caller = await startCore(CALLER_NODE, callerKey, [["thor", thorKey]]);
   try {
-    // 3.2 -> 3.1: the announcement (header 3.2) is accepted, and each core lists the other with its version.
+    // 3.3 -> 3.1: the announcement (header 3.3) is accepted, and each core lists the other with its version.
     caller.announceTo(thor);
     await caller.fleet.announce();
-    assert.equal(thor.fleet.members.view().members[0]?.api_version, "3.2");
+    assert.equal(thor.fleet.members.view().members[0]?.api_version, apiVersion);
     assert.equal(caller.fleet.members.view().members[0]?.api_version, "3.1");
     const down = await Promise.all(["/v1/version", "/v1/fleet/members"].map((path) => direct(caller, thor, path, "3.2")));
     assert.deepEqual(down.map((r) => r.status), [200, 200], down.map((r) => r.body.toString()).join("; "));
