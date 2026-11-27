@@ -28,7 +28,7 @@ test("a remote run's result is read under the page cap, not the transport's 1 Mi
   };
   let sent = "";
   const res = { writeHead: () => res, end: (text: string) => (sent = text) } as unknown as ServerResponse;
-  await fleetRunsResult({ remote, node: "caller", req: {} as IncomingMessage, res, url: new URL("https://fleet.invalid/"), runId: result.run_id } as never);
+  await fleetRunsResult({ remote, node: "xxxxxxxx", req: {} as IncomingMessage, res, url: new URL("https://fleet.invalid/"), runId: result.run_id } as never);
   assert.equal(asked[0]?.maxBytes, MAX_PAGE_BYTES);
   assert.ok(sent.length > MAX_RESPONSE_BYTES, "the whole summary reached the caller");
 });
