@@ -28,7 +28,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - A member certificate's serial is now a minimal DER integer. About 1 key in 256 used to give a certificate OpenSSL could not parse (found by CI on this pull request). Certificates that parsed before keep the same bytes.
 - A housekeeping test retries removing a run directory the exiting worker may still write to.
 - `agents runs submit`: `--deadline` and `--deadline-in` set one parameter. Giving both is no longer refused; the later one on the line wins (SonarCloud S107: at most 13 parameters).
-- Remote attach: the poll pause reports whether the stream goes on, and that result ends the loop (SonarCloud S9382).
+- Remote attach follows a run's pages by scheduling each step from the last one's callback, with no `await` in a loop (SonarCloud S9382); new unit tests cover the poll wait, a client that leaves and a terminal event.
 
 ## [0.16.2] - 2026-11-27
 

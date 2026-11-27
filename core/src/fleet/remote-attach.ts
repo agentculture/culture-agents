@@ -84,9 +84,39 @@ async function finishedAt(a: RemoteAttach, first: EventPage): Promise<boolean> {
   return run.terminal;
 }
 
+/**
+ * Write `first`, then each next page, until the stream is over: a terminal event, a bad page, an
+ * abort or a failed call. Each step schedules the next from its own callback, so no promise chain
+ * grows however long the run streams. Resolves with the last cursor written.
+ */
+function follow(a: RemoteAttach, first: EventPage, signal: AbortSignal, log: (line: string) => void): Promise<number> {
+  return new Promise<number>((resolve) => {
+    let cursor = a.after;
+    const end = (e?: unknown): void => {
+      if (e !== undefined) log(`culture-agents core: the stream of remote run ${a.runId} ended after cursor ${cursor}: ${e instanceof Error ? e.message : String(e)}`);
+      resolve(cursor);
+    };
+    const step = (current: EventPage): void => {
+      const written = writePage(a, current, cursor, log);
+      cursor = written.cursor;
+      if (written.over || signal.aborted) return end();
+      const wait = current.more ? Promise.resolve(true) : pause(a.pollMs ?? ATTACH_POLL_MS, signal);
+      wait
+        .then((goOn) => (goOn ? page(a, cursor) : null))
+        .then((next) => (next === null ? end() : step(next)))
+        .catch(end);
+    };
+    try {
+      step(first);
+    } catch (e) {
+      end(e);
+    }
+  });
+}
+
 export async function streamRemoteAttach(a: RemoteAttach, log: (line: string) => void = (l) => process.stderr.write(`${l}\n`)): Promise<void> {
-  let current = await page(a, a.after); // refusals happen here, before the stream starts
-  const done = await finishedAt(a, current);
+  const first = await page(a, a.after); // refusals happen here, before the stream starts
+  const done = await finishedAt(a, first);
   const abort = new AbortController();
   const stop = (): void => abort.abort();
   a.res.once("close", stop);
@@ -95,18 +125,8 @@ export async function streamRemoteAttach(a: RemoteAttach, log: (line: string) =>
   a.res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache", Connection: "keep-alive", [SENSITIVITY_HEADER]: "unredacted" });
   a.res.flushHeaders();
   const keepalive = setInterval(() => a.res.write(": keepalive\n\n"), a.keepaliveMs);
-  let cursor = a.after;
   try {
-    let over = done;
-    while (!over && !abort.signal.aborted) {
-      ({ cursor, over } = writePage(a, current, cursor, log));
-      if (over) break;
-      const goOn = current.more ? !abort.signal.aborted : await pause(a.pollMs ?? ATTACH_POLL_MS, abort.signal);
-      if (!goOn) break;
-      current = await page(a, cursor); // the early exits above depend on each page
-    }
-  } catch (e) {
-    log(`culture-agents core: the stream of remote run ${a.runId} ended after cursor ${cursor}: ${e instanceof Error ? e.message : String(e)}`);
+    if (!done) await follow(a, first, abort.signal, log);
   } finally {
     clearInterval(keepalive);
     a.res.off("close", stop);
