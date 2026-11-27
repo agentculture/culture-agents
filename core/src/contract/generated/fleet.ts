@@ -41,6 +41,13 @@ export type Refusal = {
   heard_ms_ago: number;
 };
 
+/** Body of the 409 reply to POST /v1/fleet/announce when the announcement is refused: the node name it claims is not the one the trust list gives the sender's key, is this core's own, or is held by another listed key. `error.json`'s `conflict` names a run, so the fleet transport has this shape of its own. `retryable` is true only when the name frees once its holder leaves or goes silent. */
+export type AnnounceRefusal = {
+  code: "conflict";
+  message: string;
+  retryable: boolean;
+};
+
 /** Body of POST /v1/fleet/announce, served over the fleet transport only (never on the control socket), and the body of its 200 reply, which is the answering core's own announcement. It carries no key material: who sent it is the key the transport authenticated. */
 export type Announcement = {
   node: MeshNode;

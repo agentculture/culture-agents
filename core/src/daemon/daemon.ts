@@ -1,7 +1,7 @@
 import { chmodSync, lstatSync, mkdirSync, rmSync, statSync, unlinkSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 
-import { apiVersion } from "../contract/index.js";
+import { apiVersion, type MemberList } from "../contract/index.js";
 import { version as coreVersion } from "../index.js";
 import { loadAllowlist, type AllowlistState } from "./allowlist.js";
 import { socketSubmitter } from "./submitter.js";
@@ -21,6 +21,8 @@ export interface DaemonOptions {
   now?: () => Date;
   /** Idle SSE keepalive interval; the contract requires 15 s or less. */
   keepaliveMs?: number;
+  /** The fleet member list (fleet/members.ts). Absent when the fleet transport is off. */
+  members?: () => MemberList;
 }
 
 export interface Daemon {
@@ -120,6 +122,7 @@ export async function startDaemon(options: DaemonOptions): Promise<Daemon> {
     keepaliveMs: Math.max(1, options.keepaliveMs ?? 15_000), // never a zero-delay interval
     shutdown: shutdown.signal,
     submitter: null,
+    members: options.members ?? null,
   };
   const server = createServer((req, res) => {
     handle(ctx, req, res).catch((e: unknown) => sendError(res, e));
