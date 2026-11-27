@@ -7,7 +7,7 @@ import { connect as tlsConnect, createServer as createTlsServer } from "node:tls
 import { after, test } from "node:test";
 
 import { certificateFor, fingerprint, fleetKeyText, newFleetKey } from "../../src/fleet/cert.js";
-import { FleetCallError, fleetCall } from "../../src/fleet/transport.js";
+import { allowReplyFor, FleetCallError, fleetCall } from "../../src/fleet/transport.js";
 import { LOOPBACK, recordingProxy, servingCore, sleep, tmp, trustOf } from "./support.js";
 
 const t = tmp();
@@ -195,5 +195,28 @@ test("only the version route is served to a member; a local control route is not
     assert.equal((JSON.parse(res.body.toString()) as { error: { code: string } }).error.code, "not_found");
   } finally {
     await serving.server.stop();
+  }
+});
+
+test("a route that needs longer than the idle limit can lift it for its own reply; without that the socket is closed", async () => {
+  const caller = newFleetKey();
+  const slow = (lift: boolean) => servingCore(t, [caller], {
+    requestTimeoutMs: 200,
+    onRequest: (_m, req, res) => {
+      if (lift) allowReplyFor(req, 5000);
+      setTimeout(() => res.end("ok"), 600);
+    },
+  });
+  const lifted = await slow(true);
+  const plain = await slow(false);
+  try {
+    const ok = await fleetCall({ key: caller, trust: trustOf(t, "lifted", [lifted.key]), host: LOOPBACK, port: lifted.port, timeoutMs: 5000, ...version });
+    assert.equal(ok.status, 200);
+    assert.equal(ok.body.toString(), "ok");
+    const cut = await fleetCall({ key: caller, trust: trustOf(t, "plain", [plain.key]), host: LOOPBACK, port: plain.port, timeoutMs: 5000, ...version }).catch((e: unknown) => e);
+    assert.ok(cut instanceof Error, "without the lift the serving core closes the socket at its idle limit");
+  } finally {
+    await lifted.server.stop();
+    await plain.server.stop();
   }
 });

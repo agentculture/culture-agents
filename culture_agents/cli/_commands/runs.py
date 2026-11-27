@@ -31,7 +31,7 @@ from agentfront import Flag
 
 from culture_agents.cli import _fetch, _mode, _render, _text
 from culture_agents.cli._client import CoreClient
-from culture_agents.cli._errors import EXIT_USER_ERROR, CliError, CoreError
+from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CliError, CoreError
 from culture_agents.cli._remote import check_submit, remote_base, usage
 from culture_agents.cli._render import Rendered
 
@@ -274,6 +274,13 @@ def runs_result(run_id: str, into: str | None = None, no_fetch: bool = False) ->
     done = _render.run_result(result)
     if shape == "run" or no_fetch or result["branch"] is None:
         return done
+    if result["run_id"] != run_id or result["branch"] != f"runs/{run_id}":
+        raise CliError(
+            code=EXIT_ENV_ERROR,
+            message=f"the member answered {_text.visible(str(result['branch']))}, "
+            "not this run's branch",
+            remediation="nothing was fetched; see 'agents explain runs result'",
+        )
     return _fetch.with_branch(done, client, route, result["branch"], into)
 
 

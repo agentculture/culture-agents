@@ -138,6 +138,14 @@ export async function startFleetServer(o: FleetServerOptions): Promise<FleetServ
   return { address: { host: o.host, port }, stop };
 }
 
+/**
+ * Lift the idle limit of the socket a request came on, for a route whose reply takes longer than
+ * `FLEET_TIMEOUT_MS` to start (a run's bundle). The socket is still closed after `ms` idle.
+ */
+export function allowReplyFor(req: IncomingMessage, ms: number): void {
+  req.socket.setTimeout(ms);
+}
+
 // ---------------------------------------------------------------- client
 
 export class FleetCallError extends Error {

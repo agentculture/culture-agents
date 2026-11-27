@@ -41,7 +41,8 @@ import { checkBody, readJsonBody, sendJson } from "../daemon/http.js";
 import type { RunService } from "../daemon/ports.js";
 import { hostEnv, runCommand } from "../sandbox/host-command.js";
 import { aliasList, resolveAlias, type AliasState } from "./aliases.js";
-import { markUnredacted, serveRunBundle } from "./bundle.js";
+import { BUNDLE_TIMEOUT_MS, markUnredacted, serveRunBundle } from "./bundle.js";
+import { allowReplyFor, FLEET_TIMEOUT_MS } from "./transport.js";
 import type { TrustEntry } from "./trust.js";
 
 /** The most events one page over the fleet transport carries (the caller asks for fewer). */
@@ -171,6 +172,7 @@ const RUN_ROUTES: Record<string, Handler> = {
   "GET events": events,
   "GET result": async (c) => sendJson(c.res, 200, "run#run_result", await c.d.service.getResult((await ownRun(c)).id)),
   "GET bundle": async (c) => {
+    allowReplyFor(c.req, BUNDLE_TIMEOUT_MS + FLEET_TIMEOUT_MS); // git may take up to BUNDLE_TIMEOUT_MS
     const run = await ownRun(c);
     return serveRunBundle(run, await c.d.service.getResult(run.id), c.d.node, c.res);
   },

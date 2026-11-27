@@ -163,3 +163,19 @@ def test_into_on_a_local_run_is_a_user_error(core, capsys, tmp_path) -> None:
     r = run(capsys, "runs", "result", RUN_ID, "--into", str(tmp_path))
     assert r.rc == 1
     assert "--into goes with a run on another member" in r.err
+
+
+def test_a_result_naming_another_runs_branch_is_refused_before_any_fetch(
+    remote, capsys, project
+) -> None:
+    other = f"runs/{RUN_ID[:-1]}Z"
+    remote.respond(
+        "GET /v1/fleet/runs/{id}/result",
+        200,
+        {**fixture("run", "run_result.succeeded"), "branch": other},
+    )
+    remote.respond("GET /v1/fleet/runs/{id}/bundle", 200, project["bundle"].read_bytes())
+    r = run(capsys, "runs", "result", RUN_ID, "--into", str(project["mine"]))
+    assert r.rc == 2
+    assert "not this run's branch" in r.err
+    assert remote.seen("GET", f"/v1/fleet/runs/{RUN_ID}/bundle") == []
