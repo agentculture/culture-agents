@@ -93,6 +93,13 @@ after 15 s of silence or at once when it leaves, and an announcement claiming a 
 another key is refused (409) and logged. `GET /v1/fleet/members` on the control socket returns the
 list (API 3.1). See `docs/d2/fleet-members.md`.
 
+Remote runs (API 3.2): `POST /v1/fleet/runs` on the control socket sends a submit to the member that
+the node of its `agent_id` names, with the repository named by an alias that member defines in its
+local, untracked `culture-agents/fleet/aliases.json`; `/v1/fleet/runs/{run_id}` (show, attach, steer,
+cancel) reaches the member a run id names. The member records itself as the run's submitter, acts
+only on the runs it submitted, and takes the deadline as a duration on its own clock. Every call has
+a 5 s timeout and a read cap. See `docs/d2/remote-runs.md`.
+
 ## License
 
 Apache-2.0

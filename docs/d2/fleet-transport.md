@@ -3,9 +3,10 @@
 Status: built in `core/src/fleet/`, **off by default**. This is the network
 transport between cores that `docs/d2/part-two-design.md` chose (Decision 1)
 with the key handling it chose (Decision 2). It is the first piece of part
-two. The member list runs on it (task t22, `docs/d2/fleet-members.md`). Remote
-calls and everything else in part two are not built (tasks t23 to t26). The
-Unix socket and its behaviour are unchanged.
+two. The member list runs on it (task t22, `docs/d2/fleet-members.md`), and so
+do remote runs (task t23, `docs/d2/remote-runs.md`). Admission across hosts,
+the unreachable view and bundles are not built (tasks t24 to t26). The Unix
+socket's existing routes and their behaviour are unchanged.
 
 ## What it does
 
@@ -41,9 +42,11 @@ Unix socket and its behaviour are unchanged.
   at once. There is one connection per call, with no keep-alive.
 - **Routes.** The transport serves an authenticated member
   `GET /v1/version`, `POST /v1/fleet/announce` and `GET /v1/fleet/members`
-  (t22, `docs/d2/fleet-members.md`). Every other path answers `not_found`. No
-  local control route can be reached over the network. Remote calls come in
-  t23.
+  (t22, `docs/d2/fleet-members.md`), and the remote-run routes under
+  `/v1/fleet/runs` and `GET /v1/fleet/aliases` (t23, `docs/d2/remote-runs.md`),
+  which act only on the runs the calling member submitted. Every other path
+  answers `not_found`. No local control route can be reached over the
+  network.
 
 ## The trust list
 

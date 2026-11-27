@@ -3,8 +3,9 @@
 Status: built in `core/src/fleet/` (`members.ts`, `announce.ts`, `peers.ts`),
 **off by default**, like the transport it runs on (`docs/d2/fleet-transport.md`).
 This is Decision 3 of `docs/d2/part-two-design.md`, built as that record
-recommends. Remote calls, admission across hosts, the unreachable view and
-bundles are not built (tasks t23 to t26).
+recommends. Remote runs use the member list (task t23,
+`docs/d2/remote-runs.md`). Admission across hosts, the unreachable view and
+bundles are not built (tasks t24 to t26).
 
 ## What it does
 
