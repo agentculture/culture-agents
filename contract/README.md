@@ -16,7 +16,9 @@ part two shape, the fleet member list, as a MINOR addition (see
 [Changes in 3.1](#changes-in-31)), and version 3.2 adds remote runs, a run
 submitted to and controlled on another fleet member, and the list of run
 directories the core cannot read, as another (see
-[Changes in 3.2](#changes-in-32)). The shapes are fixed here.
+[Changes in 3.2](#changes-in-32)); version 3.3 adds a remote run's logs,
+result and commits as a git bundle (see [Changes in 3.3](#changes-in-33)).
+The shapes are fixed here.
 Some of the behaviour behind them is not built yet. Every such rule below is
 marked **(planned)** with the task of the D2 plan
 (`docs/plans/2026-11-26-d2-fleet-and-recovery.md`) that builds it, and
@@ -178,8 +180,8 @@ never reported as a success, and neither is `unanswered`.
 
 **Part two is not in 3.0.** Its own shapes come with their tasks as 3.x MINOR
 additions: the list of fleet members (3.1, t22, built), the unreachable view of a run on a host
-that does not answer, and fetching a run's commits as a git bundle. Remote runs
-are 3.2 (t23, built). A MINOR
+that does not answer, and fetching a run's commits as a git bundle (3.3, t26,
+built). Remote runs are 3.2 (t23, built). A MINOR
 addition is a new route with its own response shape, or a new optional request
 field. It must not add a field, an enum value or an event kind to a shape that
 exists in 3.0. Three part-two shapes that would be MAJOR later are in 3.0
@@ -371,6 +373,54 @@ is never mistaken for a run that does not exist.
   carries `unreadable_count` beside `runs`. The count is the CLI's own field,
   not a change to the `run_list` shape.
 
+## Changes in 3.3
+
+Version 3.3 is one MINOR addition to 3.2, built by plan task t26 (spec c39,
+h28). No 3.0, 3.1 or 3.2 shape changed: three new routes reuse existing shapes
+or carry bytes, and no field, enum value, error code or event kind was added.
+A 3.0, 3.1 or 3.2 client works with a 3.3 core. A 3.3 client refuses a 3.2
+core, which has none of these routes.
+
+| Change | Where | Required in 3.3 | Built by |
+| --- | --- | --- | --- |
+| `fleet.runs.logs`: a page of a remote run's stored events | new route `GET /v1/fleet/runs/{run_id}/events?after=&limit=`, `event_page` | new in 3.3 | t26 (built) |
+| `fleet.runs.result`: the outcome of a terminal remote run | new route `GET /v1/fleet/runs/{run_id}/result`, `run_result` | new in 3.3 | t26 (built) |
+| `fleet.runs.bundle`: a terminal remote run's branch as a git bundle | new route `GET /v1/fleet/runs/{run_id}/bundle`, body `application/x-git-bundle` | new in 3.3 | t26 (built) |
+| the sensitivity mark on cross-host reads | HTTP response header `Agents-Content-Sensitivity: unredacted`; no schema field | new in 3.3 | t26 (built) |
+
+### A remote run's commits and reads (3.3)
+
+`docs/d2/run-bundles.md`.
+
+- **The bundle** holds exactly one ref, `refs/heads/runs/<run_id>`, and only
+  the commits after the run's `base_commit`, which is its one prerequisite
+  (`git bundle create <file> refs/heads/runs/<run_id> ^<base_commit>`). No other
+  branch, tag or commit of the executing host travels. The caller's checkout
+  must hold the base commit to fetch it. A run with no commits is `not_found`,
+  an active run `conflict` (retryable). A bundle over 64 MiB is refused with
+  `unsupported`, capability `placement`. The body is bytes; every refusal is an
+  ordinary JSON error.
+- **Who may read.** Over the fleet transport the executing core serves the
+  result, events and bundle of a run only to the member that submitted it
+  (`denied` otherwise, before anything of the run is read). On the control
+  socket the local operator reads them. This is the owner's answer to the
+  design record's question 8. Logs and attach across hosts follow this rule
+  and are not redacted.
+- **The mark.** Every cross-host response carrying a run's content as the
+  executing core stored it (`fleet.runs.logs`, `fleet.runs.attach`,
+  `fleet.runs.bundle`, and the member's `events` and `bundle` routes over the
+  fleet transport) carries the header `Agents-Content-Sensitivity: unredacted`.
+  It is a header, not a field, so it costs no schema change. A local read
+  carries no mark.
+- **Version rule.** The calling core sends these three routes only to a member
+  that announced 3.3 or later, and otherwise answers `unsupported`
+  (`placement`) without sending anything. The bundle call has a 60 second
+  timeout and a 64 MiB read cap; the others keep 5 seconds, and 1 MiB (result)
+  or 8 MiB (an event page, at most 50 events).
+- **The CLI.** `agents runs result` on a remote run fetches the branch into the
+  checkout it runs in, or `--into <checkout>`, after checking that the bundle
+  holds only that run's ref; `--no-fetch` fetches nothing.
+
 ## Routes
 
 The authoritative list is `api.json` → `routes`, which gives each route's
@@ -403,6 +453,9 @@ possible errors and CLI verb.
 | `fleet.runs.cancel` | `POST /v1/fleet/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` of a remote run (3.2) |
 | `fleet.aliases` | `GET /v1/fleet/aliases?member=` | 200 `remote.json#/$defs/alias_list` | `agents agents aliases` (3.2) |
 | `runs.unreadable` | `GET /v1/runs/unreadable` | 200 `unreadable.json` | `agents runs unreadable` (3.2) |
+| `fleet.runs.logs` | `GET /v1/fleet/runs/{run_id}/events?after=&limit=` | 200 `event_page` | `agents runs logs` of a remote run (3.3) |
+| `fleet.runs.result` | `GET /v1/fleet/runs/{run_id}/result` | 200 `run_result` | `agents runs result` of a remote run (3.3) |
+| `fleet.runs.bundle` | `GET /v1/fleet/runs/{run_id}/bundle` | 200 git bundle (bytes) | `agents runs result` of a remote run (3.3) |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:

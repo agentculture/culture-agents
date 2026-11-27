@@ -82,7 +82,11 @@ silent one within 16 s, and refuses a node name held by another key
 and `runs show|attach|steer|cancel` reach the member a run id names; the
 repository is an alias that member defines, the deadline a duration on its
 clock, and a member acts only on the runs it submitted
-(`docs/d2/remote-runs.md`, API 3.2).
+(`docs/d2/remote-runs.md`, API 3.2). `agents runs result` on a remote run
+brings its `runs/<id>` branch into the caller's checkout from a git bundle
+read over the transport (no shell on that host), and `runs logs` reads its
+events unredacted; only the member that submitted a run reads it this way
+(`docs/d2/run-bundles.md`, API 3.3).
 
 Boundaries (from [#1](https://github.com/agentculture/culture-agents/issues/1)
 and #2): culture-agents owns agent execution and direct control; culture-chat
@@ -121,7 +125,7 @@ uv run python scripts/harness-smoke.py --stage config --require config
 The core and the CLI share the socket path: `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`).
-The control API is version 3.2 (`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, remote runs and the unreadable runs list, and
+The control API is version 3.3 (`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, remote runs, the unreadable runs list and a remote run's logs, result and bundle, and
 `contract/README.md` marks the behaviour that is not built yet as (planned).
 
 ## Five harnesses and their files
