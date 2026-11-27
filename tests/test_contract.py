@@ -35,6 +35,7 @@ REQUIRED_SCHEMAS = {
     "branches.json",
     "fleet.json",
     "remote.json",
+    "unreadable.json",
 }
 
 

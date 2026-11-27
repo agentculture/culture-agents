@@ -327,6 +327,7 @@ export const unwiredService: RunService = (() => {
   return {
     submit: no,
     listRuns: no,
+    listUnreadable: no,
     getRun: no,
     readEvents: no,
     streamEvents: no,

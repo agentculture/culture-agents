@@ -219,7 +219,14 @@ def runs_list(
 ) -> Rendered:
     """List runs, newest first."""
     query = {"state": state, "agent_id": agent, "limit": limit}
-    return _render.run_list(CoreClient().get("/v1/runs", "run_list", query))
+    client = CoreClient()
+    runs = client.get("/v1/runs", "run_list", query)
+    return _render.run_list(runs, client.get("/v1/runs/unreadable", "unreadable_list"))
+
+
+def runs_unreadable() -> Rendered:
+    """List the run directories the core cannot read, with the reason for each."""
+    return _render.unreadable_list(CoreClient().get("/v1/runs/unreadable", "unreadable_list"))
 
 
 def runs_show(run_id: str) -> Rendered:

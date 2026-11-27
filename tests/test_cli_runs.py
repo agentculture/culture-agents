@@ -83,7 +83,7 @@ def test_list_text_json_and_query(core, capsys: pytest.CaptureFixture[str]) -> N
     assert f"{RUN_ID}  succeeded  claude-code  /srv/repos/demo" in text.out
     j = run(capsys, "runs", "list", "--state", "running", "--agent", "thor-reviewer",
             "--limit", "5", "--json")  # fmt: skip
-    assert j.json() == fixture("run", "run_list.two-runs")
+    assert j.json() == {**fixture("run", "run_list.two-runs"), "unreadable_count": 0}
     query = core.seen("GET", "/v1/runs")[-1]["query"]
     assert query == {"state": "running", "agent_id": "thor-reviewer", "limit": "5"}
 

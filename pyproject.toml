@@ -48,6 +48,7 @@ packages = ["culture_agents"]
 "contract/event.json" = "culture_agents/contract/event.json"
 "contract/fleet.json" = "culture_agents/contract/fleet.json"
 "contract/remote.json" = "culture_agents/contract/remote.json"
+"contract/unreadable.json" = "culture_agents/contract/unreadable.json"
 "contract/run.json" = "culture_agents/contract/run.json"
 "contract/session.json" = "culture_agents/contract/session.json"
 "contract/version.json" = "culture_agents/contract/version.json"

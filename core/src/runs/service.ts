@@ -32,6 +32,7 @@ import {
   type SubmitRequest,
   type Submitter,
   type SubmitResponse,
+  type UnreadableRunList,
 } from "../contract/index.js";
 import { existsSync } from "node:fs";
 import type { AllowlistState } from "../daemon/allowlist.js";
@@ -52,6 +53,7 @@ import { control, recordDeferredRefusal, WorkerRefusedError, type ControlKind, t
 import { replayAction, replaySubmit, type SubmitFault } from "./keys.js";
 import type { HarnessCatalog } from "./ports.js";
 import { Reattacher, type ReconnectFn } from "./reattach.js";
+import { listUnreadableRuns } from "./unreadable.js";
 import { readRun, resultOf, scanRuns, UnreadableRunError, type ScanOptions } from "./scan.js";
 import { checkLimits, NO_LIMITS } from "./limits.js";
 import { newRunRecord, startWorker, submittableHarness } from "./submit.js";
@@ -214,6 +216,10 @@ export class StoreRunService implements RunService {
     return runs
       .filter((run) => (query.state === undefined || run.state === query.state) && (query.agent_id === undefined || run.agent_id === query.agent_id))
       .slice(0, query.limit);
+  }
+
+  listUnreadable(): Promise<UnreadableRunList> {
+    return Promise.resolve(listUnreadableRuns(this.options.stateDir, this.options.readFile));
   }
 
   /** One run, or null when there is none. A run that exists but cannot be read is `internal` on every route, never "no such run". */

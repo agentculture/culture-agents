@@ -12,6 +12,7 @@ import type { MemberList, Fingerprint, Member, Refusal, AnnounceRefusal, Announc
 import type { RemoteRun, RepoAlias, RemoteSubmitRequest, RemoteSubmitResponse, AliasList, AliasFile } from "./remote.js";
 import type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 import type { Session } from "./session.js";
+import type { UnreadableRunList, UnreadableRun } from "./unreadable.js";
 import type { Version } from "./version.js";
 
 export type { Agent, AgentList } from "./agent.js";
@@ -26,6 +27,7 @@ export type { MemberList, Fingerprint, Member, Refusal, AnnounceRefusal, Announc
 export type { RemoteRun, RepoAlias, RemoteSubmitRequest, RemoteSubmitResponse, AliasList, AliasFile } from "./remote.js";
 export type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 export type { Session } from "./session.js";
+export type { UnreadableRunList, UnreadableRun } from "./unreadable.js";
 export type { Version } from "./version.js";
 
 /** Schema target (`<file stem>` or `<file stem>#<$defs name>`) to its payload type. */
@@ -122,5 +124,7 @@ export interface SchemaTypes {
   "run#run_list": RunList;
   "run#run_result": RunResult;
   "session": Session;
+  "unreadable": UnreadableRunList;
+  "unreadable#unreadable_run": UnreadableRun;
   "version": Version;
 }

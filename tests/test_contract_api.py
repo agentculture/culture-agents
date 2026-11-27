@@ -36,6 +36,7 @@ D1_ROUTES = {
     "fleet.runs.steer",
     "fleet.runs.cancel",
     "fleet.aliases",
+    "runs.unreadable",  # added in 3.2 (t32)
 }
 DEFERRED_ROUTES = {"runs.pause", "runs.resume", "runs.answer"}
 #: Pinned to unsupported by the schema in 3.0.

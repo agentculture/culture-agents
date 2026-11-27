@@ -17,6 +17,7 @@ import type {
   SubmitRequest,
   Submitter,
   SubmitResponse,
+  UnreadableRunList,
 } from "../contract/index.js";
 
 /** The control actions deferred beyond this API version: always refused with `unsupported` (step 4). */
@@ -50,6 +51,8 @@ export interface RunService {
   /** `submitter` is what the core established about the caller, never a request field. */
   submit(request: SubmitRequest, submitter?: Submitter, options?: SubmitOptions): Promise<SubmitResponse>;
   listRuns(query: RunListQuery): Promise<Run[]>;
+  /** Every run directory the core cannot read, with the reason (API 3.2). Reads only: nothing in those directories is changed. */
+  listUnreadable(): Promise<UnreadableRunList>;
   /** `null` when the id is well-formed but unknown. */
   getRun(runId: string): Promise<Run | null>;
   /** A page of stored events with cursor > `after`, oldest first; `null` when the run is unknown. */

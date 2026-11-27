@@ -14,7 +14,8 @@ recovery after a core restart, concurrent runs in one repository, idempotent
 requests, operator questions, limits and admission. Version 3.1 adds one D2
 part two shape, the fleet member list, as a MINOR addition (see
 [Changes in 3.1](#changes-in-31)), and version 3.2 adds remote runs, a run
-submitted to and controlled on another fleet member, as another (see
+submitted to and controlled on another fleet member, and the list of run
+directories the core cannot read, as another (see
 [Changes in 3.2](#changes-in-32)). The shapes are fixed here.
 Some of the behaviour behind them is not built yet. Every such rule below is
 marked **(planned)** with the task of the D2 plan
@@ -43,6 +44,7 @@ Key words: **must**, **must not** and **may** are normative.
 | `version.json` | `GET /v1/version` response | none |
 | `fleet.json` | `fleet.members` response (3.1) | `member`, `refusal`, `fingerprint`, `announcement`, `announce_refusal` (the fleet transport's announce route) |
 | `remote.json` | a run on another member, without its path (3.2) | `alias`, `submit_request`, `submit_response`, `alias_list`, `alias_file` (the local alias file, not an API payload) |
+| `unreadable.json` | `runs.unreadable` response (3.2) | `unreadable_run` |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
 | `fixtures/` | example payloads, see [Fixtures](#fixtures) | |
@@ -241,16 +243,18 @@ repository or in any tracked file.
 
 ## Changes in 3.2
 
-Version 3.2 is one MINOR addition to 3.1, built by plan task t23. No 3.0 or 3.1
-shape changed: no field, enum value, error code or event kind was added to a
-shape that exists in 3.1. A 3.0 or 3.1 client works with a 3.2 core. A 3.2
-client refuses a 3.1 core, which has no remote runs (the client rule above).
+Version 3.2 is one MINOR addition to 3.1, built by plan tasks t23 and t32. No
+3.0 or 3.1 shape changed: no field, enum value, error code or event kind was
+added to a shape that exists in 3.1. A 3.0 or 3.1 client works with a 3.2 core.
+A 3.2 client refuses a 3.1 core, which has neither remote runs nor the
+unreadable runs list (the client rule above).
 
 | Change | Where | Required in 3.2 | Built by |
 | --- | --- | --- | --- |
 | `fleet.runs.submit`, `.show`, `.attach`, `.steer`, `.cancel`: a run on another fleet member, submitted and controlled through this core | new routes under `/v1/fleet/runs`, new file `remote.json` | new in 3.2; with the fleet transport off they answer `unsupported`, capability `placement` | t23 (built) |
 | `fleet.aliases`: the repository aliases a member defines | new route `GET /v1/fleet/aliases?member=`, `remote.json#/$defs/alias_list` | new in 3.2 | t23 (built) |
 | the rule for calls between cores | this README, [Calls between cores](#calls-between-cores-32) | yes | t23 (built) |
+| `runs.unreadable`: every run directory the core cannot read, with its run id and the reason | new route `GET /v1/runs/unreadable`, new file `unreadable.json` | new in 3.2 | t32 (built) |
 
 ### Remote runs (3.2)
 
@@ -344,6 +348,29 @@ Between cores:
   to a caller that sends a lower MINOR. A fleet upgrades one host at a time;
   remote runs to a host start once that host runs 3.2.
 
+### Unreadable runs (3.2)
+
+`runs.list` skips a run directory the core cannot read (the core logs a
+warning). `runs.unreadable` is where those runs are named, so that a skipped run
+is never mistaken for a run that does not exist.
+
+- **What is listed.** Every directory under the store's `runs/` whose name is a
+  run id and which the core cannot read: `run_id` is the directory name. The
+  `reason` is `newer_version` (a store schema newer than the core reads),
+  `corrupt_record` (the record file is missing, not JSON or not a run),
+  `unreadable_log` (the event log is corrupt or unreadable) or `other` (say,
+  a version file that is not a version), and `detail` is the core's message,
+  at most 500 characters. A run whose worker may still be alive is listed
+  like any other: the list does not say whether a worker runs.
+- **Order.** By run id, descending. `count` equals the length of `runs`.
+- **Nothing is changed.** Listing reads the directory and never settles,
+  rewrites or removes anything in it. A directory of a newer store version is
+  read for its version file only.
+- **The CLI.** `agents runs list` prints one warning line when `count` is not
+  zero, naming the count and `agents runs unreadable`; its `--json` output
+  carries `unreadable_count` beside `runs`. The count is the CLI's own field,
+  not a change to the `run_list` shape.
+
 ## Routes
 
 The authoritative list is `api.json` → `routes`, which gives each route's
@@ -375,6 +402,7 @@ possible errors and CLI verb.
 | `fleet.runs.steer` | `POST /v1/fleet/runs/{run_id}/steer` | 202 `accepted_response` | `agents runs steer` of a remote run (3.2) |
 | `fleet.runs.cancel` | `POST /v1/fleet/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` of a remote run (3.2) |
 | `fleet.aliases` | `GET /v1/fleet/aliases?member=` | 200 `remote.json#/$defs/alias_list` | `agents agents aliases` (3.2) |
+| `runs.unreadable` | `GET /v1/runs/unreadable` | 200 `unreadable.json` | `agents runs unreadable` (3.2) |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:

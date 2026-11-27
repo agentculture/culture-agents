@@ -56,6 +56,7 @@ const PATTERNS: readonly Pattern[] = [
   ["harnesses.show", "GET", "v1", "harnesses", ":harness"],
   ["runs.submit", "POST", "v1", "runs"],
   ["runs.list", "GET", "v1", "runs"],
+  ["runs.unreadable", "GET", "v1", "runs", "unreadable"],
   ["runs.show", "GET", "v1", "runs", ":run_id"],
   ["runs.attach", "GET", "v1", "runs", ":run_id", "attach"],
   ["runs.logs", "GET", "v1", "runs", ":run_id", "events"],
@@ -319,6 +320,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
     }
     case "runs.list":
       return runsList(call);
+    case "runs.unreadable":
+      return sendJson(res, 200, "unreadable", await svc.listUnreadable());
     case "runs.show":
       return sendJson(res, 200, "run", await requireRun(ctx, p["run_id"] ?? ""));
     case "runs.attach":

@@ -248,7 +248,8 @@ def test_a_2_0_client_is_refused_by_the_3_2_core_with_exit_2_naming_both_version
     core: Core,
 ) -> None:
     """The real core and the real CLI code, with the client's version set back to 2.0."""
-    assert core.ok("runs", "list") == {"runs": []}  # this client and this core agree on 3.2
+    # this client and this core agree on 3.2
+    assert core.ok("runs", "list") == {"runs": [], "unreadable_count": 0}
     old_client = (
         "import sys; from culture_agents.cli import _client, main; "
         "_client.CLIENT_API_VERSION = '2.0'; sys.exit(main(sys.argv[1:]))"

@@ -47,7 +47,7 @@ one, a single-host control plane without chat. On disk:
   work end to end only with the stub harness (Claude Code and OpenCode report
   `answer` unsupported; owner decision pending); no hold of 12 hours was
   measured (longest 5 minutes); the model gateway's admission is read for OpenCode
-  (live read NOT VERIFIED); a run directory the core cannot read is skipped by listing;
+  (live read NOT VERIFIED); a run directory the core cannot read is skipped by `runs list`, which warns once and counts it, and `agents runs unreadable` names it;
   `succeeded` means the turn ended cleanly, not that the task was done; enabling
   broker publishing on a store with history replays it (loopback URL only); the
   Langfuse endpoint path was not confirmed live. Steer is **not preemption**: it
@@ -116,7 +116,7 @@ The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`);
 the `agents` CLI uses the same resolution. The control API is version 3.2
-(`contract/api.json`): it holds the D2 part one shapes plus the fleet member list and remote runs, and `contract/README.md` marks
+(`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, remote runs and the unreadable runs list, and `contract/README.md` marks
 the behaviour that is not built yet as (planned). With no core running, every `agents agents` and `agents runs` verb
 exits 2 with a hint.
 

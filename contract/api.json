@@ -739,6 +739,26 @@
         "unsupported",
         "unavailable"
       ]
+    },
+    {
+      "id": "runs.unreadable",
+      "method": "GET",
+      "path": "/v1/runs/unreadable",
+      "summary": "Every run directory this core cannot read, with its run id and the reason: a newer store version, a corrupt record or an unreadable log (added in 3.2). Reading changes nothing in those directories.",
+      "cli": "agents runs unreadable",
+      "d1": "supported",
+      "request": null,
+      "response": "unreadable.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal"
+      ]
     }
   ]
 }

@@ -1,0 +1,20 @@
+{
+  "count": 3,
+  "runs": [
+    {
+      "run_id": "thor-culture-agents.run.01M8CMHYHM3NW9NCT0KAW4J1H4",
+      "reason": "newer_version",
+      "detail": "the run directory uses store schema 99; this core reads schema 1 and earlier"
+    },
+    {
+      "run_id": "thor-culture-agents.run.01M8CMHYHM3NW9NCT0KAW4J2H4",
+      "reason": "corrupt_record",
+      "detail": "Unexpected token 'n', \"nope\" is not valid JSON"
+    },
+    {
+      "run_id": "thor-culture-agents.run.01M8CMHYHM3NW9NCT0KAW4J3H4",
+      "reason": "unreadable_log",
+      "detail": "event log line 3 is not JSON"
+    }
+  ]
+}

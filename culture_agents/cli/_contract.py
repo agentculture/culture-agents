@@ -46,6 +46,7 @@ TARGETS: dict[str, str] = {
     "remote_run": "remote.json",
     "remote_submit_response": "remote.json#/$defs/submit_response",
     "alias_list": "remote.json#/$defs/alias_list",
+    "unreadable_list": "unreadable.json",
 }
 
 _PACKAGE = Path(__file__).resolve().parent.parent
