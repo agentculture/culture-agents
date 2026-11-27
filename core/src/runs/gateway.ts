@@ -57,17 +57,22 @@ export function gatewayFromPayload(text: string, now: Date): Signal {
 
 const isLoopback = (u: URL): boolean => u.hostname === "localhost" || u.hostname === "[::1]" || /^127\.\d+\.\d+\.\d+$/.test(u.hostname);
 
+/** Where the redirect `res` from `url` points; throws unless that is a loopback http or https URL. */
+function redirectTarget(res: Response, url: URL): URL {
+  const loc = res.headers.get("location");
+  let next: URL | null = null;
+  try { next = loc ? new URL(loc, url) : null; } catch { next = null; }
+  if (next === null || !isLoopback(next) || (next.protocol !== "http:" && next.protocol !== "https:")) throw new Error("redirect to a non-loopback address");
+  return next;
+}
+
 async function fetchStatus(source: GatewaySource, signal: AbortSignal): Promise<string> {
   const doFetch = source.fetch ?? fetch;
   let url = new URL("/status", source.url);
   for (let hop = 0; hop <= MAX_HOPS; hop++) {
     const res = await doFetch(url, { redirect: "manual", signal, headers: { accept: "application/json" } });
     if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      let next: URL | null = null;
-      try { next = loc ? new URL(loc, url) : null; } catch { next = null; }
-      if (next === null || !isLoopback(next) || (next.protocol !== "http:" && next.protocol !== "https:")) throw new Error("redirect to a non-loopback address");
-      url = next;
+      url = redirectTarget(res, url);
       continue;
     }
     if (!res.ok) throw new Error(`status ${res.status}`);
