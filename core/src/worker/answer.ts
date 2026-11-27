@@ -18,6 +18,8 @@ export interface AnswerHost {
   desk: QuestionDesk;
   driver: Driver | null;
   clock: () => number;
+  /** How long the driver may take to take an answer before the delivery counts as failed. */
+  timeoutMs: number;
   state: () => RunState | null;
   /** Append to the run's log; null when the run is already terminal. */
   append: (input: EventInput, durable?: boolean) => RunEvent | null;
@@ -25,6 +27,19 @@ export interface AnswerHost {
 
 const clip = (text: string) => (text.length > 2000 ? `${text.slice(0, 1997)}...` : text);
 const messageOf = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+
+/** The default bound on delivering one answer to the harness. */
+export const ANSWER_TIMEOUT_MS = 30_000;
+
+/** The driver's answer, or a rejection when it has not settled within `ms`. */
+function withTimeout(work: Promise<void>, ms: number): Promise<void> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`the harness did not take it within ${ms} ms`)), ms);
+    timer.unref(); // a delivery abandoned with the run must not keep the process alive
+  });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
 
 export const UNSUPPORTED_ANSWER: ErrorBody = {
   code: "unsupported",
@@ -43,7 +58,7 @@ export async function deliverAnswer(host: AnswerHost, action: ActionRecord, requ
   if (!driver?.answer) return { ok: false, error: UNSUPPORTED_ANSWER };
   const ref = host.desk.begin(qid);
   try {
-    await driver.answer(ref, fields);
+    await withTimeout(Promise.resolve(driver.answer(ref, fields)), host.timeoutMs);
   } catch (err) {
     host.desk.abort(qid);
     const body = (err as { body?: ErrorBody }).body;
@@ -52,6 +67,7 @@ export async function deliverAnswer(host: AnswerHost, action: ActionRecord, requ
     host.append({ kind: "run.error", data: { error, fatal: false } });
     return { ok: false, error };
   }
+  if (!host.desk.isPending(qid)) return { ok: false, error: { code: "conflict", message: `Question ${qid} was withdrawn by the harness while the answer was being delivered.`, retryable: false, run_id: host.runId, question_id: qid } };
   const recorded = host.append({ kind: "run.answer", data: { question_id: qid, action, ...fields } }, true);
   host.desk.close(qid, host.clock());
   if (recorded !== null) return null;

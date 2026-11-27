@@ -41,6 +41,7 @@ function check(target: ControlTarget, request: AnswerRequest, runDir: string): C
   const ledger = questionLedger(readLog(runDir, run.id).events);
   const question = ledger.asked.get(qid);
   if (question === undefined) return refusalOf("not_found", `Run ${run.id} never asked question ${qid}.`, run.id, qid);
+  if (ledger.withdrawn.has(qid)) return refusalOf("conflict", `Question ${qid} was withdrawn by the harness.`, run.id, qid);
   if (ledger.answered.has(qid)) return refusalOf("conflict", `Question ${qid} already has its answer; a question takes one.`, run.id, qid);
   if (questionExpired(question, target.now().getTime())) return refusalOf("conflict", `Question ${qid} passed its time limit at ${question.answer_by}.`, run.id, qid);
   const misfit = answerFitError(question, answerFields(request));

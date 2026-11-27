@@ -20,7 +20,9 @@ export type FakeStep =
   /** Wait until cancelled, or forever when cancel is ignored. */
   | { op: "hang" }
   /** Ask the operator and wait for the answer (or a cancel); the answer is echoed as `run.output`. */
-  | { op: "ask"; question: AskedQuestion };
+  | { op: "ask"; question: AskedQuestion; /** false: raise it and go on, without waiting. */ wait?: boolean }
+  /** The harness drops the question with this ref without an answer (a `withdraw` event). */
+  | { op: "withdraw"; ref: string };
 
 export interface FakeDriverOptions {
   steps: FakeStep[];
@@ -36,6 +38,8 @@ export interface FakeDriverOptions {
   steerError?: string;
   /** When true the driver has no ask path (no `answer` method), like a harness that cannot ask. */
   noAnswer?: boolean;
+  /** The first this many answer deliveries never settle (a hung bridge). */
+  answerHangs?: number;
   /** When set, delivering an answer fails with this message. */
   answerError?: string;
   /** A sandbox the driver keeps once it is cancelled, while its stop is still in progress (retention cleanup). */
@@ -61,6 +65,7 @@ type Signal = { kind: "event"; event: DriverEvent } | { kind: "end" } | { kind: 
 export class FakeDriver implements Driver {
   private readonly queue = new Queue<Signal>();
   private readonly abort = new AbortController();
+  private hung = 0;
   private stopped = false;
   private cancelled = false;
   private waiting: { ref: string; resolve: () => void } | null = null;
@@ -72,6 +77,10 @@ export class FakeDriver implements Driver {
 
   /** Callers get a promise either way: a refused answer is a rejection, never a synchronous throw. */
   private takeAnswer(ref: string, reply: AnswerReply): Promise<void> {
+    if (this.hung < (this.options.answerHangs ?? 0)) {
+      this.hung += 1;
+      return new Promise<void>(() => undefined);
+    }
     if (this.options.answerError !== undefined) return Promise.reject(new Error(this.options.answerError));
     if (this.waiting?.ref !== ref) return Promise.reject(new Error(`no pending request ${ref}`));
     const { resolve } = this.waiting;
@@ -113,11 +122,19 @@ export class FakeDriver implements Driver {
             await new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("aborted"))));
             break;
           case "ask":
+            if (step.wait === false) {
+              this.emit({ type: "question", question: step.question });
+              break;
+            }
             await new Promise<void>((resolve, reject) => {
               this.waiting = { ref: step.question.ref, resolve };
               signal.addEventListener("abort", () => reject(new Error("aborted")));
               this.emit({ type: "question", question: step.question });
             });
+            break;
+          case "withdraw":
+            this.waiting = null;
+            this.emit({ type: "withdraw", ref: step.ref });
             break;
           case "throw":
             this.queue.push({ kind: "throw", message: step.message });

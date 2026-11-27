@@ -26,7 +26,8 @@ import { atomicWriteJson, runDir, runFile } from "../store/files.js";
 import { identityOf, writeHeartbeat, writeWorkerIdentity } from "../store/liveness.js";
 import { questionLimitMs } from "../store/questions.js";
 import { readRecord, writeRecord } from "../store/run-store.js";
-import { deliverAnswer, type AnswerHost } from "./answer.js";
+import { withdrawQuestion, raiseQuestion, type AskingHost } from "./asking.js";
+import { ANSWER_TIMEOUT_MS, deliverAnswer, type AnswerHost } from "./answer.js";
 import { closeControl, listenControl, type ControlReply, type ControlRequest } from "./control.js";
 import type { Driver, DriverEvent, DriverFactory, DriverSelection } from "./driver.js";
 import { QuestionDesk, type Due } from "./questions.js";
@@ -41,6 +42,8 @@ export interface WorkerOptions {
   cancelGraceMs?: number;
   /** The time limit of each question, in ms; capped at (and by default) 12 hours. */
   questionLimitMs?: number;
+  /** How long delivering one answer to the harness may take before it counts as failed. Default 30 000 ms. */
+  answerTimeoutMs?: number;
   /** The worker's clock. Deadlines, question limits and the paused time are all read from it. */
   clock?: () => number;
 }
@@ -207,7 +210,10 @@ export class RunWorker {
         this.append({ kind: "run.output", data: event.data });
         return;
       case "question":
-        this.ask(event.question);
+        raiseQuestion(this.askingHost(), event.question);
+        return;
+      case "withdraw":
+        withdrawQuestion(this.askingHost(), event.ref);
         return;
       case "error":
         this.append({ kind: "run.error", data: { error: { ...event.error, message: clip(event.error.message) }, fatal: false } });
@@ -282,20 +288,11 @@ export class RunWorker {
     const due = this.desk.due(now);
     if (due !== null) return this.requestStop(due, due);
     const at = this.desk.nextDueAt();
-    // A due time already reached that `due` does not act on (an answer being delivered) is looked at again shortly.
     if (at !== null) this.clockTimer = setTimeout(() => this.checkClock(), Math.min(Math.max(at - now, 50), MAX_TIMER));
   }
 
-  /** Record a question before the run waits for it; the deadline pauses from here. */
-  private ask(asked: Parameters<QuestionDesk["ask"]>[0]): void {
-    if (this.writer.state === "queued") this.transition("running", "the harness asked a question before reporting a start");
-    if (this.writer.state !== "running") {
-      this.append({ kind: "run.output", data: { channel: "diagnostic", text: "the harness asked a question while the run was stopping; it is not recorded" } });
-      return;
-    }
-    const question = this.desk.ask(asked, this.clock());
-    this.append({ kind: "run.question", data: { question } }, true);
-    this.checkClock();
+  private askingHost(): AskingHost {
+    return { desk: this.desk, clock: this.clock, state: () => this.writer.state, start: (r) => this.transition("running", r), append: (i, d) => this.append(i, d), checkClock: () => this.checkClock() };
   }
 
   /** The run reports its deadline moved by the time it spent waiting for answers. */
@@ -356,7 +353,7 @@ export class RunWorker {
 
   /** Deliver an answer, then record it (worker/answer.ts); the deadline then reports the time spent waiting. */
   private async answer(action: ActionRecord, request: AnswerRequest, ok: () => ControlReply): Promise<ControlReply> {
-    const host: AnswerHost = { runId: this.record.id, desk: this.desk, driver: this.driver, clock: this.clock, state: () => this.writer.state, append: (input, durable) => this.append(input, durable) };
+    const host: AnswerHost = { runId: this.record.id, desk: this.desk, driver: this.driver, clock: this.clock, timeoutMs: this.options.answerTimeoutMs ?? ANSWER_TIMEOUT_MS, state: () => this.writer.state, append: (input, durable) => this.append(input, durable) };
     const refused = await deliverAnswer(host, action, request);
     if (refused !== null) return refused;
     this.writeMovedDeadline();

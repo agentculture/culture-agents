@@ -41,16 +41,24 @@ export function answerFields(request: AnswerFields): AnswerFields {
 export interface QuestionLedger {
   asked: Map<string, Question>;
   answered: Set<string>;
+  /** Questions the harness withdrew: logged as a diagnostic `run.output` line (WITHDRAWN_PREFIX + id). */
+  withdrawn: Set<string>;
 }
 
+/** The text of the diagnostic output line that records a withdrawn question (no event kind fits). */
+export const WITHDRAWN_PREFIX = "question withdrawn: ";
+
 export function questionLedger(events: readonly RunEvent[]): QuestionLedger {
-  const ledger: QuestionLedger = { asked: new Map(), answered: new Set() };
+  const ledger: QuestionLedger = { asked: new Map(), answered: new Set(), withdrawn: new Set() };
   for (const event of events) {
     if (event.kind === "run.question") {
       const question = (event.data as QuestionData).question;
       ledger.asked.set(question.id, question);
     } else if (event.kind === "run.answer") {
       ledger.answered.add((event.data as AnswerData).question_id);
+    } else if (event.kind === "run.output") {
+      const { channel, text } = event.data as { channel: string; text: string };
+      if (channel === "diagnostic" && text.startsWith(WITHDRAWN_PREFIX)) ledger.withdrawn.add(text.slice(WITHDRAWN_PREFIX.length));
     }
   }
   return ledger;
@@ -62,7 +70,7 @@ export function pendingQuestions(events: readonly RunEvent[]): Question[] {
     if (event.kind === "run.state" && isTerminal((event.data as StateData).to)) return [];
   }
   const ledger = questionLedger(events);
-  return [...ledger.asked.values()].filter((q) => !ledger.answered.has(q.id));
+  return [...ledger.asked.values()].filter((q) => !ledger.answered.has(q.id) && !ledger.withdrawn.has(q.id));
 }
 
 /** Why `fields` does not fit `question`, or null when it does. */

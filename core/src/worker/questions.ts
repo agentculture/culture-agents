@@ -8,6 +8,8 @@
  * - Each question has its own limit (`answer_by`): 12 hours after it was asked, or less when the
  *   operator configured less. When it passes with no answer, the run stops and ends `unanswered`.
  * - An answer is taken once: a question that has its answer, or one being delivered, refuses a second.
+ * - A question being delivered still counts toward its own limit: a slow or hung delivery cannot
+ *   hold the run past 12 hours (the delivery itself is bounded, worker/answer.ts).
  *
  * Pure apart from the clock it is given; the worker turns what `due` says into a stop.
  */
@@ -81,6 +83,22 @@ export class QuestionDesk {
     return this.pending.size > 0;
   }
 
+  isPending(questionId: QuestionId): boolean {
+    return this.pending.has(questionId);
+  }
+
+  /** The harness dropped the question with this ref: it leaves the pending set. Its id, or null if none. */
+  withdraw(ref: string, now: number): QuestionId | null {
+    for (const [id, entry] of this.pending) {
+      if (entry.ref !== ref) continue;
+      this.pending.delete(id);
+      this.delivering.delete(id);
+      if (this.pending.size === 0) this.deadline.resume(now);
+      return id;
+    }
+    return null;
+  }
+
   /** Give a raised request its id and time limit and start waiting: the deadline pauses. */
   ask(asked: AskedQuestion, now: number): Question {
     const question: Question = {
@@ -137,7 +155,7 @@ export class QuestionDesk {
 
   /** What is due at `now`: a question past its limit comes first, then the deadline. */
   due(now: number): Due {
-    for (const { question } of this.pending.values()) if (!this.delivering.has(question.id) && questionExpired(question, now)) return "question_limit";
+    for (const { question } of this.pending.values()) if (questionExpired(question, now)) return "question_limit";
     const at = this.deadline.dueAt();
     return at !== null && at <= now ? "deadline" : null;
   }
