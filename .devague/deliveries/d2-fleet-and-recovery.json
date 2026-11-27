@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-27T11:48:02Z",
+  "updated": "2026-11-27T17:30:00Z",
   "deviations": [
     {
       "id": "d1",
@@ -500,6 +500,196 @@
       "status": "proposed",
       "superseded": false,
       "seq": 27
+    },
+    {
+      "id": "e25",
+      "obligation_ref": "o12",
+      "test_ref": "core/test/fleet/config.test.ts::a core started without a listen address opens no fleet transport",
+      "behavior_text": "with no CULTURE_AGENTS_FLEET_LISTEN the core opens no fleet listener (the transport is off even with a key held), and a configured transport reads only its listen address, trust file and key",
+      "contract_text": "With no network transport configured the core listens on the Unix socket only and opens no TCP port; the allow-list cannot be read or written through any route.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 28
+    },
+    {
+      "id": "e26",
+      "obligation_ref": "o13",
+      "test_ref": "core/test/runs/admission-remote.test.ts (6 tests) + tests/acceptance/d2/test_remote_runs.py",
+      "behavior_text": "a remote submit passes harness, then limits, then signals; a heat hold or unknown is a typed admission_held naming signal, state and observed_at and queues nothing; a local submit admits unknown with a warning; the gateway is consulted only through an admit field with a timestamp",
+      "contract_text": "A core admits a submit only when its own harness, concurrency bound, heat signal and model-gateway signal allow it; a signal that says hold yields a typed refusal naming the signal; a missing or stale signal is reported as 'unknown' and never as permission.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 29
+    },
+    {
+      "id": "e27",
+      "obligation_ref": "o14",
+      "test_ref": "core/test/fleet/unreachable-e2e.test.ts::two real cores: a halted host's run reads unreachable on every read ... + tests/acceptance/d2/test_unreachable_runs.py",
+      "behavior_text": "with the member's core halted by SIGSTOP every read on the caller is unreachable, never succeeded, the caller writes nothing, and the true terminal state shows once the member answers",
+      "contract_text": "When a member stops answering, every run that was active on it reads 'unknown' to every caller within the stated time, no stored terminal state is changed, and no caller is ever shown 'succeeded' for a run whose worker did not write that event.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 30
+    },
+    {
+      "id": "e28",
+      "obligation_ref": "o15",
+      "test_ref": "core/test/fleet/members.test.ts (13 tests) + tests/acceptance/d2/test_fleet_members.py (4 tests)",
+      "behavior_text": "nobody is listed before an announcement; a member is listed under its trust-list name, dropped within 16 s of silence or at once on leaving or when its key leaves the trust list; two real cores list each other and drop a dead one by silence",
+      "contract_text": "A core appears in the member list after it announces itself and leaves it within the stated time after it stops or goes silent; the list is built from announcements only, never from a tracked file.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 31
+    },
+    {
+      "id": "e29",
+      "obligation_ref": "o16",
+      "test_ref": "scripts/check-example-node.py + tests/test_check_example_node.py",
+      "behavior_text": "799 tracked files checked, 0 findings: ids and node fields name only the example node thor; CI's lint job enforces it",
+      "contract_text": "No tracked file, fixture, log excerpt or published record contains a fleet host's name or address; records name hosts by role.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 32
+    },
+    {
+      "id": "e30",
+      "obligation_ref": "o17",
+      "test_ref": "core/test/fleet/transport.test.ts (11 tests) + core/test/fleet/transport-limits.test.ts (2) + core/test/fleet/cert.test.ts (5)",
+      "behavior_text": "TLS 1.3 with both sides authenticated by Ed25519 key: an unknown key or no certificate is refused before any request is read; captured bytes hold no private key or plaintext; no session resumption; one address holds at most 8 connections",
+      "contract_text": "A connection between two cores is encrypted and authenticated in both directions by key; a core with an unknown or removed key is refused before any request is read, and no private key or reusable secret is sent.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 33
+    },
+    {
+      "id": "e31",
+      "obligation_ref": "o20",
+      "test_ref": "core/test/fleet/unreachable-e2e.test.ts + core/test/fleet/unreachable.test.ts (4 tests)",
+      "behavior_text": "the caller's view is computed on each read: file digests of the caller's and owner's directories are unchanged by unreachable reads, and only the owner writes unknown after SIGCONT",
+      "contract_text": "A caller shows 'unreachable' for runs of a member it cannot reach and writes nothing; only the owning core writes a terminal state.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 34
+    },
+    {
+      "id": "e32",
+      "obligation_ref": "o27",
+      "test_ref": "core/test/fleet/bundle.test.ts (5 tests) + core/test/fleet/bundle-route-timeout.test.ts + tests/test_cli_run_bundle.py",
+      "behavior_text": "the bundle holds only the run's runs/<id> ref; only the submitting member, with the key it submitted with, may read result, bundle and logs; others are denied; the CLI refuses a bundle or branch that is not the run's",
+      "contract_text": "A run's commits are served as a git bundle limited to its `runs/<id>` ref, only to a caller allowed to read that run.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 35
+    },
+    {
+      "id": "e33",
+      "obligation_ref": "o9",
+      "test_ref": "core/test/fleet/remote.test.ts::a submit from the calling core ... the submitter is the member + core/test/fleet/bundle.test.ts::a member is its key",
+      "behavior_text": "a remote run's submitter is the authenticated member with its trust-list node name and key fingerprint, not a request field",
+      "contract_text": "The submitter stored on a run is the socket peer the core observed, appears in the run's contract shape, and cannot be set or changed by any request field.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "behavioral tests ran green at 6cd81ca (main after the part two squash merge, pull request 18)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T17:27:56Z",
+        "commit": "6cd81ca"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 36
+    },
+    {
+      "id": "e34",
+      "obligation_ref": "o28",
+      "test_ref": "docs/d2/part-two-acceptance.md (t28, checks 1 to 8)",
+      "behavior_text": "host A x86_64 and host B aarch64 over the real network, stub harness: remote submit 0.72 s, steer 0.23 s, cancel 0.26 s then cancelled 19 ms later, result fetched in 0.30 s; host B's core halted: no_answer at 5.0 s on 2 tries, not_listed after 15 s, runs show never succeeded; heat hold and a missing heat file both refused admission_held; a real harness on host B NOT VERIFIED (no Landlock in its kernel)",
+      "contract_text": "A submit from host A runs on host B and is steered and cancelled from A; with host B halted every run on it reads unreachable on A within the stated seconds and 0 read succeeded; a hold signal refuses a submit and a missing one reads unknown",
+      "evidence_type": "observation",
+      "strength": "execution",
+      "strength_basis": "a manual run on 2 real hosts with both cores at c64d0e1, measured by the operator agent and recorded the same day; one run, the halt was SIGSTOP of a process, not a network partition",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T15:45:31Z",
+        "commit": "c64d0e1"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 37
     }
   ],
   "deltas": [
@@ -618,6 +808,78 @@
       "origin": "llm",
       "status": "approved",
       "superseded": false
+    },
+    {
+      "id": "b10",
+      "kind": "amended",
+      "behavior_text": "A halted or silent member's runs read 'unreachable' on the caller, a view computed on each read and never stored, with reason not_listed or no_answer; only the owning core writes the terminal state 'unknown', with evidence the worker is gone",
+      "caused_by": [
+        "c9"
+      ],
+      "evidence_refs": [
+        "e27",
+        "e31"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b11",
+      "kind": "amended",
+      "behavior_text": "A member submitter also carries the fingerprint of the key it authenticated with (submitter.key, contract 3.3); a member acts on a run only with that key, so a node name moved to another key inherits none of its runs",
+      "caused_by": [
+        "c35"
+      ],
+      "evidence_refs": [
+        "e33",
+        "e32"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b12",
+      "kind": "added",
+      "behavior_text": "One remote address may hold at most 8 fleet connections at once (a further one is closed before anything is read), and refused or failed handshakes are logged at most once per address a minute (found by review)",
+      "caused_by": [
+        "c37"
+      ],
+      "evidence_refs": [
+        "e30"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b13",
+      "kind": "added",
+      "behavior_text": "A member's steer and cancel idempotency keys are held in its own namespace, as its submit keys are, so they never match a local operator's or another member's (found by review)",
+      "caused_by": [
+        "c35"
+      ],
+      "evidence_refs": [
+        "e33"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": true
+    },
+    {
+      "id": "b14",
+      "kind": "added",
+      "behavior_text": "A member's steer and cancel idempotency keys are held in its own namespace, as its submit keys are, so they never match a local operator's or another member's (found by review)",
+      "caused_by": [
+        "c6"
+      ],
+      "evidence_refs": [
+        "e33"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
     }
   ],
   "supersessions": [
@@ -626,6 +888,13 @@
       "action": "supersede",
       "target_ref": "b8",
       "replacement_ref": "b9",
+      "origin": "user"
+    },
+    {
+      "id": "s2",
+      "action": "supersede",
+      "target_ref": "b13",
+      "replacement_ref": "b14",
       "origin": "user"
     }
   ]

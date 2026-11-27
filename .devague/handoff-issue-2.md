@@ -12,27 +12,33 @@ This is working state, not a design document. The authoritative records are:
   `docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md` and the
   derived `docs/current-spec.md`.
 
-## D2: part two built, in its pull request (written 2026-11-27, evening)
+## D2 built and merged (written 2026-11-27, night)
 
-Read this first; it supersedes the next section's "Part two" paragraph.
+Read this first; it supersedes the sections below it.
 
-All part two tasks are merged on `runs/d2-fleet`: t20 to t26, t32 and t28
-(API 3.3, version 0.17.0). t28 closed with host A x86_64 and host B an aarch64
-Jetson whose kernel has no Landlock (owner's choice, 2026-11-27: "close t28
-with Thor"), so a real harness across hosts and on aarch64 is NOT VERIFIED
-(`docs/d2/part-two-acceptance.md`). The fleet cores and the OpenShell gateway
-started on both hosts for t28 are stopped. Host B still holds the unpacked
-binaries and a clone under the owner's home; remove them only if the owner
-asks.
+**State now.** D2 is on main. Part one: pull request 15 (`b4d7723`, 0.16.0).
+Part two: pull request 18, squash merged by the owner as `6cd81ca` (0.17.0,
+API 3.3), with every review, CI, SonarCloud and acceptance finding fixed before
+the merge. Validation and the delivery summary for part two are on branch
+`runs/d2-close` (its own pull request): evidence `e25` to `e34`, obligation
+`o28` (for `c27`) and deltas `b10` to `b12`, `b14` are filed as proposed and
+wait for the owner; `docs/deliveries/2026-11-26-d2-fleet-and-recovery.md` now
+reads 26 delivered, 6 partial, 0 blocked over 32 tasks. The review record is
+`docs/d2/reviews/pr-18-review.md`.
 
-Still to do: the pull request through cicd, `/validate-delivery` and
-`/summarize-delivery` for part two. Follow-up from acceptance: the missing-heat
-refusal carries the member's absolute heat-file path; `runs result` text joins
-lines with no separator; a real-harness check on an aarch64 host with
-Landlock. Owner items still open: who installs Langfuse, restarting the model
-gateway (its `/status` has no `admission` object), a task for secrets by file.
-The 45-minute OpenCode budget failed once (76 minutes over); the owner will add
-temporal awareness. Until then dispatch only to Claude Code.
+**Not verified, and what it needs.** A real harness across hosts, and any real
+harness on aarch64 (host B's kernel has no Landlock; another aarch64 host with
+Landlock, or a kernel rebuild). A gateway `hold` (a running gateway that
+publishes the admit field; restart it on the build host). A network partition.
+
+**Owner items still open.** Adjudicate the part two records; who installs
+Langfuse (`t29`); restarting the model gateway (`t31`); ask paths for the real
+harnesses (`d3`); secrets by file (`t12`). The 45-minute OpenCode budget failed
+once (76 minutes over); the owner will add temporal awareness, and until then
+every dispatch goes to Claude Code. Host B still holds the unpacked binaries and
+a clone under the owner's home; remove them only if the owner asks.
+
+**Next gate.** D3 (chat split), not planned yet.
 
 ## D2: part one released, part two building (written 2026-11-27, 10:40 UTC)
 
