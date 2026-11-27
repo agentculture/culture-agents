@@ -35,6 +35,7 @@ Key words: **must**, **must not** and **may** are normative.
 | `event.json` | Event (log entry and stream item) | `question`, `question_data`, `answer_data`, `event_page` |
 | `capabilities.json` | harness capability document | `capability_set`, `limits`, `admission`, `signal`, `capabilities_list` |
 | `error.json` | error response `{"error": {...}}` | `error`, `code`, `limit`, `held_signal` |
+| `branches.json` | `branches.list` response | `remove_request`, `remove_response` |
 | `version.json` | `GET /v1/version` response | none |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
@@ -126,17 +127,18 @@ behaviour inside 3.0, without another bump.
 | Change | Where | Required in 3.0 | Built by |
 | --- | --- | --- | --- |
 | `api_version` is `3.0` | `api.json`, `GET /v1/version` | yes | this change |
-| `submitter`: who submitted the run, as the core established it | Run | optional; absent on a run recorded before the core set it | t11, *shape only* |
+| `submitter`: who submitted the run, as the core established it | Run | optional; absent on a run recorded before the core set it | t11 (built) |
 | `base_commit`: the commit the run starts from | Run | optional; absent on a run recorded before the core set it | t7 (built) |
 | `pending_questions`: questions waiting for an answer | Run | optional; must be empty on a terminal run | t13 (built): always reported, read from the log |
 | `unanswered`: a new terminal state, reached from `cancelling` | Run `state`, `run_result`, the `state` query of `runs.list`, `state_machine` | part of the enum | t13 (built) |
 | `limit_reached`: a new error code (HTTP 429, exit 1) with a required `limit` naming the limit, its value and the active count | error, `runs.submit` | `limit` is required with this code and forbidden with any other | t8 (built) |
 | `busy` is removed, with its `active_run_id` and `repo` fields and the one-active-run-per-repository rule | error, `runs.submit` | gone: a 3.0 core never answers it | t8 (built) |
-| `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel`, `runs.answer` | optional; `retryable` is then false; forbidden with any other code | t6 (built) |
+| `conflict` may carry `idempotency_key`: the key was used with a different request | error, `runs.submit`, `runs.steer`, `runs.cancel` | optional; `retryable` is then false; forbidden with any other code | t6 (built) |
 | `question_id` on an error that concerns a question | error | optional | t13 (built) |
-| `unavailable` may carry `retry_after_ms`: retry shortly, for a control request that arrives while the core reattaches to the run's worker | error | optional; forbidden with any other code | t9, *shape only* |
+| `unavailable` may carry `retry_after_ms`: retry shortly, for a control request that arrives while the core reattaches to the run's worker | error | optional; forbidden with any other code | t9 (built) |
 | `run.question` and `run.answer`: two new event kinds | event | each kind pins its `data` | t13 (built) |
 | `run.control` records a steer or a cancel only | event | tightened: an accepted answer is a `run.answer` | this change |
+| `branches.list` and `branches.remove`: two routes, and `branches.json`, for the `runs/<run_id>` branches of one repository | route, `branches.json` | new in 3.0; `remove` deletes only with `git branch -d` and reports the rest | built |
 | `answer_request`: `question_id` must be a question id; `answer` is optional; `choice_ids` and `decision` are new | `runs.answer` request | `caller` and `question_id` are required | t13 (core, built), t16 (CLI) |
 | `runs.answer` may be accepted, and may answer `conflict` or `unavailable` | route | | t13 (built); still `unsupported` for a harness that cannot ask |
 | `replayed` and `warnings` on the submit response; a replayed run need not be `queued` | `submit_response` | both optional | t6 (`replayed`, built), t17 (`warnings`, built) |
@@ -200,6 +202,8 @@ possible errors and CLI verb.
 | `runs.steer` | `POST /v1/runs/{run_id}/steer` | 202 `accepted_response` | `agents runs steer` |
 | `runs.cancel` | `POST /v1/runs/{run_id}/cancel` | 202 `accepted_response` | `agents runs cancel` |
 | `runs.answer` | `POST /v1/runs/{run_id}/answer` | 202 `accepted_response` | `agents runs answer` |
+| `branches.list` | `GET /v1/branches?repo=` | 200 `branches.json` | `agents branches list` |
+| `branches.remove` | `POST /v1/branches/remove` | 200 `remove_response` | `agents branches remove` |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:
@@ -284,7 +288,7 @@ already `cancelling` is accepted and recorded, but has no further effect.
 `conflict` uses `retryable: true` when a later state could accept the action:
 `steer` on `queued`, or `result` on an active run. Otherwise it uses `false`.
 
-**(planned)** What changes in this order:
+What changed in this order:
 
 - Built (t13): `answer` left step 4. It is checked like `steer`: capability at
   step 5, state at step 6. It needs a `running` run and a pending question
@@ -292,7 +296,7 @@ already `cancelling` is accepted and recorded, but has no further effect.
   with `question_id`. A question that already has its answer, or whose time
   limit has passed → `conflict` with `question_id`, not retryable. An answer
   that does not fit the question → `invalid`.
-- Step 7 (t9). The core reattaches to surviving workers, so `live_control`
+- Built (t9), step 7. The core reattaches to surviving workers, so `live_control`
   is true again and the refusal naming `reconnect` ends. A control request
   that arrives before the run's reattach attempt has finished waits for it or
   gets `unavailable` with `retry_after_ms` and the `run_id`. It never gets
@@ -375,7 +379,7 @@ After a restart, the core rebuilds every run from disk:
 - The core checks that a worker is alive by its recorded PID together with an
   identity check, so that a reused PID is not mistaken for the worker.
 
-**(planned, t9)** The core reattaches to each surviving worker over the
+**(built, t9)** The core reattaches to each surviving worker over the
 worker's own control socket and reports `live_control: true` again. `steer`,
 `cancel` and `attach` then work as before the restart. A worker whose control
 socket does not answer is never reattached by guess and never signalled: its
@@ -678,7 +682,7 @@ read the event logs of finished runs.
   of the user that owns the socket. For a request from another core it is
   `member` with that member's `node`. No request field sets or changes it,
   and every request schema is closed, so a request that tries is `invalid`.
-  A 3.0 core sets it on every run it creates **(planned, t11)**; it is absent
+  A 3.0 core sets it on every run it creates **(built, t11)**; it is absent
   on a run recorded before that. Part one does not enforce on it.
 - `base_commit` is the commit of the repository the run starts from, resolved
   by the core when it accepts the submit **(built, t7)**; the worker builds the sandbox from it, not from the host's HEAD at that later time. It is absent on a
