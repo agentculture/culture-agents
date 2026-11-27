@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.1] - 2026-11-27
+
+### Added
+
+- The delivery summary for D2 part one, `docs/deliveries/2026-11-26-d2-fleet-and-recovery.md`: 17 tasks delivered, 7 partial, 7 blocked (part two), with what is not verified and what remains.
+- Validation records for D2 part one: 22 evidence records and 8 behavioural deltas, filed as proposed for the owner to confirm. Two of the evidence records are failing ones.
+
+### Changed
+
+- Handoff note: part one is released as 0.16.0 and part two is building on its own branch.
+
 ## [0.16.0] - 2026-11-27
 
 ### Added

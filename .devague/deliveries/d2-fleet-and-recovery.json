@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-27T03:40:44Z",
+  "updated": "2026-11-27T10:25:43Z",
   "deviations": [
     {
       "id": "d1",
@@ -47,7 +47,551 @@
       "seq": 3
     }
   ],
-  "evidence": [],
-  "deltas": [],
-  "supersessions": []
+  "evidence": [
+    {
+      "id": "e1",
+      "obligation_ref": "o1",
+      "test_ref": "core/test/runs/restart.test.ts::a worker survives a daemon SIGKILL: reported from disk, control reattached, counted against a limit, terminal state reached",
+      "behavior_text": "After a SIGKILL of the core and a new core, the surviving worker's run is controllable again and reaches its terminal state",
+      "contract_text": "After a restart the core reattaches to every worker whose control socket answers, and a steer, cancel or attach sent to that run takes effect; a worker whose socket does not answer is reported 'unknown' and is never signalled or killed. This supersedes the D1 obligation that live control is unavailable after a restart.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon and real worker processes; ran green at the named commit. A second test covers a worker that misses its first ping (reattach-retry.test.ts)",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 4
+    },
+    {
+      "id": "e2",
+      "obligation_ref": "o2",
+      "test_ref": "core/test/runs/concurrent.test.ts::a per-repository limit refuses the submit past it with limit_reached naming the limit; nothing is queued",
+      "behavior_text": "With runsPerRepository 2 the third submit is refused limit_reached naming the limit and its value, and no run directory is created; with no limit 3 submits are accepted",
+      "contract_text": "A submit to a repository with active runs is accepted while the stated bound has room and refused with a typed error naming the bound when it has not; the bound is readable through the API, and no submit is queued silently.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 5
+    },
+    {
+      "id": "e3",
+      "obligation_ref": "o3",
+      "test_ref": "core/test/runs/isolation.test.ts::2 runs in 1 repository complete; each runs branch holds only its own commits; the host checkout and index are unchanged; no worktree",
+      "behavior_text": "Two concurrent stub runs each return only their own commits on runs/<id>; checkout, index, HEAD and config are byte-identical; no git worktree exists",
+      "contract_text": "A run never writes the host checkout, index or any ref outside its own `runs/<id>` branch, and no code path creates a git worktree; two concurrent runs in one repository leave each branch holding only its own run's commits.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real git and the stub harness, not an OpenShell sandbox; ran green at the named commit. This test failed once before the merge (review finding 19); the cause was fixed and it passed 200 of 200 under load after",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 6
+    },
+    {
+      "id": "e4",
+      "obligation_ref": "o4",
+      "test_ref": "core/test/runs/idempotency.test.ts::a repeated submit key returns the first run and creates nothing; a changed request is conflict; both hold after a restart",
+      "behavior_text": "The key file and request digest are on disk; a repeat returns the first run with replayed true; a changed request is conflict; both hold after SIGKILL and restart",
+      "contract_text": "The key and a digest of the request are on disk before the submit is acknowledged; a repeat of the same key and request returns the first run's id and creates nothing; the same key with a different request returns 'conflict'; both hold after a core restart. Steer and cancel behave the same on their keys.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 7
+    },
+    {
+      "id": "e5",
+      "obligation_ref": "o5",
+      "test_ref": "core/test/runs/questions.test.ts::a question survives a core restart and its answer is delivered into the same run exactly once",
+      "behavior_text": "A question is in the log before the wait, is pending after a SIGKILL restart, takes one answer, and a second answer is conflict",
+      "contract_text": "A question is appended to the run's on-disk log before the run starts waiting, is listed as pending after a core restart, and an answer is delivered exactly once into the same run; a harness that cannot ask reports the capability as unsupported and 'answer' is refused with the typed error.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon and worker with the STUB harness only; Claude Code and OpenCode report answer as unsupported (deviation d3), so no real harness was asked",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 8
+    },
+    {
+      "id": "e6",
+      "obligation_ref": "o6",
+      "test_ref": "core/test/runs/branches.test.ts::removal deletes only a finished, reachable branch with git branch -d, and reports every skip",
+      "behavior_text": "Only a finished run's branch whose tip another non-run ref contains is deleted, with git branch -d and never -D; active, unknown, unreadable and unmerged branches are skipped and reported",
+      "contract_text": "Listing shows every `runs/<id>` branch with its run's state; removal deletes a branch only when git itself shows its commits reachable from another ref, never forces a delete, and skips and reports a branch whose run is active, 'unknown' or retained.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real git; ran green at the named commit. A further test refuses a remote-tracking copy of a run branch as evidence",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 9
+    },
+    {
+      "id": "e7",
+      "obligation_ref": "o7",
+      "test_ref": "core/test/daemon/lifecycle.test.ts::SIGTERM sent at the moment of the listening report stops the daemon cleanly (handlers are installed first)",
+      "behavior_text": "A SIGTERM arriving at the listening line stops the daemon with exit 0 and removes the socket; a cancel whose grace ends during retention cleanup leaves retained.json (worker/recovery-gaps.test.ts)",
+      "contract_text": "The daemon's signal handlers are installed before it reports that it is listening, and a cancel whose grace period ends during retention cleanup still leaves a retention record.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon child; ran green at the named commit. One line of the third D1 gap (a conflict reply) cannot be reached and is not tested",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 10
+    },
+    {
+      "id": "e8",
+      "obligation_ref": "o8",
+      "test_ref": "core/test/publish/broker.test.ts::with the broker down nothing is lost: after it returns every missed event is published once, in order, with its original id",
+      "behavior_text": "With the broker down a run reaches the same terminal state and log; when it returns every event is published once, in order, with its original id and append time",
+      "contract_text": "An event is published only after it is appended to the run's log, in the broker's existing envelope with the run id; with the broker stopped, a run reaches the same terminal state and the same log, and no call to the core blocks or fails because of the broker.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "in-process MQTT broker on loopback; ran green at the named commit. Not run against the events-cli broker of a real host",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 11
+    },
+    {
+      "id": "e9",
+      "obligation_ref": "o9",
+      "test_ref": "core/test/runs/submitter.test.ts::a run submitted over the socket records the user that owns the socket, and no request field changes it",
+      "behavior_text": "The stored submitter is the socket owner's uid; a forged submitter in the request body is refused or ignored",
+      "contract_text": "The submitter stored on a run is the socket peer the core observed, appears in the run's contract shape, and cannot be set or changed by any request field.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon; ran green at the named commit. Node cannot read peer credentials, so the submitter is the socket's owner, not the connecting process",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 12
+    },
+    {
+      "id": "e10",
+      "obligation_ref": "o10",
+      "test_ref": "tests/test_cli_version_3.py::test_a_2_0_client_is_refused_by_a_3_0_core_with_exit_2_naming_both_versions",
+      "behavior_text": "A 2.0 client is refused by a 3.0 core with exit 2 naming both versions; every fixture validates against the 3.0 schemas in both the core and the CLI",
+      "contract_text": "Every payload validates against the 3.0 schemas; a CLI built for 2.0 that connects to a 3.0 core is refused with exit 2 naming both versions; each breaking change from 2.0 is listed in the spec.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "fake core for the CLI side and the fixture suites on both sides; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 13
+    },
+    {
+      "id": "e11",
+      "obligation_ref": "o11",
+      "test_ref": "core/test/runs/reattach.test.ts::SIGKILL of the core signals no worker; the worker alone enforces its deadline and writes its terminal event",
+      "behavior_text": "With the core killed, the worker keeps its pid, enforces its own deadline and writes its terminal event",
+      "contract_text": "Stopping or killing the core sends no signal to any worker; each worker enforces its own deadline and writes its own terminal event with the core absent.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real processes; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 14
+    },
+    {
+      "id": "e12",
+      "obligation_ref": "o12",
+      "test_ref": "core/test/runs/submitter.test.ts::with no network transport the core opens no TCP port, and no route reads or writes the allow-list",
+      "behavior_text": "The daemon process has no listening TCP socket (read from /proc) and three allow-list paths answer not_found with the file unchanged",
+      "contract_text": "With no network transport configured the core listens on the Unix socket only and opens no TCP port; the allow-list cannot be read or written through any route.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon, Linux only; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 15
+    },
+    {
+      "id": "e13",
+      "obligation_ref": "o18",
+      "test_ref": "core/test/daemon/secrets.test.ts::a marked secret is absent from the worker, a host command and the sandbox after the core starts",
+      "behavior_text": "Every declared secret set to a marker is absent from a real worker's /proc environ, a real host command's env and the sandbox exec env",
+      "contract_text": "No secret injected into the core's environment is present in a worker's, a host command's or a sandbox's environment.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real worker and host command, a recording fake for the sandbox client; ran green at the named commit. The core's OWN initial environment still holds them in /proc, which this obligation does not cover",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 16
+    },
+    {
+      "id": "e14",
+      "obligation_ref": "o19",
+      "test_ref": "core/test/publish/publisher.test.ts::a message holds run id, event type, state, cursor and time, and no content of the run",
+      "behavior_text": "A published message carries only run id, event type, state, cursor and time; marked prompt, output and tool text never appear",
+      "contract_text": "No broker message contains prompt text, harness output, tool results or an operator's answer; only the run id, event type, state, cursor and time.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 17
+    },
+    {
+      "id": "e15",
+      "obligation_ref": "o21",
+      "test_ref": "core/test/runs/reattach.test.ts::a control request before the reattach attempt finished waits, then retry-shortly; never live control unavailable",
+      "behavior_text": "A control request that arrives before reattach finished waits, then gets unavailable with retry_after_ms; it never gets the reconnect refusal",
+      "contract_text": "No control request for a live run is answered 'live control unavailable' because reattach had not finished; it waits or is told to retry shortly.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 18
+    },
+    {
+      "id": "e16",
+      "obligation_ref": "o22",
+      "test_ref": "core/test/runs/idempotency.test.ts::a submit killed after-spawn: after restart a repeat gives exactly 1 run, no worker runs unlisted, an unestablished key is released",
+      "behavior_text": "The core SIGKILLs itself at each of 3 submit steps; after restart a repeat yields exactly 1 run, every live worker is listed, and an unestablished key is released",
+      "contract_text": "After a crash at any step of a submit, a repeat with the same key yields exactly one run or a clean new one; no orphan worker runs unlisted and no key answers 'not found'.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "3 kill points by fault injection; ran green at the named commit. The window where a worker has started but not written event 1 has no injection point",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 19
+    },
+    {
+      "id": "e17",
+      "obligation_ref": "o23",
+      "test_ref": "core/test/runs/base-commit.test.ts::a stub run builds from the recorded commit although the host HEAD moved before the sandbox was ready",
+      "behavior_text": "base_commit is recorded at accept time and the workspace is built from it after the host HEAD moved",
+      "contract_text": "The commit a run starts from is fixed and recorded when the submit is accepted, and the sandbox is built from that commit whatever HEAD is later.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "stub workspace and a unit test of the sandbox path; not run with a real OpenShell bundle",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 20
+    },
+    {
+      "id": "e18",
+      "obligation_ref": "o24",
+      "test_ref": "core/test/runs/concurrent.test.ts::a per-host limit refuses the submit past it across repositories; nothing is queued",
+      "behavior_text": "With runsPerHost set, a submit past it is refused limit_reached at submit and no run is created",
+      "contract_text": "A submit beyond the host-wide bound is refused at submit with a typed error; no run is accepted and then failed for lack of capacity.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "real daemon; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 21
+    },
+    {
+      "id": "e19",
+      "obligation_ref": "o25",
+      "test_ref": "core/test/store/versioned.test.ts::a run directory written by the 2.0 core is listed with its true state",
+      "behavior_text": "A run directory without store.json, as 2.0 wrote it, is listed with the state its log shows",
+      "contract_text": "A 3.0 core lists runs written by 2.0, never drops or misreports one it cannot fully read, and never signals a 2.0 worker.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "fixture of a 2.0 run directory; no test with live 2.0 workers",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 22
+    },
+    {
+      "id": "e20",
+      "obligation_ref": "o26",
+      "test_ref": "core/test/publish/broker.test.ts::broker down for a whole run, then a core restart: every event is published once, with its original id, after the broker returns",
+      "behavior_text": "After a core restart the events missed while the broker was down are published once each with their original ids",
+      "contract_text": "Each appended event is published once the core has followed the log to it; after a core restart missed events are published with their original ids and none is skipped silently.",
+      "evidence_type": "automated",
+      "strength": "execution",
+      "strength_basis": "in-process broker on loopback; ran green at the named commit",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 23
+    },
+    {
+      "id": "e21",
+      "obligation_ref": "o25",
+      "test_ref": "docs/d2/part-one.md:101 and core/src/runs/scan.ts (the listing skips an unreadable run directory with a warning)",
+      "behavior_text": "A run directory the core cannot read is skipped by the listing and is not shown over the API; it is kept on disk and counted against limits",
+      "contract_text": "A 3.0 core lists runs written by 2.0, never drops or misreports one it cannot fully read, and never signals a 2.0 worker.",
+      "evidence_type": "observation",
+      "strength": "coverage",
+      "strength_basis": "read from the code and the document at the named commit; the contract has no shape for an unreadable run in a listing, so the obligation's words 'never drops ... one it cannot fully read' do not hold for the API listing",
+      "outcome": "fail",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 24
+    },
+    {
+      "id": "e22",
+      "obligation_ref": "o16",
+      "test_ref": "docs/d0/d1-acceptance.md:116 (grep); scripts/check-example-node.py and scripts/scan-secrets.py",
+      "behavior_text": "Both scans pass on 664 and 794 tracked files, but one D1 acceptance record still names the real chat server of the build host, and one delivery record does too",
+      "contract_text": "No tracked file, fixture, log excerpt or published record contains a fleet host's name or address; records name hosts by role.",
+      "evidence_type": "observation",
+      "strength": "coverage",
+      "strength_basis": "grep at the named commit; the owner was asked whether to redact these two records and has not decided, and the scans check node fields and addresses, not prose",
+      "outcome": "fail",
+      "run": {
+        "timestamp": "2026-11-27T10:23:50Z",
+        "commit": "b4d7723"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 25
+    }
+  ],
+  "deltas": [
+    {
+      "id": "b1",
+      "kind": "amended",
+      "behavior_text": "Operator questions work end to end with the stub harness only; the Claude Code and OpenCode drivers have no ask path and report answer as unsupported",
+      "caused_by": [
+        "d3"
+      ],
+      "evidence_refs": [
+        "e5"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b2",
+      "kind": "amended",
+      "behavior_text": "A run directory the core cannot read is skipped by the API listing instead of being listed as unreadable",
+      "caused_by": [
+        "c55"
+      ],
+      "evidence_refs": [
+        "e21"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b3",
+      "kind": "added",
+      "behavior_text": "The trace endpoint must be a loopback address and a redirect is never followed; any other address stops the core at start (owner decision of 2026-11-27)",
+      "caused_by": [
+        "c69"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b4",
+      "kind": "added",
+      "behavior_text": "An answer's delivery is bounded at 30 seconds and a harness may withdraw a question; a hung delivery no longer suspends the question limit (from the code review of pull request 15)",
+      "caused_by": [
+        "c7"
+      ],
+      "evidence_refs": [
+        "e5"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b5",
+      "kind": "added",
+      "behavior_text": "Contract 3.0 lets placement be reported as supported and has a typed admission_held refusal; schema only, nothing returns it (owner approval of 2026-11-27, task t30)",
+      "caused_by": [
+        "c8"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b6",
+      "kind": "added",
+      "behavior_text": "The capability report reads the model gateway's admit field for OpenCode, on loopback only, capped at 64 KiB and 1 second (owner approval of 2026-11-27, task t31)",
+      "caused_by": [
+        "c8"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b7",
+      "kind": "amended",
+      "behavior_text": "Injected secrets are not inherited by any worker, host command or sandbox, but stay readable in the core's own /proc environment to processes of the same user; the documents say so",
+      "caused_by": [
+        "c44"
+      ],
+      "evidence_refs": [
+        "e13"
+      ],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    },
+    {
+      "id": "b8",
+      "kind": "amended",
+      "behavior_text": "Retention removes every worker-written terminal state (succeeded, failed, cancelled, timed_out, unanswered), never unknown; the documents were changed to match the code",
+      "caused_by": [
+        "c5"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": true
+    },
+    {
+      "id": "b9",
+      "kind": "amended",
+      "behavior_text": "Retention removes every worker-written terminal state (succeeded, failed, cancelled, timed_out, unanswered), never unknown; the documents were changed to match the code",
+      "caused_by": [
+        "c58"
+      ],
+      "evidence_refs": [],
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false
+    }
+  ],
+  "supersessions": [
+    {
+      "id": "s1",
+      "action": "supersede",
+      "target_ref": "b8",
+      "replacement_ref": "b9",
+      "origin": "user"
+    }
+  ]
 }
