@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] - 2026-11-27
+
+### Added
+
+- D2 part two: cores on more than one host. A network transport between cores (TLS 1.3, both sides authenticated by Ed25519 key against a local trust list), off unless CULTURE_AGENTS_FLEET_LISTEN is set; a fleet member list (`agents agents list`); member-defined repository aliases (`agents agents aliases`).
+- Remote runs: `agents runs submit --agent <member> --alias <alias>` runs a task on another member; `runs show|attach|steer|cancel|logs|result` reach the member a run id names; `runs result` brings a remote run's branch into the caller's checkout from a git bundle read over the transport. Control API 3.1, 3.2 and 3.3.
+- Admission on the member: a remote submit is refused `admission_held` when that member's heat or gateway signal says hold or reads unknown.
+- The unreachable view: while a member does not answer, its runs read `unreachable` on the caller (computed, never stored), never `succeeded`.
+- `agents runs unreadable` names the run directories the core could not read.
+- `docs/d2/part-two-acceptance.md`: part two on 2 real hosts (x86_64 and aarch64) with the stub harness; a real harness across hosts and on aarch64 is NOT VERIFIED.
+
+### Changed
+
+- The five prompt files and CLAUDE.md describe D2 as built.
+
+### Fixed
+
+- `core/node_modules` is ignored when it is a symlink, so a run no longer commits it.
+
 ## [0.16.2] - 2026-11-27
 
 ### Changed
