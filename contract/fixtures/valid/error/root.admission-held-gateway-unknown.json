@@ -1,0 +1,12 @@
+{
+  "error": {
+    "code": "admission_held",
+    "message": "the gateway signal on thor is unknown (no reading) and a submit from another host is not admitted on an unknown signal; nothing was queued",
+    "retryable": true,
+    "signal": {
+      "name": "gateway",
+      "state": "unknown",
+      "observed_at": null
+    }
+  }
+}

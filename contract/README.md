@@ -34,7 +34,7 @@ Key words: **must**, **must not** and **may** are normative.
 | `control-action.json` | action record | `submit_request`, `submit_response`, `warning`, `steer_request`, `cancel_request`, `pause_request`, `resume_request`, `answer_request`, `decision`, `choice_ids`, `accepted_response` |
 | `event.json` | Event (log entry and stream item) | `question`, `question_data`, `answer_data`, `event_page` |
 | `capabilities.json` | harness capability document | `capability_set`, `limits`, `admission`, `signal`, `capabilities_list` |
-| `error.json` | error response `{"error": {...}}` | `error`, `code`, `limit` |
+| `error.json` | error response `{"error": {...}}` | `error`, `code`, `limit`, `held_signal` |
 | `version.json` | `GET /v1/version` response | none |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
@@ -144,6 +144,8 @@ behaviour inside 3.0, without another bump.
 | `runs.submit` may answer `conflict` and `limit_reached` | route | | t6 (`conflict`, built), t8 (`limit_reached`, built) |
 | `answer`, `reconnect` and `worktree_isolation` may be reported as supported | capability document | `reconnect` and `worktree_isolation` are reported supported; `answer` is reported supported by the stub harness only, whose driver asks | t13 (built), t9 (built), t8 (built) |
 | `limits`, `active_runs` and `admission` on the capability document | capability document | all optional | t17, built |
+| `placement` may be reported as supported | capability document | every harness of this core reports it unsupported, with its reason | t30, *shape only* (planned, part two) |
+| `admission_held`: a new error code (HTTP 429, exit 1, retryable) with a required `signal` naming the signal (`heat` or `gateway`), its `state` (`hold` or `unknown`) and `observed_at` | error, `runs.submit` | `signal` is required with this code and forbidden with any other; no route returns it yet | t30, *shape only* (planned, part two) |
 
 `busy` is removed in 3.0 (t8, built): the error code, its `active_run_id` and `repo` fields and the one-active-run-per-repository rule are gone from the schemas, this file and the CLI. Two or more runs may be active in one repository; no limit applies unless the operator configures one, and a submit past a configured limit gets `limit_reached`.
 
@@ -167,11 +169,14 @@ additions: the list of fleet members, the unreachable view of a run on a host
 that does not answer, and fetching a run's commits as a git bundle. A MINOR
 addition is a new route with its own response shape, or a new optional request
 field. It must not add a field, an enum value or an event kind to a shape that
-exists in 3.0. The one part-two value that 3.0 already has is the `submitter`
-kind `member`, because a new value there would be MAJOR. Two things part two
-needs are not MINOR under the rules above and are not decided here:
-`placement` becoming supportable, and a typed refusal of a submit that an
-admission signal holds.
+exists in 3.0. Three part-two shapes that would be MAJOR later are in 3.0
+already: the `submitter` kind `member`; `placement`, which the schema lets a
+harness report as supported (t30); and `admission_held`, the typed refusal of a
+submit that an admission signal holds, naming the signal, its state and the
+time it was observed (t30). They are shapes only: every harness of this core
+reports `placement` unsupported, and no route returns `admission_held`, until
+part two builds them **(planned, part two)**. Part two can then add both as
+behaviour inside 3.0, without a MAJOR bump.
 
 ## Routes
 
@@ -241,6 +246,9 @@ Clients and tests may rely on the order.
    `runs_per_host`. With no limit configured nothing is checked and no submit
    is refused here. Nothing is queued. See
    [Limits, load and admission](#limits-load-and-admission).
+   **(planned, part two)** After the limits, a consulted admission signal
+   that says `hold`, or that is `unknown` for a submit from another host →
+   `admission_held` with `signal`. Today no submit is refused here.
 8. The core writes the key (when there is one), then creates the session and
    run directory, then starts the worker. The worker writes its PID, its
    event log with event 1 (`run.state`, `null` → `queued`) and its cursor to
@@ -552,11 +560,10 @@ supportable is a MAJOR bump.
 | `pause`, `resume` | `POST .../pause` or `.../resume` → `unsupported` |
 | `continue_session` | submit with `session_id` → `unsupported` |
 | `delegate` (agent-to-agent) | submit with `parent_run_id` → `unsupported` |
-| `placement` (multi-host) | submit for an agent on another node → `unsupported` |
 
 ### Capabilities that 3.0 allows
 
-In 2.0 these three were deferred. In 3.0 the schema lets a harness report
+In 2.0 these four were deferred. In 3.0 the schema lets a harness report
 them as supported. A harness reports each one unsupported, with the reason,
 until its driver does it.
 
@@ -565,6 +572,7 @@ until its driver does it.
 | `answer` (operator questions) | supported by the stub; Claude Code and OpenCode: `POST .../answer` → `unsupported` | t13 (built) |
 | `reconnect` (live control after a core restart) | steer or cancel a run with `live_control: false` → `unsupported` | t9 (built) |
 | `worktree_isolation` (concurrent runs in one repository) | reported supported by every harness; there is no refusal | t8 (built) |
+| `placement` (multi-host) | reported unsupported by every harness; submit for an agent on another node → `unsupported` | part two **(planned, part two)**; the shape is from t30 |
 
 `worktree_isolation` means one clone of the repository per run, made from the
 run's `base_commit`, with its own `runs/<run_id>` branch: a sandbox clone per
@@ -608,6 +616,13 @@ in epoch seconds, `stale_after_s`, `admit`). The gateway is not consulted yet.
 
 A local submit under an `unknown` consulted signal is admitted, and the submit response
 then carries a `warnings` entry with code `signal_unknown` naming the signal.
+
+**(planned, part two)** A submit that a consulted signal holds (`hold`, or
+`unknown` for a submit from another host) is refused with `admission_held`.
+Its `signal` names the signal (`heat` or `gateway`), the `state` that held the
+submit and the `observed_at` of the reading (null when there is none). It is
+retryable, and nothing is queued: the caller retries later or submits to
+another host. The shape is in 3.0 (t30); no route returns it yet.
 
 ## Retention of finished runs
 
@@ -679,6 +694,7 @@ sentence. For environment errors, the message includes a remediation hint.
 | `not_found` | 404 | 1 | false | `run_id` (optional) | Unknown agent, harness, run or path |
 | `conflict` | 409 | 1 | varies (see above) | `run_id`; `idempotency_key` or `question_id` (optional) | The run's state does not allow the action, or an idempotency key was used with a different request |
 | `limit_reached` | 429 | 1 | true | `limit` (`name`, `value`, `active`, and `repo` for a repository limit) | A limit the operator configured has no room; nothing is queued |
+| `admission_held` | 429 | 1 | true | `signal` (`name`, `state`, `observed_at`) | An admission signal holds the submit; nothing is queued. **(planned, part two)**: no route returns it yet |
 | `unsupported` | 422 | 1 | false | `capability` | The capability is not supported (see above) |
 | `incompatible_version` | 412 | 2 | false | `client_api_version`, `server_api_version` | The API versions are incompatible |
 | `unavailable` | 503 | 2 | true | `retry_after_ms`, `run_id` (both optional) | A dependency is not reachable (sandbox gateway, harness, worker). With `retry_after_ms`: retry shortly |

@@ -81,6 +81,11 @@
       "exit_code": 1,
       "retryable": true
     },
+    "admission_held": {
+      "http_status": 429,
+      "exit_code": 1,
+      "retryable": true
+    },
     "unsupported": {
       "http_status": 422,
       "exit_code": 1,
@@ -230,7 +235,8 @@
         "unsupported",
         "unavailable",
         "conflict",
-        "limit_reached"
+        "limit_reached",
+        "admission_held"
       ]
     },
     {

@@ -122,7 +122,7 @@
       }
     },
     "deferred": {
-      "description": "A capability no harness supports in this API version: pause, resume, continue_session, delegate and placement. Changing one to supportable is a schema change (README: versioning).",
+      "description": "A capability no harness supports in this API version: pause, resume, continue_session and delegate. Changing one to supportable is a schema change (README: versioning).",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -191,7 +191,7 @@
           "$ref": "#/$defs/deferred"
         },
         "placement": {
-          "$ref": "#/$defs/deferred"
+          "$ref": "#/$defs/capability"
         },
         "reconnect": {
           "$ref": "#/$defs/capability"

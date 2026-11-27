@@ -21,6 +21,7 @@
         "not_found",
         "conflict",
         "limit_reached",
+        "admission_held",
         "unsupported",
         "incompatible_version",
         "unavailable",
@@ -78,6 +79,10 @@
         "limit": {
           "description": "limit_reached only: the configured limit that refused the submit.",
           "$ref": "#/$defs/limit"
+        },
+        "signal": {
+          "description": "admission_held only: the admission signal that held the submit, as the core read it.",
+          "$ref": "#/$defs/held_signal"
         },
         "retry_after_ms": {
           "description": "unavailable only (optional): the core expects the same request to work after about this many milliseconds, for example while it reattaches to the run's worker after a restart.",
@@ -270,6 +275,35 @@
             ],
             "properties": {
               "code": {
+                "const": "admission_held"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "signal"
+            ],
+            "properties": {
+              "retryable": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "signal"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
                 "const": "conflict"
               }
             }
@@ -343,6 +377,32 @@
         "repo": {
           "description": "runs_per_repository only: the canonical repository path the limit was reached for.",
           "$ref": "common.json#/$defs/repo_path"
+        }
+      }
+    },
+    "held_signal": {
+      "description": "An admission signal that held a submit on this core's host, as it stood when the core refused it (planned, part two). Nothing is queued: the caller retries later or submits to another host.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "state",
+        "observed_at"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "capabilities.json#/$defs/signal_name"
+        },
+        "state": {
+          "description": "hold: the signal says not to start new work. unknown: the signal is missing or stale, which refuses a submit from another host (a local submit is admitted with a warning instead).",
+          "enum": [
+            "hold",
+            "unknown"
+          ]
+        },
+        "observed_at": {
+          "description": "The time the signal's publisher stamped on the reading, or null when there is no reading.",
+          "$ref": "common.json#/$defs/nullable_timestamp"
         }
       }
     }
