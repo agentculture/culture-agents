@@ -41,14 +41,14 @@ function valid<T>(schema: SchemaName, path: string): T {
   return result.value as T;
 }
 
-test("this core speaks API 3.2 (3.0 plus the fleet member list, remote runs and the unreadable runs list) and a 2.0 client is not compatible with it, in either direction", () => {
-  assert.equal(apiVersion, "3.2");
+test("this core speaks API 3.3 (3.0 plus the fleet member list, remote runs, the unreadable runs list and the unreachable view) and a 2.0 client is not compatible with it, in either direction", () => {
+  assert.equal(apiVersion, "3.3");
   assert.equal(isCompatible("2.0", apiVersion), false);
   assert.equal(isCompatible(apiVersion, "2.0"), false);
-  assert.equal(isCompatible("3.0", apiVersion), true, "a 3.0 client works with this 3.2 core");
+  assert.equal(isCompatible("3.0", apiVersion), true, "a 3.0 client works with this 3.3 core");
   assert.equal(isCompatible("3.1", apiVersion), true, "so does a 3.1 client");
-  assert.equal(isCompatible(apiVersion, "3.1"), false, "a 3.2 client refuses a 3.1 core, which has no remote runs");
-  assert.equal(isCompatible(apiVersion, "3.0"), false, "a 3.2 client refuses a 3.0 core, which has no member list");
+  assert.equal(isCompatible(apiVersion, "3.1"), false, "a 3.3 client refuses a 3.1 core, which has no remote runs");
+  assert.equal(isCompatible(apiVersion, "3.0"), false, "a 3.3 client refuses a 3.0 core, which has no member list");
   assert.equal(exitCodeFor("incompatible_version"), 2);
   const refusal = valid<{ error: ErrorBody }>("error", "error/root.incompatible-version").error;
   assert.deepEqual([refusal.client_api_version, refusal.server_api_version], ["2.0", "3.0"]);

@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { parseMeshId, parseScopedId, validate, type RemoteSubmitRequest } from "../contract/index.js";
 import { streamRemoteAttach } from "../fleet/remote-attach.js";
-import type { Remote } from "../fleet/remote.js";
+import { Unreached, type Remote } from "../fleet/remote.js";
 import { invalid, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 
@@ -56,6 +56,23 @@ export async function fleetRunsShow(c: FleetRouteCall): Promise<void> {
   const remote = remoteOf(c);
   const run = await remote.request(memberOfRun(c), { method: "GET", path: runPath(c.runId), status: 200, schema: "remote" });
   return sendJson(c.res, 200, "remote", run);
+}
+
+/**
+ * The unreachable view (3.3): the member's answer, or `unreachable` when it does not answer this
+ * caller. Computed on each read from one GET; nothing is stored or written, here or on the member.
+ * Any other failure (a refusal, a bad answer) is relayed as the error it is, not as unreachable.
+ */
+export async function fleetRunsView(c: FleetRouteCall): Promise<void> {
+  const remote = remoteOf(c);
+  const node = memberOfRun(c);
+  try {
+    const run = await remote.request(node, { method: "GET", path: runPath(c.runId), status: 200, schema: "remote" });
+    return sendJson(c.res, 200, "reachability", { run_id: c.runId, node, view: "reachable", run });
+  } catch (e) {
+    if (!(e instanceof Unreached)) throw e;
+    return sendJson(c.res, 200, "reachability", { run_id: c.runId, node, view: "unreachable", unreachable: { reason: e.reason, detail: e.body.message } });
+  }
 }
 
 export async function fleetRunsControl(c: FleetRouteCall, kind: "steer" | "cancel"): Promise<void> {

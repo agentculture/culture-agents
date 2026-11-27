@@ -22,7 +22,7 @@ import { startDaemon, type Daemon } from "../../src/daemon/daemon.js";
 import type { SubmitOptions } from "../../src/daemon/ports.js";
 import { certificateFor, newFleetKey } from "../../src/fleet/cert.js";
 import type { FleetConfig } from "../../src/fleet/config.js";
-import { createFleet, type Fleet } from "../../src/fleet/index.js";
+import { createFleet, type Fleet, type FleetTiming } from "../../src/fleet/index.js";
 import { loadTrust } from "../../src/fleet/trust.js";
 import { hostEnv } from "../../src/sandbox/host-command.js";
 import { FakeRunService, fixture, stream } from "../daemon/fake-service.js";
@@ -98,6 +98,8 @@ export interface Core {
 export interface CoreOptions {
   /** The API version this core reports (default: this build's). */
   apiVersion?: string;
+  /** The fleet's clock and silence limit (the member list's monotonic clock; tests move it). */
+  timing?: Pick<FleetTiming, "now" | "silenceMs">;
   /** This core's wall clock (default: the real one). */
   now?: () => Date;
   /** `[alias, path]` pairs of the alias file. */
@@ -120,7 +122,7 @@ export async function startCore(node: string, key: KeyObject, trusted: readonly 
   const service = new MemberService(now);
   const config: FleetConfig = { host: LOOPBACK, port: 0, key, trustPath, trust: loadTrust(trustPath), peersPath: join(fleetDir, "peers.json") };
   const logs: string[] = [];
-  const fleet = createFleet(config, node, (l) => logs.push(l), { intervalMs: 3_600_000, ...(o.apiVersion !== undefined && { apiVersion: o.apiVersion }) }, { service, allowlist: () => loadAllowlist(env.allowlistPath), now });
+  const fleet = createFleet(config, node, (l) => logs.push(l), { intervalMs: 3_600_000, ...o.timing, ...(o.apiVersion !== undefined && { apiVersion: o.apiVersion }) }, { service, allowlist: () => loadAllowlist(env.allowlistPath), now });
   if (!(await fleet.start())) throw new Error(`the fleet of ${node} did not start: ${logs.join("; ")}`);
   const daemon = await startDaemon({ service, node, env: env.vars, allowlistPath: env.allowlistPath, now, members: () => fleet.members.view(), remote: fleet.remote });
   const port = (): number => fleet.address()?.port ?? 0;

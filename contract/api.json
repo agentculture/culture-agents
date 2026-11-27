@@ -1,5 +1,5 @@
 {
-  "api_version": "3.2",
+  "api_version": "3.3",
   "schema_base": "https://culture.dev/contract/agents/",
   "description": "Index of the culture-agents control-plane API. Semantics live in contract/README.md; payload shapes in the schema files named here, resolved against schema_base.",
   "transport": {
@@ -611,6 +611,32 @@
       "d1": "supported",
       "request": null,
       "response": "remote.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "fleet.runs.view",
+      "method": "GET",
+      "path": "/v1/fleet/runs/{run_id}/view",
+      "summary": "A run on another member as this caller sees it now: the member's answer, or `unreachable` when the member does not answer. A view computed on each read and never stored (added in 3.3).",
+      "cli": "agents runs show (remote run)",
+      "d1": "supported",
+      "request": null,
+      "response": "reachability.json",
       "status": 200,
       "stream": false,
       "content_type": "application/json",

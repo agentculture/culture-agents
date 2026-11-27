@@ -16,7 +16,7 @@ import { memberListOff } from "../fleet/members.js";
 import type { Remote } from "../fleet/remote.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { branchesList, branchesRemove } from "./branch-routes.js";
-import { fleetAliases, fleetRunsAttach, fleetRunsControl, fleetRunsShow, fleetRunsSubmit, type FleetRouteCall } from "./fleet-routes.js";
+import { fleetAliases, fleetRunsAttach, fleetRunsControl, fleetRunsShow, fleetRunsSubmit, fleetRunsView, type FleetRouteCall } from "./fleet-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 import type { DeferredRequest, RunService } from "./ports.js";
@@ -71,6 +71,7 @@ const PATTERNS: readonly Pattern[] = [
   ["fleet.members", "GET", "v1", "fleet", "members"],
   ["fleet.runs.submit", "POST", "v1", "fleet", "runs"],
   ["fleet.runs.show", "GET", "v1", "fleet", "runs", ":run_id"],
+  ["fleet.runs.view", "GET", "v1", "fleet", "runs", ":run_id", "view"],
   ["fleet.runs.attach", "GET", "v1", "fleet", "runs", ":run_id", "attach"],
   ["fleet.runs.steer", "POST", "v1", "fleet", "runs", ":run_id", "steer"],
   ["fleet.runs.cancel", "POST", "v1", "fleet", "runs", ":run_id", "cancel"],
@@ -81,6 +82,7 @@ const PATTERNS: readonly Pattern[] = [
 const FLEET_ROUTES: Record<string, (c: FleetRouteCall) => Promise<void>> = {
   "fleet.runs.submit": fleetRunsSubmit,
   "fleet.runs.show": fleetRunsShow,
+  "fleet.runs.view": fleetRunsView,
   "fleet.runs.attach": fleetRunsAttach,
   "fleet.runs.steer": (c) => fleetRunsControl(c, "steer"),
   "fleet.runs.cancel": (c) => fleetRunsControl(c, "cancel"),

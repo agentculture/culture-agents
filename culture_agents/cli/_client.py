@@ -31,7 +31,7 @@ from culture_agents.cli._errors import EXIT_ENV_ERROR, EXIT_USER_ERROR, CoreErro
 
 #: The contract's ``api.json`` -> ``api_version``. ``tests/test_cli_client.py``
 #: fails if this drifts from the contract.
-CLIENT_API_VERSION = "3.2"
+CLIENT_API_VERSION = "3.3"
 VERSION_HEADER = "Agents-Api-Version"
 SOCKET_ENV = "CULTURE_AGENTS_SOCKET"
 
@@ -251,11 +251,18 @@ class CoreClient:
         another node is reached through this core's ``/v1/fleet/runs`` routes
         (API 3.2), which call that fleet member; its view has no path.
         """
-        node = run_id.split("-", 1)[0]
         quoted = quote(run_id, safe="")
-        if "-" in run_id and node != self.node:
+        if self.is_remote(run_id):
             return f"/v1/fleet/runs/{quoted}", "remote_run"
         return f"/v1/runs/{quoted}", "run"
+
+    def is_remote(self, run_id: str) -> bool:
+        """Whether the run id names another node than this core's."""
+        return "-" in run_id and run_id.split("-", 1)[0] != self.node
+
+    def run_view_route(self, run_id: str) -> str:
+        """The unreachable view of a run on another member (API 3.3)."""
+        return f"/v1/fleet/runs/{quote(run_id, safe='')}/view"
 
     # -- routes ------------------------------------------------------------
     def get(self, route: str, shape: str, query: dict[str, Any] | None = None) -> Any:
