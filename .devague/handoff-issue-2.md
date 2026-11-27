@@ -12,10 +12,41 @@ This is working state, not a design document. The authoritative records are:
   `docs/deliveries/2026-11-24-issue-2-cross-repo-reorganization.md` and the
   derived `docs/current-spec.md`.
 
-## D2 workforce run in progress (written 2026-11-26, 19:45 UTC)
+## D2: part one released, part two building (written 2026-11-27, 10:40 UTC)
 
 Read this section first. It supersedes "Start here", "Open items" and
 "Inputs for D2" below, which describe the state before D2 was planned.
+
+**State now.** Pull request 15 (D2 part one) was squash merged by the owner
+on 2026-11-27 as `b4d7723`; 0.16.0 is published on npm and PyPI. The delivery
+was validated and summarized: evidence `e1` to `e22` and deltas `b1` to `b9`
+are filed as proposed (the owner confirms or rejects each), and the summary
+is `docs/deliveries/2026-11-26-d2-fleet-and-recovery.md` (17 tasks delivered,
+7 partial, 7 blocked). `docs/current-spec.md` was not regenerated; do that
+with `devague today` after the owner adjudicates the evidence and deltas.
+
+**Part two.** The owner approved the design record on 2026-11-27 ("part two
+approved"), every open question at its recommended answer. It lives on
+branch `runs/d2-fleet` (based on main, worktree
+`../.worktrees.culture-agents/part-two`), which is the integration branch
+for part two; the older `runs/d2-part-two` branch is stale. Task t21
+(transport) was dispatched at 10:22 UTC on the opus core, run
+`spark-culture-agents.run.01M8E8EP9JVB3JX44D2FZWPMK6`, worktree `agent-t21`
+(branched from `runs/d2-fleet`). Gate it in the part-two worktree: `mg.sh`
+and `gate.sh` assume the main checkout, so run the same steps there by hand
+or copy the scripts with the path changed. Then t22, t23, then t24 to t26 in
+parallel, then t28 on the owner's hosts. The 20-minute status job was
+stopped at the owner's request; report when runs finish.
+
+**Lessons from part one that the part two briefs must carry** (they are in
+`briefs/note-t21.txt`): the review found defects both green suites missed,
+so every part two pull request gets an independent code review before it is
+called ready; the project's CI fails on any open SonarCloud finding; timing
+tests fail on a loaded machine.
+
+The rest of this section is the record of the part one run.
+
+### Record of the part one workforce run
 
 ### Where the work is
 
@@ -51,7 +82,7 @@ not assert) no longer reproduce any of them. Finding 19 had a real cause: a
 read between the worker's final writes reported `succeeded` without its
 branch and cached it; fixed.
 
-At `7824410` (07:35 UTC) the local gate is clean: core 708 passed and 8
+At `7824410` (about 07:15 UTC) the local gate is clean: core 708 passed and 8
 skipped, Python 1770 passed and 13 skipped. Read CI and the SonarCloud gate
 with `bash .claude/skills/cicd/scripts/workflow.sh status 15`; the project's
 CI fails on any open SonarCloud finding, and the fix merges introduced 8,
