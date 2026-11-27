@@ -71,7 +71,7 @@ interface Served {
 }
 
 async function serveMember(s: Served, member: TrustEntry, req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const url = new URL(req.url ?? "/", "http://fleet");
+  const url = new URL(req.url ?? "/", "https://fleet.invalid") // a base to parse the path against; nothing is fetched;
   const route = `${req.method ?? ""} ${url.pathname}`;
   if (route === "GET /v1/version") return sendJson(res, 200, "version", { api_version: s.reported, core_version: coreVersion, node: s.node });
   if (s.runs && (await serveRuns(s.runs, member, req, res, url))) return;

@@ -76,7 +76,8 @@ def test_a_run_submitted_from_the_caller_runs_on_thor_and_is_steered_from_the_ca
     assert on_thor["repo"] == str(thor.core.repos[0])
     assert on_thor["base_commit"] == run["base_commit"]
     created, deadline = on_thor["created_at"], on_thor["deadline"]
-    assert deadline is not None and created < deadline, "the deadline is on thor's clock"
+    assert deadline is not None, "the run carries a deadline"
+    assert created < deadline, "the deadline is on thor's clock"
 
     thor.core.wait_outputs(run["id"], "tool_result", 2, 15)
     steer = caller.core.cli("runs", "steer", run["id"], "files: steered.txt", "--json")

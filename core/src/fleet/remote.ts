@@ -109,6 +109,13 @@ function relayed(node: string, error: ErrorBody): ControlError {
   return new ControlError(code, `${node}: ${message}`.slice(0, 2000), { ...extras, retryable });
 }
 
+/** The member's typed error relayed, or `internal` for an answer outside the contract. */
+function refusal(node: string, res: FleetResponse): ControlError {
+  const error = validate("error", parsed(res.body));
+  if (error.ok) return relayed(node, error.value.error);
+  return new ControlError("internal", `${node} answered HTTP ${res.status} with a body that does not match the contract.`);
+}
+
 export function createRemote(o: RemoteOptions): Remote {
   const own = o.apiVersion ?? apiVersion;
   const call = o.call ?? fleetCall;
@@ -152,13 +159,6 @@ export function createRemote(o: RemoteOptions): Remote {
     } catch (e) {
       throw new Unreached("no_answer", `${node} did not answer: ${(e as Error).message}`.slice(0, 2000));
     }
-  }
-
-  /** The member's typed error relayed, or `internal` for an answer outside the contract. */
-  function refusal(node: string, res: FleetResponse): ControlError {
-    const error = validate("error", parsed(res.body));
-    if (error.ok) return relayed(node, error.value.error);
-    return new ControlError("internal", `${node} answered HTTP ${res.status} with a body that does not match the contract.`);
   }
 
   return {

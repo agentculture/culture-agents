@@ -2,7 +2,7 @@
 // file and, for a serving core, a fleet server on loopback. Two of them stand for two cores; they are
 // named by role (the serving core, the calling core), never by a made-up host name.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import type { KeyObject } from "node:crypto";
+import { randomUUID, type KeyObject } from "node:crypto";
 import { createServer, connect, type Server } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -52,7 +52,7 @@ export interface ServingCore {
 /** A serving core on loopback that trusts `trusted`. Its routes are the transport's own unless given. */
 export async function servingCore(t: Tmp, trusted: readonly KeyObject[], extra: Partial<FleetServerOptions> = {}): Promise<ServingCore> {
   const key = extra.key ?? newFleetKey();
-  const trustPath = join(t.dir, `serving-${Math.random().toString(36).slice(2)}.json`);
+  const trustPath = join(t.dir, `serving-${randomUUID()}.json`);
   writeTrust(trustPath, trusted);
   const requests: TrustEntry[] = [];
   const logs: string[] = [];

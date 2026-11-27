@@ -49,13 +49,17 @@ def test_runs_list_warns_once_and_runs_unreadable_names_each_run_without_touchin
     (newer_dir / "store.json").write_text('{"schema":99}\n')
     core.start()
     before = (_snapshot(corrupt_dir), _snapshot(newer_dir))
-    assert before[0] and before[1], "both directories hold files to compare"
+    assert before[0], "the corrupt directory holds files to compare"
+    assert before[1], "the newer directory holds files to compare"
 
     listed = core.cli("runs", "list")
     assert listed.rc == 0, listed.err
     lines = listed.out.splitlines()
-    assert lines.count(WARNING) == 1 and lines[-1] == WARNING, listed.out
-    assert good in listed.out and corrupt not in listed.out and newer not in listed.out
+    assert lines.count(WARNING) == 1, listed.out
+    assert lines[-1] == WARNING, listed.out
+    assert good in listed.out
+    assert corrupt not in listed.out
+    assert newer not in listed.out
 
     as_json = core.ok("runs", "list")
     assert as_json["unreadable_count"] == 2
@@ -72,7 +76,8 @@ def test_runs_list_warns_once_and_runs_unreadable_names_each_run_without_touchin
     assert f"{corrupt}  unreadable_log  " in text.out
     assert f"{newer}  newer_version  " in text.out
 
-    assert (_snapshot(corrupt_dir), _snapshot(newer_dir)) == before, "listing changed nothing"
+    after = (_snapshot(corrupt_dir), _snapshot(newer_dir))
+    assert after == before, "listing changed nothing"
     assert json.loads((newer_dir / "store.json").read_text()) == {"schema": 99}
 
 

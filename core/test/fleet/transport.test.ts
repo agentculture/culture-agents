@@ -157,17 +157,19 @@ test("a handshake that never starts is cut off by the handshake timeout", async 
 
 test("stopping the server also ends a connection still in its handshake", async () => {
   const serving = await servingCore(t, [newFleetKey()], { handshakeTimeoutMs: 600_000 });
-  const closed = new Promise<void>((resolve) => {
+  const started = Date.now();
+  const closed = new Promise<boolean>((resolve) => {
     const s = netConnect(serving.port, LOOPBACK);
     s.on("connect", () => {
       setTimeout(() => {
         serving.server.stop().catch(() => undefined);
       }, 50);
     });
-    s.on("close", () => resolve());
+    s.on("close", () => resolve(true));
     s.on("error", () => undefined);
   });
-  await closed;
+  assert.equal(await closed, true, "the half-open connection was closed by stop");
+  assert.ok(Date.now() - started < 60_000, "long before its handshake timeout");
   await serving.server.stop();
 });
 
