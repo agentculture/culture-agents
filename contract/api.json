@@ -1,5 +1,5 @@
 {
-  "api_version": "3.2",
+  "api_version": "3.3",
   "schema_base": "https://culture.dev/contract/agents/",
   "description": "Index of the culture-agents control-plane API. Semantics live in contract/README.md; payload shapes in the schema files named here, resolved against schema_base.",
   "transport": {
@@ -699,6 +699,98 @@
       "status": 202,
       "stream": false,
       "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable",
+        "conflict"
+      ]
+    },
+    {
+      "id": "fleet.runs.logs",
+      "method": "GET",
+      "path": "/v1/fleet/runs/{run_id}/events",
+      "summary": "A page of the stored events of a run on another member, read from it over the fleet transport, unredacted; the response carries the Agents-Content-Sensitivity header (added in 3.3).",
+      "cli": "agents runs logs (remote run)",
+      "d1": "supported",
+      "request": null,
+      "response": "event.json#/$defs/event_page",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {
+        "after": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 50
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "fleet.runs.result",
+      "method": "GET",
+      "path": "/v1/fleet/runs/{run_id}/result",
+      "summary": "Outcome of a terminal run on another member, read from it over the fleet transport; conflict while the run is active (added in 3.3).",
+      "cli": "agents runs result (remote run)",
+      "d1": "supported",
+      "request": null,
+      "response": "run.json#/$defs/run_result",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {
+        "run_id": "common.json#/$defs/run_id"
+      },
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied",
+        "not_found",
+        "unsupported",
+        "unavailable",
+        "conflict"
+      ]
+    },
+    {
+      "id": "fleet.runs.bundle",
+      "method": "GET",
+      "path": "/v1/fleet/runs/{run_id}/bundle",
+      "summary": "A git bundle of a terminal run's branch on another member, read from it over the fleet transport: the one ref refs/heads/runs/<run_id>, with the run's base commit as its only prerequisite. Binary body; refusals are JSON errors; the response carries the Agents-Content-Sensitivity header (added in 3.3).",
+      "cli": "agents runs result (remote run)",
+      "d1": "supported",
+      "request": null,
+      "response": null,
+      "status": 200,
+      "stream": false,
+      "content_type": "application/x-git-bundle",
       "params": {
         "run_id": "common.json#/$defs/run_id"
       },
