@@ -41,23 +41,22 @@ Read this section first. It supersedes "Start here", "Open items" and
 | part two (t20 to t26, t28) | not started; t20 needs the owner's approval before t21 to t26 |
 
 Pull request 15 (`runs/d2-part-one` into `main`) is open since 03:44 UTC on
-2026-11-27. CI state at 04:05 UTC: `core`, `lint`, npm and version checks
-pass; SonarCloud reports 78 open findings (the project's CI fails on any),
-so two clean-up runs are dispatched through the `agents` CLI:
-`spark-culture-agents.run.01M8DJVEV21HTS941NZ6XAWSDN` (Python, sonnet core,
-worktree `agent-sonarpy`) and `…01M8DJVFF8CN3YT28JJEH8KY0P` (TypeScript, opus
-core, worktree `agent-sonarts`). Their briefs are the scratchpad files
-`briefs/sonarpy.txt` and `briefs/sonarts.txt`. Gate and merge them like a
-task, push, then re-read the gate with
-`bash .claude/skills/cicd/scripts/workflow.sh status 15`.
+2026-11-27. At commit `2f728d6` (05:05 UTC) every CI check passes and the
+SonarCloud gate is OK with 0 open findings; the two clean-up runs are merged.
 
-Fixed after the pull request opened: branch fixtures used a path under
-`/home` (portability check), a broker test asserted an outage line a slow
-runner can miss, the trace endpoint must now be loopback (owner approved),
-the core reaches the gateway on loopback, and this note no longer names a
-per-user dotfile path. Seen once and not explained: the `test` job's coverage
-step failed with "Could not report code coverage ... Unterminated string in
-JSON at position 524288"; it did not reproduce locally in 2 runs.
+**It must not merge yet.** A code review at `c47d690` (four independent
+reviewers; the review is `docs/d2/reviews/pr-15-review.md`, their probes are
+in the scratchpad under `rv/a1` to `rv/a4`) gave request-changes with six
+reproduced must-fix defects and eleven should-fix ones. None is fixed. The
+owner was asked whether to fix them on this branch and has not answered.
+The must-fix six: a steer slower than its timeout is delivered twice
+(`runs/service.ts` `keyed`, `store/idempotency.ts` `settleKey`); start-up key
+pruning drops the key of an unreadable run (`service.ts` `pruneKeys`); one
+missed ping at reattach reads a live run as terminal `unknown` for good
+(`runs/reattach.ts`, `runs/scan.ts`); the summary cache is read before the
+store-version check (`store/run-store.ts`); start-up cleanup ignores the
+store version (`store/startup.ts`); a summary is trusted on its byte count
+alone (`store/summary.ts`).
 
 The owner approved t30 and t31 on 2026-11-27 and confirmed deviations d1, d2
 and d3.
