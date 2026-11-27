@@ -47,8 +47,18 @@ SonarCloud gate is OK with 0 open findings; the two clean-up runs are merged.
 **It must not merge yet.** A code review at `c47d690` (four independent
 reviewers; the review is `docs/d2/reviews/pr-15-review.md`, their probes are
 in the scratchpad under `rv/a1` to `rv/a4`) gave request-changes with six
-reproduced must-fix defects and eleven should-fix ones. None is fixed. The
-owner was asked whether to fix them on this branch and has not answered.
+reproduced must-fix defects and eleven should-fix ones. The owner said "Fix on
+this branch" (2026-11-27). Seven fix runs were dispatched at 06:31 UTC, one
+per area, each told to reproduce its defect with a failing test first. Their
+briefs are the scratchpad files `briefs/fix/a.txt` to `g.txt`, their run ids
+are in `logs/fix-runs.txt`, and their worktrees are `agent-fix-a` to
+`agent-fix-g`: a idempotency, b reattach, c run store, g the isolation flake
+(all on the opus core); d security surfaces, e question delivery, f CLI text
+and contract README (sonnet core). Gate and merge each like a task; several
+touch `runs/service.ts`, `daemon/main.ts` and `contract/README.md`, so expect
+conflicts. After they merge: rerun the reviewers' probes in the scratchpad
+under `rv/a1` to `rv/a4`, which must now fail to reproduce; update the pull
+request description; re-read the SonarCloud gate.
 The must-fix six: a steer slower than its timeout is delivered twice
 (`runs/service.ts` `keyed`, `store/idempotency.ts` `settleKey`); start-up key
 pruning drops the key of an unreadable run (`service.ts` `pruneKeys`); one
