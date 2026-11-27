@@ -23,6 +23,13 @@ Lists every agent the core knows (state, harnesses, repositories, active runs)
 and every harness capability document. Capabilities are reported honestly: an
 unsupported one says so and why.
 
+It also lists the fleet members this core heard announce themselves over the
+fleet transport (`--json`: under `fleet`), and the announcements it refused
+because the node name they claimed is held by another key. The list is built
+from announcements only: a member that stops cleanly leaves at once, a silent
+one within 16 seconds. With the fleet transport off (the default) it says so
+and lists nobody. No list of hosts is kept in the repository.
+
 ## Usage
 
     agents agents list

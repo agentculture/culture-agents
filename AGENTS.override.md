@@ -70,11 +70,14 @@ chat integration. Nothing is archived: recovery is the condition for archiving
 [#2](https://github.com/agentculture/culture-agents/issues/2) is the
 authoritative plan; `docs/d0/decisions.md` lists open decisions. Never
 describe unbuilt verbs as available.
-The network transport between cores is the one piece of part two on disk:
-`core/src/fleet/` (TLS 1.3, both sides authenticated by Ed25519 key against a
-local trust list; `docs/d2/fleet-transport.md`). It is off unless
-`CULTURE_AGENTS_FLEET_LISTEN` is set, and so far it serves members only the
-version route.
+The network transport between cores and the fleet member list are the pieces
+of part two on disk: `core/src/fleet/` (TLS 1.3, both sides authenticated by
+Ed25519 key against a local trust list; `docs/d2/fleet-transport.md`). It is
+off unless `CULTURE_AGENTS_FLEET_LISTEN` is set. When on, a core announces
+itself every 5 s to the addresses in its local, untracked `peers.json`, lists a
+member only under the name its trust list gives the member's key, drops a
+silent one within 16 s, and refuses a node name held by another key
+(`docs/d2/fleet-members.md`; `agents agents list` shows the list).
 
 Boundaries (from [#1](https://github.com/agentculture/culture-agents/issues/1)
 and #2): culture-agents owns agent execution and direct control; culture-chat
@@ -113,7 +116,7 @@ uv run python scripts/harness-smoke.py --stage config --require config
 The core and the CLI share the socket path: `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`).
-The control API is version 3.0 (`contract/api.json`): it holds the D2 part one shapes, and
+The control API is version 3.1 (`contract/api.json`): it holds the D2 part one shapes plus the fleet member list, and
 `contract/README.md` marks the behaviour that is not built yet as (planned).
 
 ## Five harnesses and their files

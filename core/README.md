@@ -86,6 +86,13 @@ The key comes as `CULTURE_AGENTS_FLEET_KEY` (above), so it stays readable in the
 `culture-agents-fleet cert` prints the trust entry other members add. See
 `docs/d2/fleet-transport.md`.
 
+With the transport on, the core announces itself every 5 s to the addresses in its local, untracked
+`culture-agents/fleet/peers.json` (IP addresses only), and keeps a member list built from
+announcements only: a member is listed under the name its trust-list entry gives its key, dropped
+after 15 s of silence or at once when it leaves, and an announcement claiming a node name held by
+another key is refused (409) and logged. `GET /v1/fleet/members` on the control socket returns the
+list (API 3.1). See `docs/d2/fleet-members.md`.
+
 ## License
 
 Apache-2.0
