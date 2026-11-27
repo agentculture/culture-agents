@@ -66,7 +66,7 @@ Every task marked delivered or partial below, except `t20` and `t27`, is on main
 | `t15` | delivered | `agents branches list and remove`,`contract/branches.json`. The first dispatched run (OpenCode) wrote nothing in 82 minutes and was redone on Claude Code |
 | `t16` | delivered | keys on every submit, steer and cancel, retry with the same key, `agents runs answer`; text mode shows questions since the review fixes |
 | `t17` | delivered | `core/src/runs/admission.ts`: limits, active runs, heat signal (checked against a real signal file on 1 host) |
-| `t18` | partial | `tests/acceptance/d2/` mock stage (6 checks) and `docs/d2/part-one-acceptance.md`. Live stage: timing measured for Claude Code only; OpenCode not run; the question check is NOT VERIFIED on both real harnesses |
+| `t18` | partial | `tests/acceptance/d2/` mock stage (6 checks) and `docs/d2/part-one-acceptance.md`. Live stage: timing measured for Claude Code and, on 2026-11-27, for OpenCode; the question check is NOT VERIFIED on both real harnesses |
 | `t19` | delivered | `docs/d2/part-one.md`, `docs/d2/corrections.md`, the five prompt files; the published explainer outside the repository is not republished |
 | `t20` | partial | `docs/d2/part-two-design.md`, approved by the owner on 2026-11-27, with loopback probes under `spikes/d2-part-two/`. On branch `runs/d2-fleet` (commit `2bba6cf`), not on main |
 | `t21` | blocked | dispatched on 2026-11-27 after the design record was approved; running when this was written, nothing merged |
@@ -105,7 +105,7 @@ Counts over the 31 plan tasks: 17 delivered, 7 partial, 7 blocked, 0 dropped.
 | `t13` (`d3`) | The task instruction says to build exactly what the probe record says each harness supports. The agent had no sandbox or credentials to run either real harness, and the contract allows a capability to be reported supported only once measured as this core drives it, so it left both unsupported and said so in its report. All four acceptance criteria of t13 are met as written; the spec's claim that an operator can answer a real harness's question is not delivered. | `needs-follow-up` |
 | `t12` | The plan and claim `c44` say the secrets are removed from the environment; they are removed from what children inherit, and stay readable in the core's own `/proc` environment. The documents were corrected; intake by file or descriptor is not built | `needs-follow-up` |
 | `t10` | One line of the third D1 gap cannot be reached, so "has a test" holds for the reply but not for that line | `acceptable` |
-| `t18` | The live stage was run for Claude Code only; the OpenCode check starts 3 local-model runs at once, against the owner's 1-at-a-time rule | `needs-follow-up` |
+| `t18` | The live stage was run for Claude Code first; the OpenCode check, which starts 3 local-model runs at once, was run on 2026-11-27 once the owner allowed it | `acceptable` |
 | `t29` | No live trace was sent to a real Langfuse; none is installed on the build host | `needs-follow-up` |
 | `t31` | The live read returned `unknown`: the running gateway predates the admit field until it is restarted | `needs-follow-up` |
 | `t4` | A run directory the core cannot read is skipped by the API listing; claim `c55` says it is never treated as absent. It is kept on disk and counted against limits | `risky` |
@@ -172,7 +172,7 @@ Lapse ledger evidence:
 - `t12` — give the core its secrets by file or descriptor so its own `/proc` environment does not hold them; no task exists yet. The same question is open for the fleet key (design record, question 3, approved at "environment").
 - `t29` — send a live trace to a real Langfuse and confirm the endpoint path; needs a Langfuse on the host (owner's decision who installs it).
 - `t31` — restart the model gateway on the build host and reread its admit field; an `admit` or `hold` from a real gateway is not verified.
-- `t18` — the OpenCode live acceptance check, if the owner allows 3 concurrent local-model runs; the question check on real harnesses waits for `d3`'s follow-up.
+- `t18` — the question check on real harnesses waits for `d3`'s follow-up.
 - `t4` (`c55`) — decide whether an unreadable run should be shown over the API; the 3.0 contract has no shape for it.
 - Plan risks without a task: `r14` (a failed turn returns no work; it cost one run) and `r15` (a run can end `succeeded` with its task not done).
 - A 12 hour question hold was never measured (injected clock only; longest real hold 5 minutes).
@@ -184,4 +184,6 @@ Lapse ledger evidence:
 - The owner approved evidence `e1` to `e22` and deltas `b1` to `b7` and `b9` (`b8` was superseded by `b9`). The two failing records stand as findings: `e21` (an unreadable run is skipped by the API listing, claim `c55`) and `e22`.
 - `e22` is resolved: the owner chose to redact, and the two records now name the chat servers by port, not by name (`docs/d0/d1-acceptance.md`, and delivery record `d5` of the issue 2 plan with its export). A new evidence record, `e23`, is filed as proposed for that.
 - The owner confirmed that retention removes `timed_out` and `unanswered` runs too.
+- The owner allowed the OpenCode live acceptance check once; it passed (0.397 s and 8.86 s), recorded in `docs/d2/part-one-acceptance.md`.
+- The owner chose to show an unreadable run over the API (claim `c55`, record `e21`); that is a new task on the part two branch.
 - `docs/current-spec.md` is regenerated from the approved records.

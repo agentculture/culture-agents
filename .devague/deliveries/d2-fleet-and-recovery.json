@@ -2,7 +2,7 @@
   "plan_slug": "d2-fleet-and-recovery",
   "schema_version": 2,
   "created": "2026-11-26T18:20:06Z",
-  "updated": "2026-11-27T11:36:39Z",
+  "updated": "2026-11-27T11:48:02Z",
   "deviations": [
     {
       "id": "d1",
@@ -481,6 +481,25 @@
       "status": "proposed",
       "superseded": false,
       "seq": 26
+    },
+    {
+      "id": "e24",
+      "obligation_ref": "o2",
+      "test_ref": "tests/acceptance/d2/test_live.py::test_live_third_submit_is_fast_and_cancel_is_under_10_seconds[opencode]",
+      "behavior_text": "On the build host with OpenCode on the local model and 2 runs active in 1 repository, a third submit to another repository returned in 0.397 s and a cancel reached cancelled in 8.86 s, with both busy runs running at the submit and at the cancel",
+      "contract_text": "A submit to a repository with active runs is accepted while the stated bound has room and refused with a typed error naming the bound when it has not; the bound is readable through the API, and no submit is queued silently.",
+      "evidence_type": "integration",
+      "strength": "execution",
+      "strength_basis": "live stage run once with the owner's permission for 3 concurrent local-model runs; the precondition was recorded and held",
+      "outcome": "pass",
+      "run": {
+        "timestamp": "2026-11-27T11:47:22Z",
+        "commit": "dd58895"
+      },
+      "origin": "llm",
+      "status": "proposed",
+      "superseded": false,
+      "seq": 27
     }
   ],
   "deltas": [
