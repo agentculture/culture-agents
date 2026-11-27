@@ -36,17 +36,31 @@ Read this section first. It supersedes "Start here", "Open items" and
 
 | Task | State |
 | --- | --- |
-| t1 to t19, t29 (all of the first part one plan) | merged |
+| t1 to t19, t29, t30, t31 (all of part one) | merged |
 | t27 lobes-cli admit field | merged by the owner as lobes-cli pull request 347 |
-| t30 contract 3.0: placement supportable and a typed held refusal (Claude Code, opus core) | running, dispatched 03:41 UTC on 2026-11-27, run `spark-culture-agents.run.01M8DHFX7A1XHVCY82YS03Z9AN` |
-| t31 capability report reads the gateway's admit field (Claude Code, sonnet) | running, dispatched 03:41 UTC, run `spark-culture-agents.run.01M8DHFXYWNTZHJ87A4DZER9YC` |
 | part two (t20 to t26, t28) | not started; t20 needs the owner's approval before t21 to t26 |
 
-The owner approved t30 and t31 on 2026-11-27 ("placement and a typed
-admission held refusal in contract 3.0 ... and reading the gateway's admit
-field goes into part one ... approved"), and confirmed deviations d1, d2 and
-d3. After t31 merges, run its live read against the real gateway on the host
-and fill in the acceptance record.
+Pull request 15 (`runs/d2-part-one` into `main`) is open since 03:44 UTC on
+2026-11-27. CI state at 04:05 UTC: `core`, `lint`, npm and version checks
+pass; SonarCloud reports 78 open findings (the project's CI fails on any),
+so two clean-up runs are dispatched through the `agents` CLI:
+`spark-culture-agents.run.01M8DJVEV21HTS941NZ6XAWSDN` (Python, sonnet core,
+worktree `agent-sonarpy`) and `…01M8DJVFF8CN3YT28JJEH8KY0P` (TypeScript, opus
+core, worktree `agent-sonarts`). Their briefs are the scratchpad files
+`briefs/sonarpy.txt` and `briefs/sonarts.txt`. Gate and merge them like a
+task, push, then re-read the gate with
+`bash .claude/skills/cicd/scripts/workflow.sh status 15`.
+
+Fixed after the pull request opened: branch fixtures used a path under
+`/home` (portability check), a broker test asserted an outage line a slow
+runner can miss, the trace endpoint must now be loopback (owner approved),
+the core reaches the gateway on loopback, and this note no longer names a
+per-user dotfile path. Seen once and not explained: the `test` job's coverage
+step failed with "Could not report code coverage ... Unterminated string in
+JSON at position 524288"; it did not reproduce locally in 2 runs.
+
+The owner approved t30 and t31 on 2026-11-27 and confirmed deviations d1, d2
+and d3.
 
 Version bumped to 0.16.0 with its changelog entry (commit `76ba4cf`). The
 pre-PR review runs in OpenCode with `gateway/cortex` (started 23:57 UTC,
