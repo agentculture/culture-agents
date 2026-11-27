@@ -75,16 +75,13 @@ async function readCapped(res: Response): Promise<string> {
     throw new Error("body too large");
   }
   if (res.body === null) return "";
-  const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  for (let part = await reader.read(); !part.done; part = await reader.read()) {
-    total += part.value.length;
-    if (total > MAX_BODY) {
-      await reader.cancel().catch(() => undefined);
-      throw new Error("body too large");
-    }
-    chunks.push(part.value);
+  // Leaving the loop by the throw ends the iteration, which cancels the stream: no more is read.
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    total += chunk.length;
+    if (total > MAX_BODY) throw new Error("body too large");
+    chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString("utf8");
 }

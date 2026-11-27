@@ -23,10 +23,12 @@ def test_show_lists_pending_questions_base_commit_and_submitter(core, capsys) ->
     assert QID in out
     assert "question" in out
     assert "Which colour should the banner use?" in out
-    assert "red" in out and "green" in out
+    assert "red" in out
+    assert "green" in out
     assert "2026-11-25T22:00:04Z" in out
     assert "3f786850e387550fdab836ed7e6dc881de23001b" in out
-    assert "local_user" in out and "operator" in out
+    assert "local_user" in out
+    assert "operator" in out
 
 
 def test_show_escapes_question_text_and_choices(core, capsys) -> None:
@@ -45,7 +47,8 @@ def test_logs_prints_question_and_answer_events(core, capsys) -> None:
     page["events"] = [fixture("event", "root.question"), fixture("event", "root.answer")]
     core.respond("GET /v1/runs/{id}/events", 200, page)
     out = run(capsys, "runs", "logs", RUN_ID).out
-    assert "run.question" in out and "run.answer" in out
+    assert "run.question" in out
+    assert "run.answer" in out
     assert out.count(QID) >= 2
 
 
@@ -63,7 +66,8 @@ def test_logs_escapes_answer_text(core, capsys) -> None:
 def test_attach_prints_question_and_answer_events(core, capsys) -> None:
     core.events = stream_events("question-answered")
     out = run(capsys, "runs", "attach", RUN_ID).out
-    assert "run.question" in out and "run.answer" in out
+    assert "run.question" in out
+    assert "run.answer" in out
     assert QID in out
     assert "Which colour should the banner use?" in out
 
@@ -79,7 +83,8 @@ def test_submit_prints_each_warning_escaped(core, capsys) -> None:
     doc["warnings"][0]["message"] = HOSTILE
     core.respond("POST /v1/runs", 201, doc)
     out = run(capsys, "runs", "submit", *_submit_args()).out
-    assert "signal_unknown" in out and "heat" in out
+    assert "signal_unknown" in out
+    assert "heat" in out
     assert "\x1b" not in out
     assert "bad\\x1b[2Jtext\\nnext" in out
 

@@ -109,6 +109,19 @@ export class FakeDriver implements Driver {
     if (!this.stopped) this.queue.push({ kind: "event", event });
   }
 
+  /** Raise the step's question; unless the step says not to wait, hold the script until it is answered. */
+  private ask(step: Extract<FakeStep, { op: "ask" }>, signal: AbortSignal): Promise<void> {
+    if (step.wait === false) {
+      this.emit({ type: "question", question: step.question });
+      return Promise.resolve();
+    }
+    return new Promise<void>((resolve, reject) => {
+      this.waiting = { ref: step.question.ref, resolve };
+      signal.addEventListener("abort", () => reject(new Error("aborted")));
+      this.emit({ type: "question", question: step.question });
+    });
+  }
+
   private async play(): Promise<void> {
     const { signal } = this.abort;
     try {
@@ -122,15 +135,7 @@ export class FakeDriver implements Driver {
             await new Promise((_, reject) => signal.addEventListener("abort", () => reject(new Error("aborted"))));
             break;
           case "ask":
-            if (step.wait === false) {
-              this.emit({ type: "question", question: step.question });
-              break;
-            }
-            await new Promise<void>((resolve, reject) => {
-              this.waiting = { ref: step.question.ref, resolve };
-              signal.addEventListener("abort", () => reject(new Error("aborted")));
-              this.emit({ type: "question", question: step.question });
-            });
+            await this.ask(step, signal);
             break;
           case "withdraw":
             this.waiting = null;
