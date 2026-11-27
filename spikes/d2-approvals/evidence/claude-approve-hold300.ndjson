@@ -1,0 +1,41 @@
+{"t":"1.5s","type":"start"}
+{"t":"3.0s","type":"raw"}
+{"t":"3.0s","type":"raw"}
+{"t":"3.4s","type":"raw"}
+{"t":"3.6s","type":"start-step"}
+{"t":"3.6s","type":"reasoning-start"}
+{"t":"4.9s","type":"reasoning-end"}
+{"t":"4.9s","type":"tool-input-start"}
+{"t":"4.9s","type":"tool-input-delta"}
+{"t":"4.9s","type":"tool-input-delta"}
+{"t":"4.9s","type":"tool-input-delta"}
+{"t":"4.9s","type":"tool-input-delta"}
+{"t":"4.9s","type":"tool-call","tool":"write","toolCallId":"toolu_013SSUJWbLJrXEabTXoezUAV","providerExecuted":true,"input":"{\"file_path\":\"approved.txt\",\"content\":\"yes\"}"}
+{"t":"4.9s","type":"tool-input-end"}
+{"t":"4.9s","type":"raw"}
+{"t":"4.9s","type":"tool-approval-request","approvalId":"toolu_013SSUJWbLJrXEabTXoezUAV","toolCallId":"toolu_013SSUJWbLJrXEabTXoezUAV","tool":"write"}
+{"t":"4.9s","type":"finish-step"}
+{"t":"4.9s","type":"finish","finishReason":"tool-calls"}
+{"t":"4.9s","streamEnded":true,"finish":"tool-calls","turnState":"awaiting-approval","approvals":1,"questions":0}
+{"t":"4.9s","state":"held, before the answer","files":"README","claudeProcesses":3}
+{"t":"305.0s","state":"held, after the wait","files":"README","claudeProcesses":2}
+{"t":"305.0s","answer":{"toolApprovalContinuations":[{"type":"tool-approval-response","approvalId":"toolu_013SSUJWbLJrXEabTXoezUAV","approved":true}],"toolResultContinuations":[]}}
+{"t":"305.0s","type":"start"}
+{"t":"305.0s","type":"tool-approval-response"}
+{"t":"305.7s","type":"start-step"}
+{"t":"305.7s","type":"tool-result","tool":"write","toolCallId":"toolu_013SSUJWbLJrXEabTXoezUAV","output":"{\"type\":\"create\",\"filePath\":\"approved.txt\",\"content\":\"yes\",\"structuredPatch\":[],\"originalFile\":null,\"userModified\":false}"}
+{"t":"305.8s","type":"raw"}
+{"t":"305.8s","type":"raw"}
+{"t":"306.4s","type":"start-step"}
+{"t":"306.4s","type":"reasoning-start"}
+{"t":"307.2s","type":"reasoning-end"}
+{"t":"307.2s","type":"text-start"}
+{"t":"307.2s","type":"text-end"}
+{"t":"307.2s","type":"raw"}
+{"t":"307.2s","type":"finish-step"}
+{"t":"307.2s","type":"raw"}
+{"t":"307.5s","type":"finish","finishReason":"stop"}
+{"t":"307.5s","streamEnded":true,"finish":"stop","turnState":"idle","approvals":0,"questions":0}
+{"t":"307.5s","state":"after the turn","files":"README approved.txt","claudeProcesses":2}
+{"t":"307.5s","finalText":"done","approvedTxt":"yes","colourTxt":"","raised":1,"answered":1,"heldClean":true}
+{"t":"312.9s","result":"PASS"}

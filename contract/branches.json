@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://culture.dev/contract/agents/branches.json",
+  "title": "BranchList",
+  "description": "Response of GET /v1/branches: every `runs/<run_id>` branch of one repository, with the state of its run and the git evidence about whether its commits are reachable from another ref (a local branch other than a runs branch, or a remote-tracking branch).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "repo",
+    "branches"
+  ],
+  "properties": {
+    "repo": {
+      "$ref": "common.json#/$defs/repo_path"
+    },
+    "branches": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "$ref": "#/$defs/branch"
+      }
+    }
+  },
+  "$defs": {
+    "branch": {
+      "description": "One runs branch. `state` is the run's state as the core reads it now, or null when no run can be read for the branch; `state_note` then says why (no such run, or the run cannot be read). `merged_into` names the first other ref git shows to contain the branch tip (`git merge-base --is-ancestor`), or is null.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch",
+        "run_id",
+        "state",
+        "state_note",
+        "tip",
+        "merged_into"
+      ],
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 132,
+          "pattern": "^runs/.+$"
+        },
+        "run_id": {
+          "$ref": "common.json#/$defs/run_id"
+        },
+        "state": {
+          "oneOf": [
+            {
+              "$ref": "run.json#/$defs/state"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state_note": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1000
+        },
+        "tip": {
+          "$ref": "common.json#/$defs/git_sha"
+        },
+        "merged_into": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 512
+        }
+      }
+    },
+    "remove_request": {
+      "description": "Body of POST /v1/branches/remove. The repository must be one the allow-list names. With `dry_run` true nothing is deleted and `removed` lists what would be.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo"
+      ],
+      "properties": {
+        "repo": {
+          "$ref": "common.json#/$defs/repo_path"
+        },
+        "dry_run": {
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "remove_response": {
+      "description": "Outcome of a removal: the branches deleted with `git branch -d` (never `-D`), and the branches skipped with the reason for each. A branch is skipped when its run is active, unknown or unreadable, when git shows no other ref containing it, or when git itself refuses the delete.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repo",
+        "dry_run",
+        "removed",
+        "skipped"
+      ],
+      "properties": {
+        "repo": {
+          "$ref": "common.json#/$defs/repo_path"
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "removed": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "skipped": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": {
+            "$ref": "#/$defs/skipped"
+          }
+        }
+      }
+    },
+    "skipped": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "branch",
+        "run_id",
+        "state",
+        "reason"
+      ],
+      "properties": {
+        "branch": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 132,
+          "pattern": "^runs/.+$"
+        },
+        "run_id": {
+          "$ref": "common.json#/$defs/run_id"
+        },
+        "state": {
+          "oneOf": [
+            {
+              "$ref": "run.json#/$defs/state"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    }
+  }
+}

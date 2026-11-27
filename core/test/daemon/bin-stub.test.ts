@@ -35,7 +35,7 @@ function makeBinEnv(t: TestContext, harnessConfig: unknown): BinEnv {
   git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "-m", "one");
   writeFileSync(join(configHome, "culture-agents", "allowlist.json"), JSON.stringify({ version: 1, entries: [{ agent_id: AGENT, harness: "stub", repo }] }));
   writeFileSync(join(configHome, "culture-agents", "harness.json"), typeof harnessConfig === "string" ? harnessConfig : JSON.stringify(harnessConfig));
-  writeFileSync(join(root, "server.yaml"), "server:\n  name: spark\n");
+  writeFileSync(join(root, "server.yaml"), "server:\n  name: thor\n");
   const env: BinEnv = {
     root,
     configHome,

@@ -3,7 +3,7 @@ import { test } from "node:test";
 
 import { runKey, sandboxName } from "../../src/sandbox/naming.js";
 import { createRunSandboxes } from "../../src/sandbox/run-sandboxes.js";
-import { CANCELLED_EXIT, WRITE_CHUNK } from "../../src/sandbox/run-sandbox.js";
+import { CANCELLED_EXIT, GATEWAY_MESSAGE_LIMIT, WRITE_CHUNK } from "../../src/sandbox/run-sandbox.js";
 import {
   SandboxBusyError,
   SandboxCleanupError,
@@ -198,6 +198,11 @@ test("files round-trip, missing files are null, and large writes are chunked", a
   assert.equal(writes.length, 3);
 });
 
+test("a write chunk leaves room under the gateway's message limit", () => {
+  // A chunk of exactly the limit was refused by a live gateway: the command and framing ride along.
+  assert.ok(WRITE_CHUNK * 2 <= GATEWAY_MESSAGE_LIMIT);
+});
+
 test("spawn streams output, cancel ends the remote process, stop cancels the rest", async () => {
   const { fake, sandboxes } = setup();
   const sb = await sandboxes.create("run-1");
@@ -255,7 +260,7 @@ test("a not-found during readiness still leaves nothing behind", async () => {
 });
 
 // The longest contract-valid run id: a 96-character mesh id, ".run.", a 26-character ULID.
-const LONG_RUN_ID = `spark-${"a".repeat(90)}.run.01JD0000000000000000000000`;
+const LONG_RUN_ID = `thor-${"a".repeat(91)}.run.01JD0000000000000000000000`;
 
 test("a 127-character run id gets labels the gateway accepts; resume, destroy and sweep work by run id alone", async () => {
   assert.equal(LONG_RUN_ID.length, 127);

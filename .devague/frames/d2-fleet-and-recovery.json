@@ -4,7 +4,7 @@
   "schema_version": 6,
   "status": "exported",
   "created": "2026-11-25T21:59:31Z",
-  "updated": "2026-11-26T17:06:51Z",
+  "updated": "2026-11-26T19:05:33Z",
   "claims": [
     {
       "id": "c1",
@@ -1337,6 +1337,106 @@
       "kind": "decision",
       "text": "Run logs and attach streams that cross hosts are only restricted to callers allowed to read the run, not redacted; a sensitivity mark is added if it is cheap.",
       "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c66",
+      "kind": "decision",
+      "text": "Observability is part of the D2 design. Run and model activity is traced to a Langfuse instance the operator runs locally. (Owner, 2026-11-26: 'We should have observability and it should be part of the design. We can run langfuse locally.')",
+      "origin": "user",
+      "status": "confirmed",
+      "honesty_conditions": [],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c67",
+      "kind": "requirement",
+      "text": "The core exports one trace per run to a configured OpenTelemetry endpoint (the local Langfuse): spans for submit, sandbox setup, the harness turn, each tool call, each operator question, result collection and the terminal state, each carrying the run id, harness, model and duration. Export is off unless an endpoint is configured, comes after the on-disk append, and never blocks, slows or fails a run when the endpoint is down.",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h52",
+          "text": "With the trace endpoint stopped, a run reaches the same terminal state and the same event log in the same time within measurement noise, and no call to the core blocks on the exporter.",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c68",
+      "kind": "requirement",
+      "text": "An operator can see load from the traces without reading run logs: how many runs and harness sessions are active per harness and per model at a moment, and how long each model call waited and ran. The capability report's active run count and the trace view agree.",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h53",
+          "text": "With 3 runs active on 2 harnesses, the trace view shows 3 active runs split correctly by harness and model, and the capability report shows the same count at the same moment.",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c69",
+      "kind": "boundary",
+      "text": "Traces stay on the operator's own Langfuse and are not published to the broker or to another host. Whether a trace carries prompt text, harness output and tool results, or only names, sizes and timings, is a setting; the default carries no content, the same rule as broker events.",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h54",
+          "text": "With the default setting, a trace of a run whose events contain prompt text, output and tool results contains none of that text; no trace is sent to any address but the configured one.",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c70",
+      "kind": "requirement",
+      "text": "The exporter adds no npm dependency: it sends OTLP over HTTP as JSON with Node's own fetch. The Langfuse keys reach the core as injected secrets and are removed from the environment before any worker starts, like every other secret.",
+      "origin": "llm",
+      "status": "confirmed",
+      "honesty_conditions": [
+        {
+          "id": "h55",
+          "text": "core/package.json gains no dependency for tracing, and a worker's environment holds no Langfuse key.",
+          "status": "confirmed",
+          "instruction": ""
+        }
+      ],
+      "hard_questions": [],
+      "links": [],
+      "instruction": "",
+      "revisions": []
+    },
+    {
+      "id": "c71",
+      "kind": "assumption",
+      "text": "Per-request model load (queue depth, tokens, concurrent requests per model and per machine) is the model gateway's to report, not culture-agents'. It is asked of lobes-cli as an issue and implemented from this project by pull request there, like the admit field.",
+      "origin": "llm",
       "status": "confirmed",
       "honesty_conditions": [],
       "hard_questions": [],

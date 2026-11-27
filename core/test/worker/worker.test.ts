@@ -153,7 +153,7 @@ test("cancel over the control socket is recorded and ends the run cancelled", as
   assert.deepEqual(states(events), ["queued", "running", "cancelling", "cancelled"]);
   assert.ok(events.some((e) => e.kind === "run.control"));
   const cancelling = events.find((e) => e.kind === "run.state" && (e.data as StateData).to === "cancelling");
-  assert.equal((cancelling?.data as StateData).reason, "cancel requested by spark-operator: not needed");
+  assert.equal((cancelling?.data as StateData).reason, "cancel requested by thor-operator: not needed");
   assertAllValid(w.runDir, w.run.id);
 });
 

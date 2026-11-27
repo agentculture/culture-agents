@@ -18,7 +18,6 @@ import {
   refused,
   startDaemon,
   submit,
-  submitBody,
   waitFor,
   waitRun,
 } from "./support.js";
@@ -28,7 +27,7 @@ const states = (log: RunEvent[]) => log.filter((e) => e.kind === "run.state").ma
 const steerEchoes = (log: RunEvent[]) => log.filter((e) => e.kind === "run.output" && (e.data as OutputData).text.startsWith("steer: "));
 const controls = (log: RunEvent[]) => log.filter((e) => e.kind === "run.control").map((e) => (e.data as ControlData).action);
 
-test("submit acknowledges a durable queued run; a busy repository is refused until its run ends", async (t) => {
+test("submit acknowledges a durable queued run; a second run in the same repository is accepted alongside it", async (t) => {
   const env = makeEnv(t, [HANG]);
   await startDaemon(t, env);
   const first = await submit(env, "fake", env.repoA);
@@ -44,10 +43,10 @@ test("submit acknowledges a durable queued run; a busy repository is refused unt
   }
   assert.ok(first.worker_pid !== null && processExists(first.worker_pid));
 
-  const busy = await refused(env, "POST", "/v1/runs", "busy", submitBody("fake", env.repoA));
-  assert.equal(busy.active_run_id, first.id);
-  assert.equal(busy.repo, env.repoA);
-  assert.equal(busy.retryable, true);
+  // No limit is configured, so the repository with an active run takes a second one (t8: busy is gone).
+  const sameRepo = await submit(env, "fake", env.repoA);
+  assert.equal(sameRepo.state, "queued");
+  assert.notEqual(sameRepo.id, first.id);
 
   const other = await submit(env, "fake", env.repoB);
   assert.equal(other.state, "queued");
@@ -56,7 +55,7 @@ test("submit acknowledges a durable queued run; a busy repository is refused unt
   const agents = await ok<AgentList>(env, "GET", "/v1/agents", 200, "agent#agent_list");
   const agent = agents.agents.find((a) => a.id === AGENT);
   assert.equal(agent?.state, "running");
-  assert.deepEqual(new Set(agent?.active_run_ids), new Set([first.id, other.id]));
+  assert.deepEqual(new Set(agent?.active_run_ids), new Set([first.id, sameRepo.id, other.id]));
   assert.equal(agents.harnesses.length, 1);
 
   await ok(env, "POST", `/v1/runs/${first.id}/cancel`, 202, "control-action#accepted_response", { caller: CALLER });
@@ -64,7 +63,7 @@ test("submit acknowledges a durable queued run; a busy repository is refused unt
   const again = await submit(env, "fake", env.repoA);
   assert.equal(again.state, "queued");
   const list = await ok<{ runs: { id: string }[] }>(env, "GET", "/v1/runs", 200, "run#run_list");
-  assert.deepEqual(list.runs.map((r) => r.id), [again.id, other.id, first.id]);
+  assert.deepEqual(list.runs.map((r) => r.id), [again.id, other.id, sameRepo.id, first.id]);
 });
 
 test("steer and cancel reach the running driver, and the run ends cancelled", async (t) => {
@@ -123,7 +122,7 @@ test("steer on a harness that declares it unsupported is refused, recorded, and 
   assert.equal((await waitRun(env, run.id, (r) => r.terminal, "terminal")).state, "cancelled");
 });
 
-test("pause, resume and answer are refused whatever the harness says, and recorded on a run this core controls", async (t) => {
+test("pause and resume are refused whatever the harness says, answer when the harness cannot ask (t13), all recorded on a run this core controls", async (t) => {
   const env = makeEnv(t, [HANG]);
   await startDaemon(t, env);
   const run = await submit(env, "fake", env.repoA);
@@ -131,7 +130,7 @@ test("pause, resume and answer are refused whatever the harness says, and record
   const bodies = {
     pause: { caller: CALLER, idempotency_key: "pause-1" },
     resume: { caller: CALLER },
-    answer: { caller: CALLER, question_id: "q1", answer: "yes" },
+    answer: { caller: CALLER, question_id: "thor-culture-agents.qst.01JDQ5X0000000000000000001", answer: "yes" },
   } as const;
   const before = await events(env, run.id);
   for (const [verb, body] of Object.entries(bodies)) {

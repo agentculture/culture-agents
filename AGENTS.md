@@ -28,7 +28,7 @@ TypeScript core `@culture.dev/agents` (`core/`, Node 22 or newer) and the
 Python CLI `agents` (package `culture_agents`, PyPI dist `culture-agents`),
 which is a client of the core over a Unix socket.
 
-**Current state:** the D1 slice, a single-host control plane without chat.
+**Current state:** the D1 slice plus D2 part one, a single-host control plane without chat.
 
 - The core serves the control API on a Unix socket, stores runs on disk (one
   detached worker process per run), and runs harnesses inside an NVIDIA
@@ -41,15 +41,33 @@ which is a client of the core over a Unix socket.
   control API, with fixtures; the core and the CLI are both tested against
   them.
 - CLI verbs: `agents agents list|status` and `agents runs
-  submit|list|show|attach|steer|cancel|logs|result`, plus `whoami`, `learn`,
+  submit|list|show|attach|steer|cancel|logs|result|answer`, `agents branches list|remove`, plus `whoami`, `learn`,
   `explain`, `overview`, `doctor`, `cli overview`. With no core running they
   exit 2 with a hint.
+- D2 part one (single host, `docs/d2/part-one.md`): after a restart the core takes
+  back live control of surviving workers; several runs may be active in one
+  repository (no limit unless the operator configures one, then `limit_reached`);
+  a repeated idempotency key on submit, steer or cancel takes effect once; a
+  run's question waits on disk and is answered once with `agents runs answer`
+  (stub harness only: Claude Code and OpenCode have no ask path and report
+  `answer` unsupported); run branches can be listed and removed; the capability
+  report shows limits, active runs and the heat signal, and for OpenCode the
+  model gateway's admission; tracing to a local Langfuse (endpoint path
+  unconfirmed). Steer is **not preemption**: it lands in the running turn.
+  `succeeded` means the turn ended cleanly, not that the task was done. No
+  hold of 12 hours was measured (the longest was 5 minutes). Acceptance is
+  `tests/acceptance/d2/` and `docs/d2/part-one-acceptance.md`; its live rows
+  are NOT VERIFIED until filled in.
 - `docs/d0/` has the inventory, compatibility matrix, decision records and
   probe results; `docs/specs/` and `docs/plans/` hold the confirmed spec and
   plan; `spikes/` is throwaway probe code, never built or checked.
 
-**Not built:** D2 (fleet and recovery) through D6, `pause`, `resume`,
-`answer`, `artifacts`, Codex, chat integration. Nothing is archived. Issue
+**Not built:** D2 part two (more than one host: fleet view, placement,
+fetching a run's commits from another host) (planned), D3 through D6, `pause`,
+`resume` and delegation (both answer `unsupported`), `artifacts` (no route or
+verb) (planned), an ask path in the Claude Code and OpenCode drivers, Codex,
+chat integration. Nothing is archived: recovery is the condition for archiving
+`agent-lifecycle` and `cultureagent`. Issue
 [#2](https://github.com/agentculture/culture-agents/issues/2) is the
 authoritative plan; `docs/d0/decisions.md` lists open decisions. Never
 describe unbuilt verbs as available.
@@ -83,13 +101,15 @@ markdownlint-cli2 "**/*.md" "#**/node_modules" "#.local" "#.claude/skills" "#.te
 uv run teken cli doctor . --strict        # agent-first rubric gate
 python3 scripts/scan-secrets.py           # committed secrets / non-localhost endpoints
 python3 scripts/check-file-length.py      # 400-line cap per tracked Python and TypeScript file
+python3 scripts/check-example-node.py     # ids and node fields name only the example node, thor
 uv run python scripts/harness-smoke.py --stage config --require config
 ```
 
 The core and the CLI share the socket path: `$CULTURE_AGENTS_SOCKET`, else
 `$XDG_RUNTIME_DIR/culture-agents/core.sock`, else
 `${XDG_STATE_HOME:-$HOME/.local/state}/culture-agents/core.sock` (never under `/tmp`).
-The control API is version 2.0 (`contract/api.json`).
+The control API is version 3.0 (`contract/api.json`): it holds the D2 part one shapes, and
+`contract/README.md` marks the behaviour that is not built yet as (planned).
 
 ## How the code is laid out
 

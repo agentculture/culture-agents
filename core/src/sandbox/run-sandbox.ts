@@ -3,6 +3,7 @@
 // exec / execInteractive / forward / delete; no `openshell` CLI calls.
 import { posix } from "node:path";
 
+import { INJECTED_SECRETS } from "../daemon/secrets.js";
 import { inOrder } from "../util/sequence.js";
 import type { ForwardRef, InteractiveControl, OpenShellClientLike } from "./openshell-client.js";
 import type {
@@ -16,12 +17,18 @@ import type {
 } from "./types.js";
 
 /** Operator credentials that must never be passed into a sandbox, whatever the caller asks. */
-export const SCRUBBED_ENV = ["GH_TOKEN", "GITHUB_TOKEN", "SSH_AUTH_SOCK"] as const;
+export const SCRUBBED_ENV = INJECTED_SECRETS;
 
 /** Exit code a sentinel script returns when a path does not exist. */
 export const NOT_FOUND_EXIT = 44;
-/** Bytes per exec call when writing a file (kept well under gRPC message limits). */
-export const WRITE_CHUNK = 1 << 20;
+/**
+ * Bytes per exec call when writing a file. The gateway refuses a message over 1 MiB, and the
+ * chunk travels with the command and framing in one message, so a chunk of exactly 1 MiB is
+ * refused ("decoded message length too large"). Half of the limit leaves room.
+ */
+export const WRITE_CHUNK = 1 << 19;
+/** The gateway's limit for one message. */
+export const GATEWAY_MESSAGE_LIMIT = 1 << 20;
 /** Exit code reported for a process that ended without sending one (cancelled). */
 export const CANCELLED_EXIT = 137;
 

@@ -1,9 +1,0 @@
-{
-  "error": {
-    "code": "busy",
-    "message": "repository already has an active run",
-    "retryable": true,
-    "active_run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
-    "repo": "/srv/repos/demo"
-  }
-}

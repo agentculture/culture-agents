@@ -19,14 +19,14 @@ Direct dispatch, persistent runs and lifecycle control (submit, attach, steer,
 cancel) over harness adapters, independent of chat. This CLI is a client of the
 core daemon, which owns all run state and talks over a local Unix socket
 (CULTURE_AGENTS_SOCKET, else $XDG_RUNTIME_DIR/culture-agents/core.sock). With
-the core not running, every `agents agents` and `agents runs` verb exits 2 with
-a hint. Every answer of the core is validated against the control-API contract
+the core not running, every `agents agents`, `agents branches` and `agents runs`
+verb exits 2 with a hint. Every answer of the core is validated against the control-API contract
 before it is shown."""
 
 _EXIT_CODES = """\
   0 success
   1 user-input error (bad flag, bad path, missing arg) or a request the core
-    refuses (denied, unsupported, busy, conflict, invalid, not_found)
+    refuses (denied, unsupported, limit_reached, conflict, invalid, not_found)
   2 environment / setup error (core not running, incompatible API version, an
     answer from the core that breaks the contract)
   3+ reserved"""

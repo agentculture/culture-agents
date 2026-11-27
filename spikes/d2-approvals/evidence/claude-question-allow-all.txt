@@ -1,0 +1,18 @@
+[0.1s] creating sandbox for run ccq-mwxtrs3c (image culture-agents-run:dev, providers claude-sub)
+[1.3s] sandbox t1q-f3c79bfadfaf3a5 ready, working tree /sandbox/work
+[1.3s] createSession, model haiku, permissionMode allow-all
+[4.3s] tool-call askUserQuestions {"allowPartialAnswers":true,"questions":[{"id":"question-1","question":"Which colour should I use?","header":"Colour","options":[{"id":"option-1","label":"red",
+[4.3s] stream ended: finishReason "tool-calls", session.turnState awaiting-tool-result, 0 approval(s) and 1 question(s) pending
+[4.4s] held, before the answer: files [README], claude processes in sandbox 3
+[4.4s] holding the turn for 20000 ms with no answer
+[24.4s] held, after the wait: files [README], claude processes in sandbox 3
+[24.4s] answering into the same turn: {"toolApprovalContinuations":[],"toolResultContinuations":[{"type":"tool-result","toolCallId":"toolu_01RAGtcxoQrjYSRkFvFx2Frm","toolName":"askUserQuestions","output":{"type":"json","value":{"action":"answered","answers":{"question-1":{"optionIds":[],"freeform":"ultraviolet-7341"}}}}}]}
+[26.1s] tool-call write {"file_path":"colour.txt","content":"ultraviolet-7341"}
+[26.1s] tool-result write {"type":"create","filePath":"colour.txt","content":"ultraviolet-7341","structuredPatch":[],"originalFile":null,"userModified":false}
+[27.0s] stream ended: finishReason "stop", session.turnState idle, 0 approval(s) and 0 question(s) pending
+[27.1s] after the turn: files [README colour.txt], claude processes in sandbox 2
+[27.1s] final text: "done"
+[27.1s] approved.txt: ""; colour.txt: "ultraviolet-7341"
+[27.1s] checks: raised 1, answered 1, held with nothing written true
+[32.5s] sandbox t1q-f3c79bfadfaf3a5 deleted
+[32.5s] RESULT claude-code question (allow-all): PASS

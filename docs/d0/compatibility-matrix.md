@@ -31,9 +31,9 @@ How to read the cells:
 | colleague | not in D1 | none probed | colleague |
 | qwen (Qwen Code) | not in D1 | none probed | cultureagent (qwen bridge, ACP) |
 
-D1 harness 2 is one decision with two candidate paths; see
-[`decisions.md`](decisions.md#d1-opencode-path-open). Do not read the two
-OpenCode rows as a ranking.
+D1 harness 2 was one decision with two candidate paths; it is settled, see
+[`decisions.md`](decisions.md#d1-opencode-path-settled): the core drives OpenCode v2
+through its own server API. Do not read the two OpenCode rows as a ranking.
 
 ## Capability cells
 
@@ -76,7 +76,7 @@ static checks). Suspend and continue were **not exercised**.
 - **AI SDK leak on failed start:** `HarnessAgent.createSession` did not destroy
   a provider-created sandbox when the adapter's `doStart` failed; one sandbox
   leaked.
-- **Credentials:** the sandbox held only `openshell:resolve:env:` placeholders.
+- **Credentials:** the sandbox held only OpenShell credential placeholders (references that name a variable, never its value).
   Not tested: without an explicit `auth`, the Claude Code adapter would look
   for host credentials and forward them. Read from source only.
 

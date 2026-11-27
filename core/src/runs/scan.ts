@@ -7,7 +7,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
 import {
-  isActive,
   isRunId,
   type ErrorBody,
   type ErrorData,
@@ -28,6 +27,8 @@ export interface ScanOptions {
   controllable: (runId: RunId) => boolean;
   /** Where to report a run that cannot be read (corrupt log or record). */
   warn: (line: string) => void;
+  /** How store files are read; tests inject a counting reader. Default `fs.readFileSync`. */
+  readFile?: (path: string) => Buffer;
 }
 
 /** A run directory exists but its record or log cannot be read. The run is not "absent": it is unreadable. */
@@ -51,7 +52,8 @@ export function readRun(options: ScanOptions, runId: string, strict = false): Ru
   const dir = runDir(options.stateDir, runId);
   if (!existsSync(dir)) return null;
   try {
-    return showRunAt(dir, { controllable: options.controllable(runId), settle: true })?.run ?? null;
+    // A live worker whose control socket does not answer keeps its logged state with `live_control: false`; it is never `unknown`.
+    return showRunAt(dir, { controllable: options.controllable(runId), settle: true, ...(options.readFile && { readFile: options.readFile }) })?.run ?? null;
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
     if (strict) throw new UnreadableRunError(runId, detail);
@@ -60,16 +62,23 @@ export function readRun(options: ScanOptions, runId: string, strict = false): Ru
   }
 }
 
+/** A run whose stored state cannot be read and whose worker may be alive, with the repository its record names (null when that cannot be read either). */
+export interface UnreadableLiveRun {
+  id: string;
+  repo: string | null;
+}
+
 /**
- * An unreadable run that may still be working in `repo`: its worker is alive, and its record names
- * this repository or cannot be read either. Such a run keeps the repository busy; treating it as
- * absent would let a second worker into the same repository.
+ * Every unreadable run that may still be working: its worker is alive (or its liveness cannot be
+ * read). A configured limit counts such a run as active, because treating it as absent could let
+ * more runs start than the operator allowed. With no limit configured nothing reads this.
  */
-export function unreadableRunHolding(options: ScanOptions, repo: string): string | null {
+export function unreadableLiveRuns(options: ScanOptions): UnreadableLiveRun[] {
+  const out: UnreadableLiveRun[] = [];
   for (const id of listRunIds(options.stateDir)) {
     const dir = runDir(options.stateDir, id);
     try {
-      showRunAt(dir, { controllable: false, settle: false });
+      showRunAt(dir, { controllable: false, settle: false, ...(options.readFile && { readFile: options.readFile }) });
       continue;
     } catch {
       // unreadable: decided below
@@ -85,11 +94,11 @@ export function unreadableRunHolding(options: ScanOptions, repo: string): string
     try {
       recorded = (JSON.parse(readFileSync(runFile(dir, "record"), "utf8")) as { repo?: unknown }).repo;
     } catch {
-      return id;
+      recorded = null;
     }
-    if (typeof recorded !== "string" || recorded === repo) return id;
+    out.push({ id, repo: typeof recorded === "string" ? recorded : null });
   }
-  return null;
+  return out;
 }
 
 /** Every established run in the store, newest first by `created_at` (README: runs.list). */
@@ -100,11 +109,6 @@ export function scanRuns(options: ScanOptions): Run[] {
     if (run !== null) runs.push(run);
   }
   return runs.sort(newestFirst);
-}
-
-/** The active run holding a canonical repository, if any. A run whose worker survived a restart counts. */
-export function activeRunFor(options: ScanOptions, repo: string): Run | null {
-  return scanRuns(options).find((run) => run.repo === repo && isActive(run.state)) ?? null;
 }
 
 const SHA = /^[0-9a-f]{40}([0-9a-f]{24})?$/;

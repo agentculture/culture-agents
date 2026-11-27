@@ -92,9 +92,22 @@ test("SIGTERM stops cleanly: exit 0, socket and info file removed, a new instanc
   assert.equal((await second.exited).code, 0);
 });
 
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+  test(`${signal} sent at the moment of the listening report stops the daemon cleanly (handlers are installed first)`, async () => {
+    const env = fresh();
+    env.vars["CHILD_SIGNAL_AT_LISTENING"] = signal;
+    const child = start(env);
+    const exit = await child.exited;
+    assert.match(child.stderr(), /listening on/);
+    assert.deepEqual(exit, { code: 0, signal: null });
+    assert.equal(existsSync(env.socket), false);
+    assert.equal(existsSync(`${env.socket}.pid`), false);
+  });
+}
+
 test("a regular file at the socket path is never removed", async () => {
   const env = fresh();
-  mkdirSync(dirname(env.socket), { recursive: true });
+  mkdirSync(dirname(env.socket), { recursive: true, mode: 0o700 });
   writeFileSync(env.socket, "not a socket");
   const child = start(env);
   const exit = await child.exited;

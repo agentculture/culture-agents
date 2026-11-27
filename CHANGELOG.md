@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/). This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] - 2026-11-27
+
+### Added
+
+- D2 part one (single host): recovery and concurrency for the control plane. Control API 3.0.
+- After a core restart the core reattaches to surviving workers before it answers control calls, so a running run can be steered and cancelled again.
+- Concurrent runs in one repository. The `busy` refusal is removed; an operator may set `limits.runsPerRepository` and `limits.runsPerHost` in the core's config file, and a submit past a limit is refused with `limit_reached`. Nothing is queued.
+- Idempotency keys on submit, steer and cancel, kept on disk: a repeated request returns the first result, a changed request with the same key gets `conflict`. The CLI sends a key on every such call and retries with the same key when the core does not answer.
+- Operator questions: a question is written to the run's log before the run waits, survives a core restart, takes one answer (`agents runs answer`), and ends the run as `unanswered` after a limit of at most 12 hours while the run's deadline is paused. Only the stub harness asks today; Claude Code and OpenCode report `answer` as unsupported.
+- `agents branches list|remove`: list a repository's run branches with their run's state, and remove finished ones only on git evidence, never forced.
+- The base commit is recorded when a submit is accepted and the sandbox is built from it; the submitter of each run is recorded as the core established it.
+- Run store: a schema version, reading of 2.0 run directories, retention of finished run directories (`CULTURE_AGENTS_RUN_RETENTION_DAYS`, default 30) and a summary cache so finished runs are not re-read from their logs.
+- Capability report: configured limits, active runs and admission per signal. The heat signal is read, and for OpenCode the model gateway's `admission` object (1 s limit; anything unreadable or stale reads unknown).
+- Optional publishing of run lifecycle events to a loopback MQTT broker (`CULTURE_AGENTS_BROKER_URL`), and optional export of run traces over OTLP to a local Langfuse (`CULTURE_AGENTS_TRACE_ENDPOINT`), content off by default; the trace endpoint must be a loopback address, as the broker's must. New npm dependency `mqtt` 5.16.1, exact pin.
+- Contract 3.0 is ready for part two: `placement` may be reported as supported, and a typed `admission_held` refusal names the signal that holds a submit. Schema only; no harness reports placement and no route returns the refusal yet.
+- The D2 part one acceptance suite in `tests/acceptance/d2/` and its record `docs/d2/part-one-acceptance.md`; the documents `docs/d2/part-one.md` and `docs/d2/corrections.md`; one report per task in `docs/d2/task-reports/`.
+
+### Changed
+
+- Injected secrets are read once at core start and deleted from the core's `process.env`, so no worker, host command or sandbox inherits them. The core's own initial environment stays readable to the same user through `/proc/<pid>/environ`; giving the core its secrets by file or descriptor is planned.
+- The core refuses to start when its socket directory, set through `CULTURE_AGENTS_SOCKET`, is reachable by other users.
+- A submit against a repository with no resolvable commit is refused with `invalid`.
+- The example node in fixtures, tests and documents is `thor`; `scripts/check-example-node.py` enforces it in CI.
+- The secret scan refuses the sandbox credential placeholder marker in tracked files.
+
+### Fixed
+
+- A file written into a sandbox in chunks of exactly the gateway's message limit failed; chunks are now half that limit.
+- Two recovery gaps recorded after D1: a cancel whose grace period ends during retention cleanup now leaves its retention record, and SIGTERM or SIGINT arriving while the core starts now stops it cleanly. The third recorded gap, a conflict reply on a run that ended, has tests, but one of its lines cannot be reached and is not tested.
+
 ## [0.15.3] - 2026-11-26
 
 ### Added

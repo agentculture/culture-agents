@@ -2,7 +2,7 @@
  * Worker process entry point. The daemon spawns it detached (own session, stdio to the run's
  * `worker.log`, no IPC channel), so it survives the daemon:
  *
- *   node dist/src/worker/main.js --state-dir <dir> --run-id <id> [--heartbeat-ms N] [--cancel-grace-ms N]
+ *   node dist/src/worker/main.js --state-dir <dir> --run-id <id> [--heartbeat-ms N] [--cancel-grace-ms N] [--question-limit-ms N]
  *
  * Exit 0 once the run is terminal; exit 1 when the run could not be opened (nothing is
  * acknowledged then, and the run stays without a live worker).
@@ -26,6 +26,7 @@ async function main(): Promise<number> {
       "run-id": { type: "string" },
       "heartbeat-ms": { type: "string" },
       "cancel-grace-ms": { type: "string" },
+      "question-limit-ms": { type: "string" },
     },
     strict: true,
   });
@@ -36,11 +37,13 @@ async function main(): Promise<number> {
   process.on("SIGHUP", () => undefined);
   const heartbeatMs = positiveInt(values["heartbeat-ms"], "heartbeat-ms");
   const cancelGraceMs = positiveInt(values["cancel-grace-ms"], "cancel-grace-ms");
+  const questionLimitMs = positiveInt(values["question-limit-ms"], "question-limit-ms");
   const state = await runWorker({
     stateDir,
     runId,
     ...(heartbeatMs === undefined ? {} : { heartbeatMs }),
     ...(cancelGraceMs === undefined ? {} : { cancelGraceMs }),
+    ...(questionLimitMs === undefined ? {} : { questionLimitMs }),
   });
   process.stderr.write(`worker ${process.pid}: run ${runId} ended ${state}\n`);
   return 0;

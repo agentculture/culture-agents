@@ -27,6 +27,8 @@
  * | opencode.port          | CULTURE_AGENTS_OPENCODE_PORT         | 4096 (port of `opencode serve` inside the sandbox) |
  * | retainFailedSandboxDays | CULTURE_AGENTS_RETAIN_FAILED_SANDBOX_DAYS | 7 (days a sandbox is kept when a completed turn's work could not be brought to the host; 0 to 90, 0 keeps nothing) |
  * | stub                   | CULTURE_AGENTS_HARNESS_STUB          | false; "1"/"true" lists the harness-neutral `stub` harness |
+ * | limits.runsPerRepository / .runsPerHost | (file only)         | none: no limit applies unless one is set (read by daemon/limits.ts) |
+ * | questions.limitSeconds | (file only)                          | 43200 (12 hours): an operator question's time limit; 1 to 43200, never more (daemon/limits.ts) |
  *
  * No credential value is ever read here: providers are referenced by name and keys by the
  * name of the variable that holds OpenShell's placeholder inside the sandbox.
@@ -82,13 +84,15 @@ export class HarnessConfigError extends Error {
 type Env = Readonly<Record<string, string | undefined>>;
 type Json = Record<string, unknown>;
 
-function configPath(env: Env): string {
+/** The path of the core's config file (also read for the operator's limits, daemon/limits.ts). */
+export function configPath(env: Env): string {
   const explicit = env["CULTURE_AGENTS_HARNESS_CONFIG"];
   if (explicit) return explicit;
   return join(env["XDG_CONFIG_HOME"] || join(env["HOME"] || homedir(), ".config"), "culture-agents", "harness.json");
 }
 
-function readFile(path: string, explicit: boolean): Json | null {
+/** The config file as a JSON object; null when the default file does not exist. */
+export function readConfigFile(path: string, explicit: boolean): Json | null {
   let raw: string;
   try {
     raw = readFileSync(path, "utf8");
@@ -126,7 +130,7 @@ function isPlainHttpUrl(value: string): boolean {
 
 export function loadHarnessConfig(env: Env = process.env): HarnessConfig {
   const path = configPath(env);
-  const file = readFile(path, Boolean(env["CULTURE_AGENTS_HARNESS_CONFIG"]));
+  const file = readConfigFile(path, Boolean(env["CULTURE_AGENTS_HARNESS_CONFIG"]));
   const str = (envName: string, key: string, fallback: string): string => {
     const fromEnv = env[envName];
     if (fromEnv !== undefined && fromEnv !== "") return fromEnv;

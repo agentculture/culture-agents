@@ -4,13 +4,13 @@ import { request } from "node:http";
 import { join } from "node:path";
 import { after, before, test } from "node:test";
 
-import { apiVersion, httpStatusFor, validate, type ErrorResponse, type SchemaName, type SubmitRequest } from "../../src/contract/index.js";
+import { apiVersion, exitCodeFor, httpStatusFor, validate, type ErrorResponse, type SchemaName, type SubmitRequest } from "../../src/contract/index.js";
 import { startDaemon, type Daemon } from "../../src/daemon/daemon.js";
 import { FakeRunService, fixture, stream } from "./fake-service.js";
 import { call, makeEnv, writeAllowlist, type Env, type Reply } from "./harness.js";
 
-const RUN = "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5";
-const OTHER_RUN = "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6";
+const RUN = "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5";
+const OTHER_RUN = "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6";
 let env: Env;
 let daemon: Daemon;
 let service: FakeRunService;
@@ -21,7 +21,7 @@ function submitBody(over: Partial<SubmitRequest> = {}): SubmitRequest {
 }
 
 function allowEntry(): { agent_id: string; harness: string; repo: string } {
-  return { agent_id: "spark-culture-agents", harness: "claude-code", repo };
+  return { agent_id: "thor-culture-agents", harness: "claude-code", repo };
 }
 
 before(async () => {
@@ -31,7 +31,7 @@ before(async () => {
   repo = realpathSync(repo);
   service = new FakeRunService();
   service.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 3));
-  daemon = await startDaemon({ service, node: "spark", env: env.vars, keepaliveMs: 100 });
+  daemon = await startDaemon({ service, node: "thor", env: env.vars, keepaliveMs: 100 });
 });
 after(async () => {
   await daemon.stop();
@@ -57,27 +57,46 @@ test("version endpoint returns the contract's API version, even for an incompati
   const reply = await call(env.socket, "GET", "/v1/version", { version: "9.9" });
   expectOk(reply, 200, "version");
   assert.equal((reply.json as { api_version: string }).api_version, apiVersion);
-  assert.equal((reply.json as { node: string }).node, "spark");
+  assert.equal((reply.json as { node: string }).node, "thor");
 });
 
 test("an incompatible client version is refused with the typed error before anything else", async () => {
-  const major = await call(env.socket, "GET", "/v1/agents", { version: "3.0" });
+  const major = await call(env.socket, "GET", "/v1/agents", { version: "4.0" });
   const body = expectError(major, "incompatible_version");
-  assert.equal(body.client_api_version, "3.0");
+  assert.equal(body.client_api_version, "4.0");
   assert.equal(body.server_api_version, apiVersion);
   // Wrong version wins over an unknown path, a bad body and a missing run.
-  expectError(await call(env.socket, "GET", "/v1/nope", { version: "3.0" }), "incompatible_version");
+  expectError(await call(env.socket, "GET", "/v1/nope", { version: "4.0" }), "incompatible_version");
   expectError(await call(env.socket, "POST", "/v1/runs", { version: "0.1", rawBody: "{" }), "incompatible_version");
   // A client newer than the core in MINOR is incompatible too.
-  expectError(await call(env.socket, "GET", "/v1/runs", { version: "2.99" }), "incompatible_version");
+  expectError(await call(env.socket, "GET", "/v1/runs", { version: "3.99" }), "incompatible_version");
   // An absent header is accepted.
   expectOk(await call(env.socket, "GET", "/v1/agents", { version: null }), 200, "agent#agent_list");
   assert.equal(service.calls.includes("submit"), false);
 });
 
+test("a 2.0 client is refused by this 3.0 core: exit code 2 and a message naming both versions", async () => {
+  assert.equal(apiVersion, "3.0");
+  for (const [method, path] of [["GET", "/v1/runs"], ["POST", "/v1/runs"], ["POST", `/v1/runs/${RUN}/answer`]] as const) {
+    const reply = await call(env.socket, method, path, { version: "2.0", body: method === "POST" ? {} : undefined });
+    const body = expectError(reply, "incompatible_version");
+    assert.equal(reply.status, 412);
+    assert.deepEqual([body.client_api_version, body.server_api_version], ["2.0", "3.0"]);
+    assert.match(body.message, /2\.0/);
+    assert.match(body.message, /3\.0/);
+    assert.equal(exitCodeFor(body.code), 2, "the contract maps the refusal to CLI exit code 2");
+    assert.equal(body.retryable, false);
+  }
+  // The version route still answers, so the 2.0 client can read which version the core speaks.
+  const version = await call(env.socket, "GET", "/v1/version", { version: "2.0" });
+  expectOk(version, 200, "version");
+  assert.equal((version.json as { api_version: string }).api_version, "3.0");
+  assert.equal(service.calls.includes("submit"), false);
+});
+
 test("read routes return bodies that validate against the contract", async () => {
   expectOk(await call(env.socket, "GET", "/v1/agents"), 200, "agent#agent_list");
-  expectOk(await call(env.socket, "GET", "/v1/agents/spark-culture-agents"), 200, "agent");
+  expectOk(await call(env.socket, "GET", "/v1/agents/thor-culture-agents"), 200, "agent");
   expectOk(await call(env.socket, "GET", "/v1/harnesses"), 200, "capabilities#capabilities_list");
   expectOk(await call(env.socket, "GET", "/v1/harnesses/claude-code"), 200, "capabilities");
   expectOk(await call(env.socket, "GET", "/v1/runs?limit=5&state=queued"), 200, "run#run_list");
@@ -90,7 +109,7 @@ test("read routes return bodies that validate against the contract", async () =>
 
 test("unknown ids, bad parameters, unknown paths and wrong methods get typed errors", async () => {
   expectError(await call(env.socket, "GET", `/v1/runs/${OTHER_RUN}`), "not_found");
-  expectError(await call(env.socket, "GET", "/v1/agents/spark-nobody"), "not_found");
+  expectError(await call(env.socket, "GET", "/v1/agents/thor-nobody"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/harnesses/nope"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/elsewhere"), "not_found");
   expectError(await call(env.socket, "GET", "/v1/runs/%zz"), "invalid");
@@ -126,7 +145,7 @@ test("a malformed or invalid allow-list file counts as empty and is reported", a
   writeAllowlist(env, "{ not json");
   expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "denied");
   assert.equal(daemon.allowlistState().status, "invalid");
-  writeAllowlist(env, { version: 1, entries: [{ agent_id: "spark-culture-agents", harness: "*", repo: "*" }] } as never);
+  writeAllowlist(env, { version: 1, entries: [{ agent_id: "thor-culture-agents", harness: "*", repo: "*" }] } as never);
   expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "denied");
   assert.equal(daemon.allowlistState().status, "invalid");
   assert.equal(service.submitted.length, 0);
@@ -134,7 +153,7 @@ test("a malformed or invalid allow-list file counts as empty and is reported", a
 
 test("body validation comes before the allow-list, and a past deadline is invalid", async () => {
   writeAllowlist(env, { version: 1, entries: [] });
-  const bad = await call(env.socket, "POST", "/v1/runs", { body: { agent_id: "spark-culture-agents" } });
+  const bad = await call(env.socket, "POST", "/v1/runs", { body: { agent_id: "thor-culture-agents" } });
   expectError(bad, "invalid");
   expectError(await call(env.socket, "POST", "/v1/runs", { rawBody: "{ nope" }), "invalid");
   expectError(await call(env.socket, "POST", "/v1/runs", { rawBody: "" }), "invalid");
@@ -148,7 +167,7 @@ test("allow-list matches agent, harness and repo exactly; a symlinked repo path 
   writeAllowlist(env, { version: 1, entries: [allowEntry()] });
   assert.equal(daemon.allowlistState().entries.length, 1);
   // each field differing is denied
-  expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody({ agent_id: "spark-other" }) }), "denied");
+  expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody({ agent_id: "thor-other" }) }), "denied");
   expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody({ harness: "opencode" }) }), "denied");
   const sibling = join(env.root, "other-repo");
   mkdirSync(sibling);
@@ -170,18 +189,20 @@ test("allow-list matches agent, harness and repo exactly; a symlinked repo path 
 test("service refusals surface as typed errors", async () => {
   const original = service.submit.bind(service);
   const { ControlError } = await import("../../src/daemon/errors.js");
-  service.submit = () => Promise.reject(new ControlError("busy", "The repository already has an active run.", { active_run_id: RUN, repo }));
-  const busy = expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "busy");
-  assert.equal(busy.active_run_id, RUN);
+  const limit = { name: "runs_per_repository" as const, value: 1, active: 1, repo };
+  service.submit = () => Promise.reject(new ControlError("limit_reached", "The repository's configured limit runs_per_repository is 1.", { limit }));
+  const limited = expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "limit_reached");
+  assert.deepEqual(limited.limit, limit);
+  assert.equal(limited.retryable, true);
   service.submit = () => Promise.reject(new Error("boom with /secret/path"));
   const internal = expectError(await call(env.socket, "POST", "/v1/runs", { body: submitBody() }), "internal");
   assert.doesNotMatch(internal.message, /secret/);
   service.submit = original;
 });
 
-test("pause, resume and answer are always unsupported, after id, existence and body checks", async () => {
-  const caller = { kind: "operator", id: "spark-operator" };
-  const bodies = { pause: { caller }, resume: { caller }, answer: { caller, question_id: "q1", answer: "yes" } };
+test("pause and resume are always unsupported, after id, existence and body checks", async () => {
+  const caller = { kind: "operator", id: "thor-operator" };
+  const bodies = { pause: { caller }, resume: { caller } };
   for (const [verb, body] of Object.entries(bodies)) {
     const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body });
     const refusal = expectError(reply, "unsupported");
@@ -192,7 +213,7 @@ test("pause, resume and answer are always unsupported, after id, existence and b
     expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/${verb}`, { body: { nope: true } }), "invalid");
     expectError(await call(env.socket, "POST", `/v1/runs/bad/${verb}`, { body }), "invalid");
   }
-  assert.equal(service.refusals.length, 3, "only a refusal at step 4 is handed over, never an earlier one");
+  assert.equal(service.refusals.length, 2, "only a refusal at step 4 is handed over, never an earlier one");
   // A service that fails to record changes nothing for the caller.
   const original = service.recordRefusal.bind(service);
   service.recordRefusal = () => Promise.reject(new Error("the worker is gone"));
@@ -200,8 +221,22 @@ test("pause, resume and answer are always unsupported, after id, existence and b
   service.recordRefusal = original;
 });
 
+test("answer is no longer refused at step 4: it validates, then reaches the service (t13)", async () => {
+  const caller = { kind: "operator", id: "thor-operator" };
+  const body = { caller, question_id: "thor-culture-agents.qst.01JDQ5X0000000000000000001", answer: "yes" };
+  const before = service.refusals.length;
+  const reply = await call(env.socket, "POST", `/v1/runs/${RUN}/answer`, { body });
+  expectOk(reply, 202, "control-action#accepted_response");
+  assert.equal((reply.json as { action: { kind: string } }).action.kind, "answer");
+  assert.equal(service.calls.at(-1), "answer");
+  expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/answer`, { body: { caller, question_id: "not-a-question" } }), "invalid");
+  expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/answer`, { body: { caller } }), "invalid");
+  expectError(await call(env.socket, "POST", `/v1/runs/${OTHER_RUN}/answer`, { body }), "not_found");
+  assert.equal(service.refusals.length, before, "the server records no step-4 refusal for answer");
+});
+
 test("steer and cancel validate then reach the service", async () => {
-  const caller = { kind: "operator", id: "spark-operator" };
+  const caller = { kind: "operator", id: "thor-operator" };
   expectOk(await call(env.socket, "POST", `/v1/runs/${RUN}/steer`, { body: { caller, message: "use tabs" } }), 202, "control-action#accepted_response");
   expectOk(await call(env.socket, "POST", `/v1/runs/${RUN}/cancel`, { body: { caller } }), 202, "control-action#accepted_response");
   expectError(await call(env.socket, "POST", `/v1/runs/${RUN}/steer`, { body: { caller } }), "invalid");
@@ -222,7 +257,7 @@ function attach(path: string, headers: Record<string, string> = {}): { frames: F
   const status = new Promise<number>((r) => (resolveStatus = r));
   let resolveClosed!: () => void;
   const closed = new Promise<void>((r) => (resolveClosed = r));
-  const req = request({ socketPath: env.socket, path, headers: { "Agents-Api-Version": "2.0", ...headers } }, (res) => {
+  const req = request({ socketPath: env.socket, path, headers: { "Agents-Api-Version": apiVersion, ...headers } }, (res) => {
     resolveStatus(res.statusCode ?? 0);
     let buf = "";
     res.setEncoding("utf8");
@@ -305,8 +340,8 @@ test("shutdown ends open streams", async () => {
   const env2 = makeEnv();
   const svc = new FakeRunService();
   svc.seed(fixture("valid/run/root.queued.json"), stream("succeeded.jsonl").slice(0, 2));
-  const d = await startDaemon({ service: svc, node: "spark", env: env2.vars });
-  const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": "2.0" } });
+  const d = await startDaemon({ service: svc, node: "thor", env: env2.vars });
+  const req = request({ socketPath: env2.socket, path: `/v1/runs/${RUN}/attach`, headers: { "Agents-Api-Version": apiVersion } });
   let closed = false;
   const ended = new Promise<number | undefined>((resolve) =>
     req.on("response", (res) => {

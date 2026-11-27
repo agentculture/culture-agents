@@ -1,0 +1,26 @@
+{
+  "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "cursor": 5,
+  "time": "2026-11-25T10:05:00Z",
+  "kind": "run.answer",
+  "data": {
+    "question_id": "thor-culture-agents.qst.01JDQ5X0000000000000000001",
+    "action": {
+      "id": "thor-culture-agents.act.01JDQ5W0000000000000000002",
+      "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "kind": "answer",
+      "caller": {
+        "kind": "operator",
+        "id": "thor-operator"
+      },
+      "requested_at": "2026-11-25T10:05:00Z",
+      "idempotency_key": null,
+      "outcome": "accepted",
+      "error": null
+    },
+    "choice_ids": [
+      "green"
+    ],
+    "answer": "ultraviolet"
+  }
+}

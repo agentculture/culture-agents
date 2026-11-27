@@ -22,7 +22,7 @@ them.
 | 4 | AgentIRC behaviors kept or sunset | **open** | none |
 | 5 | Embodiment history versus executable sessions | **open** | none |
 | 6 | Resource signals | **decided** 2026-11-24 | `c29` |
-| D1 | OpenCode path for D1 | **open** | `c61` (harness chosen, path not) |
+| D1 | OpenCode path for D1 | **settled** (corrected in D2) | `c61`, `c63`; `core/src/harness/opencode/client.ts`; `docs/d0/d1-acceptance.md` |
 
 ## Decision 1: SDK adapter versus AgentCulture feature
 
@@ -153,9 +153,15 @@ The working-tree handoff was a blocking park resolved "let the probe decide"
 (2026-11-24). Probe options A and B both passed; option C (mounting a host
 worktree) was not tested because it needs a gateway setting that is off.
 
-## D1 OpenCode path (open)
+## D1 OpenCode path (settled)
 
-**Status: open. The owner has not chosen. This record does not pick one.**
+**Status: settled; corrected in D2 part one.** This section used to read "open". The D1
+frame (`c63`) and the live D1 acceptance settled it: the core drives OpenCode v2 (2.3.2)
+through its own server API (`opencode serve`; `core/src/harness/opencode/client.ts`), a
+third path that was not in the table below, and the live run recorded steer and cancel
+for it (`docs/d0/d1-acceptance.md`). The text from here to the end of this section is
+kept as it was written, as the history of the choice; read it as history, not as an open
+question.
 
 `c61` fixes the harness (OpenCode v2) but not how culture-agents drives it. Two
 paths were measured; the probe covers both only partly.

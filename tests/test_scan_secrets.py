@@ -302,3 +302,11 @@ def test_a_non_http_scheme_is_not_treated_as_an_endpoint(tmp_path: Path) -> None
     """The endpoint check is scoped to http(s) URLs, as documented."""
     findings = _write_and_scan(tmp_path, '{"endpoint": "unix:///var/run/thing.sock"}\n')
     assert findings == []
+
+
+def test_the_openshell_placeholder_marker_is_caught(tmp_path: Path) -> None:
+    """A harness that reads this marker in a sandbox has its next model request refused."""
+    findings = _write_and_scan(
+        tmp_path, "the variable holds an `openshell" ":resolve:env:` placeholder\n"
+    )
+    assert findings, "the marker must be reported"

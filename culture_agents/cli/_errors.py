@@ -39,9 +39,10 @@ __all__ = ["EXIT_ENV_ERROR", "EXIT_SUCCESS", "EXIT_USER_ERROR", "CliError", "Cor
 class CoreError(CliError):
     """A failure reported by (or about reaching) the core.
 
-    ``error_code`` is the contract's typed code (``unsupported``, ``busy``,
-    ``unavailable`` ...); ``detail`` carries the extra typed fields of the
-    error body (``capability``, ``active_run_id``, ``client_api_version`` ...).
+    ``error_code`` is the contract's typed code (``unsupported``,
+    ``limit_reached``, ``unavailable`` ...); ``detail`` carries the extra
+    typed fields of the error body (``capability``, ``limit``, ``signal``,
+    ``client_api_version`` ...).
     Both are added to the JSON error output next to the standard
     ``{code, message, remediation}`` triple.
 

@@ -15,22 +15,46 @@ import type {
 
 const deferred = (reason: string): Deferred => ({ supported: false, reason, caveats: [] });
 
-/** The deferred block, identical for every harness in this API version. */
+/**
+ * What `worktree_isolation` guarantees for a sandboxed harness: a sandbox clone per run, never a
+ * git worktree on the host. Concurrent runs in one repository rely on exactly this (contract README).
+ */
+export const SANDBOX_ISOLATION =
+  "Each run works in its own clone of the repository inside its own sandbox, made from a git bundle of the commit recorded at submit, and its commits return only to its own runs/<run_id> branch. This is a sandbox clone per run, not a host worktree: no git worktree is created on the host, and the host checkout and index are never written.";
+
+/**
+ * The block every harness reports the same way: the deferred capabilities unsupported; `reconnect`,
+ * which the core provides itself (runs/reattach.ts), and `worktree_isolation` (a sandbox clone per
+ * run; a harness without a sandbox overrides its caveat) supported. `answer` is what the driver does,
+ * not what the harness could do: it is unsupported unless the harness's driver builds the ask path
+ * and says so (`CapabilityInput.answer`). Today only the stub's driver does.
+ */
 export function deferredCapabilities(): Pick<
   CapabilitySet,
-  "pause" | "resume" | "answer" | "continue_session" | "delegate" | "placement" | "reconnect" | "worktree_isolation"
-> {
+  "pause" | "resume" | "answer" | "continue_session" | "delegate" | "placement" | "worktree_isolation"
+> & { reconnect: Capability } {
+  // placement is supportable in the 3.0 schema (t30) but not built: every harness reports it
+  // unsupported, with its reason, until D2 part two (planned).
   return {
     pause: deferred("Pausing a run is deferred beyond D1 for every harness."),
     resume: deferred("Resuming a paused run is deferred beyond D1 for every harness."),
-    answer: deferred("Operator questions are deferred beyond D1; runs use allow-all permissions and never ask."),
+    answer: unsupported(NO_ASK_PATH),
     continue_session: deferred("Continuing an earlier session is deferred beyond D1; every run starts a new session."),
     delegate: deferred("Agent-to-agent delegation is deferred beyond D1."),
-    placement: deferred("D1 runs on a single host; placement on another node is deferred."),
-    reconnect: deferred("D1 cannot reattach live control to a worker that survived a core restart."),
-    worktree_isolation: deferred("One active run per repository in D1; concurrent runs in one repository are deferred."),
+    placement: unsupported("This core runs work only on its own node; placement on another node is not built yet (planned, D2 part two)."),
+    reconnect: supported("Live control is rebuilt over the worker's own control socket; a worker that does not answer is reported unknown."),
+    worktree_isolation: supported(SANDBOX_ISOLATION),
   };
 }
+
+/**
+ * Why a harness whose driver has no ask path reports `answer` unsupported. The probe of plan task t1
+ * (docs/d2/probe-approvals.md) measured that Claude Code and OpenCode v2 can ask and take an answer
+ * (holds of up to 5 minutes; 12 hours was not measured), but their drivers here still run with
+ * allow-all permissions and do not raise questions, so nothing is answered.
+ */
+export const NO_ASK_PATH =
+  "This harness's driver has no ask path yet: it runs with allow-all permissions and never raises a question, so it takes no answer. The probe in docs/d2/probe-approvals.md shows the harness itself can ask (holds of up to 5 minutes measured, 12 hours not).";
 
 export const supported = (...caveats: string[]): Capability => ({ supported: true, reason: null, caveats });
 export const unsupported = (reason: string): Capability => ({ supported: false, reason, caveats: [] });
@@ -41,6 +65,10 @@ export interface CapabilityInput {
   version: string | null;
   transport: string;
   core: Pick<CapabilitySet, "submit" | "stream" | "steer" | "cancel">;
+  /** Replaces the default `answer` (unsupported, no ask path) for a harness whose driver asks. */
+  answer?: Capability;
+  /** Replaces the default `worktree_isolation` (a sandbox clone per run) for a harness that runs elsewhere. */
+  isolation?: Capability;
   extension?: Record<string, unknown>;
 }
 
@@ -50,7 +78,12 @@ export function capabilityDocument(input: CapabilityInput): Capabilities {
     available: input.available,
     version: input.version === null ? null : input.version.slice(0, 128),
     transport: input.transport,
-    capabilities: { ...input.core, ...deferredCapabilities() },
+    capabilities: {
+      ...input.core,
+      ...deferredCapabilities(),
+      ...(input.answer && { answer: input.answer }),
+      ...(input.isolation && { worktree_isolation: input.isolation }),
+    },
   };
   if (input.extension) doc.extension = input.extension;
   return doc;

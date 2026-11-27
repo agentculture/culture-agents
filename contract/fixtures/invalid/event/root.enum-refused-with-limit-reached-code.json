@@ -1,0 +1,30 @@
+{
+  "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "cursor": 6,
+  "time": "2026-11-25T10:00:06Z",
+  "kind": "run.refused",
+  "data": {
+    "action": {
+      "id": "thor-culture-agents.act.01JDQ5W0000000000000000002",
+      "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "kind": "steer",
+      "caller": {
+        "kind": "operator",
+        "id": "thor-operator"
+      },
+      "requested_at": "2026-11-25T10:00:10Z",
+      "idempotency_key": null,
+      "outcome": "refused",
+      "error": {
+        "code": "limit_reached",
+        "message": "the configured limit runs_per_host is 2",
+        "retryable": true,
+        "limit": {
+          "name": "runs_per_host",
+          "value": 2,
+          "active": 2
+        }
+      }
+    }
+  }
+}

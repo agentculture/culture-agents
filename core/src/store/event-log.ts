@@ -17,10 +17,12 @@ import {
   isTerminal,
   validate,
   type ActionRecord,
+  type AnswerData,
   type ControlData,
   type ErrorData,
   type EventKind,
   type OutputData,
+  type QuestionData,
   type RefusedData,
   type RunEvent,
   type RunId,
@@ -46,7 +48,7 @@ export class EventLogCorruptError extends Error {
  */
 export interface EventInput {
   kind: EventKind;
-  data: StateData | OutputData | ControlData | RefusedData | ErrorData | { action: ActionRecord };
+  data: StateData | OutputData | ControlData | RefusedData | ErrorData | QuestionData | AnswerData | { action: ActionRecord };
 }
 
 /** Running summary of a log, enough to validate the next event. */
@@ -108,10 +110,10 @@ export function parseLog(runId: RunId, content: Buffer | string): ParsedLog {
 }
 
 /** Read and parse a run's whole log (missing file = empty log). */
-export function readLog(dir: string, runId: RunId): ParsedLog {
+export function readLog(dir: string, runId: RunId, readFile: (path: string) => Buffer = readFileSync): ParsedLog {
   let content: Buffer;
   try {
-    content = readFileSync(runFile(dir, "events"));
+    content = readFile(runFile(dir, "events"));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return parseLog(runId, "");
     throw err;

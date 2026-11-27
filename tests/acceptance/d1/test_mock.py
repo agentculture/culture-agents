@@ -112,7 +112,9 @@ def test_cancel_reaches_cancelled_in_under_10_seconds(core: Core) -> None:
     record("mock.cancel", seconds=round(seconds, 3))
 
 
-def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Core) -> None:
+def test_dispatch_is_denied_by_default_and_a_second_run_in_a_repository_is_accepted(
+    core: Core,
+) -> None:
     repo = core.add_repo()
     stranger = core.cli(
         *("runs", "submit", "--agent", f"{AGENT}2", "--harness", "stub"),
@@ -127,8 +129,11 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         *("runs", "submit", "--agent", AGENT, "--harness", "stub"),
         *("--repo", str(repo), "--task", "hang", "--json"),
     )
-    assert second.rc == 1
-    assert second.error_code() == "busy"
+    # t8 removed the busy rule: with no limit configured a second run in one repository is accepted.
+    assert second.rc == 0, second.err
+    second_run = second.json()["run"]
+    assert second_run["id"] != run["id"]
+    assert second_run["repo"] == run["repo"]
     other_harness = core.cli(
         *("runs", "submit", "--agent", AGENT, "--harness", "claude-code"),
         *("--repo", str(repo), "--task", "hang", "--json"),
@@ -140,6 +145,7 @@ def test_dispatch_is_denied_by_default_and_a_busy_repository_is_refused(core: Co
         other_harness.error_code() == "denied"
     ), "the allow-list names the harness too: an entry for stub does not permit claude-code"
     core.ok("runs", "cancel", run["id"])
+    core.ok("runs", "cancel", second_run["id"])
 
 
 def test_a_run_needs_no_chat_server_and_no_network(core: Core) -> None:
@@ -188,14 +194,17 @@ def test_after_kill_9_and_restart_every_run_reports_a_state_and_none_invents_suc
     assert all(r["state"] in STATES for r in listed.values())
     assert listed[finished["id"]]["state"] == "succeeded"
     assert listed[working["id"]]["state"] == "running", "the surviving worker is still at work"
-    assert not listed[working["id"]]["live_control"]
+    # Reattach runs beside reads: a listing right after the restart may come before it is done.
+    # A control call waits for it; a read is given a bounded moment here.
+    core.wait_run(working["id"], lambda r: r["live_control"], "reattached to the survivor", 10)
     assert listed[orphan["id"]]["state"] == "unknown", "a dead worker is unknown, never succeeded"
     assert listed[hung["id"]]["state"] == "running"
-    assert not listed[hung["id"]]["live_control"]
+    core.wait_run(hung["id"], lambda r: r["live_control"], "reattached to the survivor", 10)
     assert hung_pid in core.worker_pids(), "the restart did not signal the surviving worker"
+    # D1 refused this as `unsupported`; since D2 (plan task t9) a restarted core takes back
+    # live control of a worker that survived it.
     steer = core.cli("runs", "steer", hung["id"], "hello?", "--json")
-    assert steer.rc == 1, "no live control after a restart"
-    assert steer.error_code() == "unsupported", "no live control after a restart"
+    assert steer.rc == 0, f"live control after a restart: {steer}"
 
     # The surviving worker finishes on its own, and its success is backed by its commits.
     assert core.wait_terminal(working["id"], 60)["state"] == "succeeded"
@@ -233,3 +242,31 @@ def test_without_a_core_the_cli_exits_2_and_guesses_nothing() -> None:
     assert res.returncode == 2
     assert res.stdout == ""
     assert "unavailable" in res.stderr
+
+
+def test_a_2_0_client_is_refused_by_the_3_0_core_with_exit_2_naming_both_versions(
+    core: Core,
+) -> None:
+    """The real core and the real CLI code, with the client's version set back to 2.0."""
+    assert core.ok("runs", "list") == {"runs": []}  # this client and this core agree on 3.0
+    old_client = (
+        "import sys; from culture_agents.cli import _client, main; "
+        "_client.CLIENT_API_VERSION = '2.0'; sys.exit(main(sys.argv[1:]))"
+    )
+    for argv in (["runs", "list"], ["agents", "list"], ["runs", "list", "--json"]):
+        res = subprocess.run(  # nosec B603
+            [sys.executable, "-c", old_client, *argv],
+            env=core.env,
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert res.returncode == 2, res.stderr
+        assert res.stdout == ""
+        assert "2.0" in res.stderr, res.stderr
+        assert "3.0" in res.stderr, res.stderr
+    detail = json.loads(res.stderr)  # the last one ran with --json
+    assert (detail["client_api_version"], detail["server_api_version"]) == ("2.0", "3.0")
+    assert core.show_version_refusal("2.0") == ("incompatible_version", "2.0", "3.0", 412)
+    record("mock.version_refusal", client="2.0", core="3.0", exit_code=2)

@@ -21,6 +21,10 @@ import {
 } from "../../src/harness/index.js";
 import type { Driver } from "../../src/worker/driver.js";
 
+// The placeholder marker is assembled here so this file never contains it: a harness that reads the
+// literal text inside a sandbox has its next model request refused by the egress proxy.
+const CREDENTIAL_SHAPED = new RegExp(`${["openshell", "resolve"].join(":")}|sk-|secret`, "i");
+
 function scratch(t: TestContext): string {
   const dir = mkdtempSync(join(tmpdir(), "ca-harness-reg-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -102,7 +106,7 @@ test("registry shape: ids, absolute driver modules exporting createDriver, JSON 
   const oc = getHarness(config, "opencode");
   assert.equal((oc?.driver.options["opencode"] as { model: string }).model, "gateway/worker");
   assert.deepEqual((oc?.driver.options["sandbox"] as { providers: string[] }).providers, ["lobes"]);
-  assert.ok(!JSON.stringify(entries.map((e) => e.driver.options)).match(/openshell:resolve|sk-|secret/i), "no credential in options");
+  assert.ok(!JSON.stringify(entries.map((e) => e.driver.options)).match(CREDENTIAL_SHAPED), "no credential in options");
 });
 
 test("capability documents validate against the contract, available or not", async (t) => {
@@ -121,9 +125,26 @@ test("capability documents validate against the contract, available or not", asy
       assert.ok(result.ok, `${entry.id} (${label}): ${JSON.stringify(result.ok ? null : result.issues)}`);
       assert.equal(doc.harness, entry.id);
       if (entry.id !== "stub") assert.equal(doc.available, label === "available", `${entry.id} availability (${label})`);
-      for (const c of ["pause", "resume", "answer", "continue_session", "delegate", "placement", "reconnect", "worktree_isolation"] as const) {
+      for (const c of ["pause", "resume", "continue_session", "delegate", "placement"] as const) {
         assert.equal(doc.capabilities[c].supported, false, `${entry.id}: ${c} is deferred`);
       }
+      // t30: the schema lets placement be supported; no harness of this core supports it until part two.
+      assert.match(doc.capabilities.placement.reason ?? "", /\S/, `${entry.id}: placement has a reason`);
+      // t13: answer is what the driver does. The stub asks; the real drivers have no ask path yet, and
+      // say so with what the probe measured (5 minute holds) and did not (12 hours).
+      const answer = doc.capabilities.answer;
+      assert.equal(answer.supported, entry.id === "stub", `${entry.id}: answer`);
+      if (entry.id === "stub") assert.match(answer.caveats.join(" "), /12 hours/);
+      else assert.match(answer.reason ?? "", /no ask path.*5 minutes measured, 12 hours not/s);
+      assert.equal(doc.capabilities.reconnect.supported, true, `${entry.id}: reconnect is supported`);
+      // t8: worktree_isolation states what is guaranteed: a clone per run (a sandbox clone for a sandboxed harness), never a host worktree.
+      const isolation = doc.capabilities.worktree_isolation;
+      assert.equal(isolation.supported, true, `${entry.id}: worktree_isolation is supported`);
+      const said = isolation.caveats.join(" ");
+      assert.match(said, entry.id === "stub" ? /own temporary clone/ : /sandbox clone per run, not a host worktree/, entry.id);
+      assert.match(said, /runs\/<run_id> branch/);
+      assert.match(said, /no git worktree is created/i);
+      assert.match(said, /host checkout and index are never written/);
     }
   }
   const claude = await getHarness(ok, "claude-code")?.capabilities();
@@ -140,7 +161,8 @@ test("every undeclared capability of every harness is refused, typed, and never 
   for (const entry of listHarnesses(config)) {
     const doc = await entry.capabilities();
     const undeclared = (Object.keys(doc.capabilities) as CapabilityName[]).filter((c) => !doc.capabilities[c].supported);
-    assert.ok(undeclared.length >= 8);
+    // The five deferred ones, and answer where the driver has no ask path (all but the stub, t13).
+    assert.ok(undeclared.length >= (entry.id === "stub" ? 5 : 6));
     for (const capability of undeclared) {
       const refusal = refusalFor(doc, capability);
       assert.ok(refusal, `${entry.id}: ${capability} refused`);

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import {
   isTerminal,
   type AcceptedResponse,
+  type AnswerRequest,
   type Agent,
   type AgentList,
   type CancelRequest,
@@ -17,6 +18,7 @@ import {
   type StateData,
   type SteerRequest,
   type SubmitRequest,
+  type SubmitResponse,
 } from "../../src/contract/index.js";
 import { ControlError, notFound } from "../../src/daemon/errors.js";
 import type { DeferredKind, DeferredRequest, RunListQuery, RunService } from "../../src/daemon/ports.js";
@@ -69,11 +71,11 @@ export class FakeRunService implements RunService {
     for (const w of this.wake) w();
   }
 
-  submit(request: SubmitRequest): Promise<Run> {
+  submit(request: SubmitRequest): Promise<SubmitResponse> {
     this.calls.push("submit");
     this.submitted.push(request);
     const base = fixture<Run>("valid/run/root.queued.json");
-    return Promise.resolve({ ...base, agent_id: request.agent_id, harness: request.harness, repo: request.repo, task: request.task, owner: request.caller });
+    return Promise.resolve({ run: { ...base, agent_id: request.agent_id, harness: request.harness, repo: request.repo, task: request.task, owner: request.caller } });
   }
 
   listRuns(query: RunListQuery): Promise<Run[]> {
@@ -129,14 +131,19 @@ export class FakeRunService implements RunService {
     return Promise.resolve({ ...fixture<RunResult>("valid/run/run_result.succeeded.json"), run_id: runId });
   }
 
-  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse["action"]> {
+  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse> {
     this.calls.push("steer");
-    return Promise.resolve({ ...fixture<AcceptedResponse>("valid/control-action/accepted_response.steer.json").action, run_id: runId, caller: request.caller });
+    return Promise.resolve({ action: { ...fixture<AcceptedResponse>("valid/control-action/accepted_response.steer.json").action, run_id: runId, caller: request.caller } });
   }
 
-  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse["action"]> {
+  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse> {
     this.calls.push("cancel");
-    return Promise.resolve({ ...fixture<AcceptedResponse>("valid/control-action/accepted_response.cancel.json").action, run_id: runId, caller: request.caller });
+    return Promise.resolve({ action: { ...fixture<AcceptedResponse>("valid/control-action/accepted_response.cancel.json").action, run_id: runId, caller: request.caller } });
+  }
+
+  answer(runId: string, request: AnswerRequest): Promise<AcceptedResponse> {
+    this.calls.push("answer");
+    return Promise.resolve({ action: { ...fixture<AcceptedResponse>("valid/control-action/accepted_response.answer.json").action, run_id: runId, caller: request.caller } });
   }
 
   recordRefusal(runId: string, kind: DeferredKind, request: DeferredRequest, error: ErrorBody): Promise<void> {

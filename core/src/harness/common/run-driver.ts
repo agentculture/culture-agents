@@ -7,7 +7,7 @@
  */
 import type { ErrorBody } from "../../contract/index.js";
 import { again, finish, stepUntil } from "../../util/sequence.js";
-import { RETAIN_FAILED_SANDBOX_DAYS, type Driver, type DriverEvent } from "../../worker/driver.js";
+import { RETAIN_FAILED_SANDBOX_DAYS, type AnswerReply, type Driver, type DriverEvent, type Retained } from "../../worker/driver.js";
 import { describeProcs, newProcesses } from "./processes.js";
 import { EventQueue, errorMessage, sleep } from "./queue.js";
 import type {
@@ -78,6 +78,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   private turnOver = false;
   private cancelRequested = false;
   private disposed = false;
+  private keptRetention: Retained | null = null;
   private forceStop!: () => void;
   private readonly forced = new Promise<void>((resolve) => (this.forceStop = resolve));
   private destroying: Promise<boolean> | null = null;
@@ -109,6 +110,13 @@ export class RunDriver<W extends Workspace> implements Driver {
     await this.turn.steer(message);
   }
 
+  /** Deliver an answer into the running turn; the worker has checked that the request is pending. */
+  async answer(ref: string, reply: AnswerReply): Promise<void> {
+    if (!this.turn || this.turnOver || this.cancelRequested || this.disposed) throw new Error("The run has no running turn to answer.");
+    if (!this.turn.answer) throw new Error("This harness backend has no ask path.");
+    await this.turn.answer(ref, reply);
+  }
+
   async cancel(): Promise<void> {
     if (this.cancelRequested || this.disposed) return;
     this.cancelRequested = true;
@@ -124,6 +132,11 @@ export class RunDriver<W extends Workspace> implements Driver {
         this.forceStop();
       }
     }
+  }
+
+  /** The sandbox this driver kept, from the moment it decided to keep it (see `Driver.retained`). */
+  retained(): Retained | null {
+    return this.keptRetention;
   }
 
   async dispose(): Promise<void> {
@@ -146,7 +159,7 @@ export class RunDriver<W extends Workspace> implements Driver {
   }
 
   private onTurnEvent(event: TurnEvent): void {
-    this.queue.push(event.type === "output" ? { type: "output", data: event.data } : { type: "error", error: event.error });
+    this.queue.push(event);
   }
 
   private finish(outcome: DriverEvent): void {
@@ -210,6 +223,8 @@ export class RunDriver<W extends Workspace> implements Driver {
       }
       this.stage = "collect the run's commits";
       this.collected = commits > 0 ? await workspace.collect() : null;
+      // Work that was committed but not brought back is a failed collect, never a run without commits.
+      if (commits > 0 && this.collected === null) throw new Error(`the workspace holds ${commits} commit(s), but none was brought to the host`);
       return true;
     } catch (err) {
       if (this.stopping) await this.stopAll();
@@ -259,18 +274,19 @@ export class RunDriver<W extends Workspace> implements Driver {
       return this.finish({ type: "failed", error: this.error("internal", why, false) });
     }
     this.kept = true; // from here no path of this driver deletes the workspace, a late dispose included
+    const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
+    this.keptRetention = { sandbox: retention.sandbox, until };
     // The harness was closed before the commit; what it left running is killed, since this sandbox is not deleted.
     const left = await this.settled(this.options.processSettleMs ?? 1500);
     if (left.failed === null && left.procs.length > 0) await this.workspace.kill(left.procs.map((p) => p.pid)).catch(() => undefined);
     await this.workspace.keep?.().catch(() => undefined);
-    const until = new Date((this.options.now ?? Date.now)() + days * DAY_MS).toISOString();
     // The recovery instructions are the point of the message, so the cause gives way to them.
     const tail =
       `. The turn had completed, so sandbox ${retention.sandbox} is kept until ${until} ` +
       `with the run's work in it. To get the work out: ${retention.recover}`;
     const room = Math.max(200, Math.min(900, ERROR_MESSAGE_LIMIT - tail.length));
     const message = (why.length > room ? `${why.slice(0, room - 3)}...` : why) + tail;
-    this.finish({ type: "failed", error: this.error("internal", message, false), retained: { sandbox: retention.sandbox, until } });
+    this.finish({ type: "failed", error: this.error("internal", message, false), retained: this.keptRetention });
   }
 
   /** Close the harness and destroy the workspace, swallowing errors (failure paths). */

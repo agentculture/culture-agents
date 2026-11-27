@@ -9,8 +9,10 @@ import {
   type RunState,
   type SchemaName,
   type SubmitRequest,
+  type Submitter,
 } from "../contract/index.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
+import { branchesList, branchesRemove } from "./branch-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
 import { checkBody, readJsonBody, sendJson } from "./http.js";
 import type { DeferredRequest, RunService } from "./ports.js";
@@ -25,6 +27,8 @@ export interface RouteContext {
   keepaliveMs: number;
   /** Aborted when the daemon shuts down, so open streams end. */
   shutdown: AbortSignal;
+  /** Who the core established for requests on its control socket; set once the socket is bound. */
+  submitter: Submitter | null;
 }
 
 interface Match {
@@ -53,13 +57,14 @@ const PATTERNS: readonly Pattern[] = [
   ["runs.pause", "POST", "v1", "runs", ":run_id", "pause"],
   ["runs.resume", "POST", "v1", "runs", ":run_id", "resume"],
   ["runs.answer", "POST", "v1", "runs", ":run_id", "answer"],
+  ["branches.list", "GET", "v1", "branches"],
+  ["branches.remove", "POST", "v1", "branches", "remove"],
 ];
 
 /** Deferred control routes: always `unsupported`, naming the capability. Value is the request schema. */
 const DEFERRED = {
   "runs.pause": ["pause", "control-action#pause_request"],
   "runs.resume": ["resume", "control-action#resume_request"],
-  "runs.answer": ["answer", "control-action#answer_request"],
 } as const;
 
 const PARAM_SCHEMAS: Record<string, SchemaName> = {
@@ -138,6 +143,11 @@ async function requireRun(ctx: RouteContext, runId: string) {
   return run;
 }
 
+function requireSubmitter(ctx: RouteContext): Submitter {
+  if (ctx.submitter === null) throw new ControlError("internal", "The core has not established who owns its control socket.");
+  return ctx.submitter;
+}
+
 function checkSubmit(ctx: RouteContext, body: unknown): SubmitRequest {
   checkBody("control-action#submit_request", body);
   const request = body as SubmitRequest;
@@ -207,13 +217,22 @@ async function steerOrCancel({ ctx, req, res, p }: RouteCall, steer: boolean): P
   const body = await readJsonBody(req);
   if (steer) {
     checkBody("control-action#steer_request", body);
-    return sendJson(res, 202, "control-action#accepted_response", { action: await ctx.service.steer(runId, body as never) });
+    return sendJson(res, 202, "control-action#accepted_response", await ctx.service.steer(runId, body as never));
   }
   checkBody("control-action#cancel_request", body);
-  return sendJson(res, 202, "control-action#accepted_response", { action: await ctx.service.cancel(runId, body as never) });
+  return sendJson(res, 202, "control-action#accepted_response", await ctx.service.cancel(runId, body as never));
 }
 
-/** A deferred control route (pause, resume, answer): checked like any other, then refused as `unsupported`. */
+/** Answer one pending question of a run; the service runs steps 5 to 9 (runs/answer.ts). */
+async function runsAnswer({ ctx, req, res, p }: RouteCall): Promise<void> {
+  const runId = p["run_id"] ?? "";
+  await requireRun(ctx, runId);
+  const body = await readJsonBody(req);
+  checkBody("control-action#answer_request", body);
+  return sendJson(res, 202, "control-action#accepted_response", await ctx.service.answer(runId, body as never));
+}
+
+/** A deferred control route (pause, resume): checked like any other, then refused as `unsupported`. */
 async function refuseDeferred({ ctx, req, p }: RouteCall, routeId: string): Promise<never> {
   const deferred = DEFERRED[routeId as keyof typeof DEFERRED];
   if (!deferred) throw new ControlError("internal", "Route table and handlers disagree.");
@@ -269,7 +288,7 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return harnessShow(call);
     case "runs.submit": {
       const request = checkSubmit(ctx, await readJsonBody(req));
-      return sendJson(res, 201, "control-action#submit_response", { run: await svc.submit(request) });
+      return sendJson(res, 201, "control-action#submit_response", await svc.submit(request, requireSubmitter(ctx)));
     }
     case "runs.list":
       return runsList(call);
@@ -286,6 +305,12 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return steerOrCancel(call, true);
     case "runs.cancel":
       return steerOrCancel(call, false);
+    case "runs.answer":
+      return runsAnswer(call);
+    case "branches.list":
+      return branchesList({ service: svc, allowlist: ctx.allowlist, req, res, url });
+    case "branches.remove":
+      return branchesRemove({ service: svc, allowlist: ctx.allowlist, req, res, url });
     default:
       return refuseDeferred(call, match.id);
   }

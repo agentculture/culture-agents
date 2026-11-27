@@ -3,6 +3,8 @@
  * socket, the real store and real worker processes running the fake driver. Every response is
  * validated against the contract. Cleanup kills every daemon and worker and removes the tree.
  */
+import { execFileSync } from "node:child_process";
+import { hostEnv } from "../../src/sandbox/host-command.js";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
@@ -12,21 +14,27 @@ import { dirname, join } from "node:path";
 import type { TestContext } from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { validate, type ErrorBody, type Run, type RunEvent, type SchemaName } from "../../src/contract/index.js";
+import { apiVersion, validate, type ErrorBody, type Run, type RunEvent, type SchemaName } from "../../src/contract/index.js";
 import { runDir } from "../../src/store/files.js";
 import { checkLiveness } from "../../src/store/liveness.js";
 import { listRunIds } from "../../src/store/run-store.js";
 import { pollUntil } from "../../src/util/sequence.js";
 import type { FakeStep } from "../../src/worker/fake-driver.js";
+import { GIT } from "../harness/helpers.js";
+import { letExitForCoverage } from "../worker/helpers.js";
 
-export const AGENT = "spark-culture-agents";
-export const CALLER = { kind: "operator", id: "spark-operator" } as const;
+export const AGENT = "thor-culture-agents";
+export const CALLER = { kind: "operator", id: "thor-operator" } as const;
 
 /** One fake harness: steps the fake driver plays, and whether steer is declared supported. */
 export interface FakeHarness {
   id: string;
   steps: FakeStep[];
   steer?: boolean;
+  /** Report `answer` supported (the stub driver and the fake driver's `ask` step can ask). */
+  ask?: boolean;
+  /** Run the real stub harness driver (a host temp clone, commits collected into `runs/<id>`) instead of the fake driver; `steps` is then unused. */
+  stub?: boolean;
 }
 
 export const HANG: FakeHarness = { id: "fake", steps: [{ op: "started" }, { op: "output", data: { channel: "text", text: "Working" } }, { op: "hang" }] };
@@ -58,6 +66,7 @@ export function makeEnv(t: TestContext, harnesses: FakeHarness[] | null): Env {
   };
   const configHome = join(root, "config");
   for (const dir of [env.repoA, env.repoB, join(configHome, "culture-agents")]) mkdirSync(dir, { recursive: true });
+  for (const dir of [env.repoA, env.repoB]) commitedRepo(dir);
   const ids = (harnesses ?? [HANG]).map((h) => h.id);
   const entries = ids.flatMap((harness) => [env.repoA, env.repoB].map((repo) => ({ agent_id: AGENT, harness, repo })));
   writeFileSync(join(configHome, "culture-agents", "allowlist.json"), JSON.stringify({ version: 1, entries }));
@@ -72,11 +81,15 @@ export function makeEnv(t: TestContext, harnesses: FakeHarness[] | null): Env {
 
 /** SIGKILL every live worker recorded in the store. */
 export function killWorkers(env: Env): void {
+  const pids: number[] = [];
   for (const id of listRunIds(env.stateDir)) {
     const live = checkLiveness(runDir(env.stateDir, id));
-    if (!live.alive || live.pid === null) continue;
+    if (live.alive && live.pid !== null) pids.push(live.pid);
+  }
+  letExitForCoverage(pids);
+  for (const pid of pids) {
     try {
-      process.kill(live.pid, "SIGKILL");
+      process.kill(pid, "SIGKILL");
     } catch {
       // already gone
     }
@@ -121,7 +134,7 @@ export interface Reply {
 
 function send(socket: string, method: string, path: string, body?: unknown): Promise<Reply> {
   return new Promise((resolve, reject) => {
-    const headers: Record<string, string> = { "Agents-Api-Version": "2.0" };
+    const headers: Record<string, string> = { "Agents-Api-Version": apiVersion };
     const payload = body === undefined ? undefined : JSON.stringify(body);
     if (payload !== undefined) headers["Content-Type"] = "application/json";
     const req = request({ socketPath: socket, method, path, headers }, (res) => {
@@ -211,7 +224,7 @@ export interface Attach {
 export function attach(env: Env, id: string, after: number): Promise<Attach> {
   return new Promise((resolve, reject) => {
     const out: RunEvent[] = [];
-    const req = request({ socketPath: env.socket, method: "GET", path: `/v1/runs/${id}/attach?after=${after}`, headers: { "Agents-Api-Version": "2.0" } }, (res) => {
+    const req = request({ socketPath: env.socket, method: "GET", path: `/v1/runs/${id}/attach?after=${after}`, headers: { "Agents-Api-Version": apiVersion } }, (res) => {
       if (res.statusCode !== 200) return reject(new Error(`attach answered ${String(res.statusCode)}`));
       let buf = "";
       const closed = new Promise<void>((done) => res.on("end", done));
@@ -235,4 +248,16 @@ export function attach(env: Env, id: string, after: number): Promise<Attach> {
     req.on("error", reject);
     req.end();
   });
+}
+
+/** Make `dir` a git repository with one commit (a submit resolves its base commit when accepted). */
+export function commitedRepo(dir: string): void {
+  const git = (...args: string[]) => execFileSync(GIT, args, { cwd: dir, env: hostEnv() });
+  git("init", "-q", "-b", "main");
+  git("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "--allow-empty", "-m", "one");
+}
+
+/** Write the core's config file (`harness.json` under the env's config home) with these limits; the daemon reads it at start. */
+export function writeLimits(env: Env, limits: Record<string, unknown>): void {
+  writeFileSync(join(env.vars["XDG_CONFIG_HOME"] as string, "culture-agents", "harness.json"), JSON.stringify({ limits }));
 }

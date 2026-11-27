@@ -1,0 +1,13 @@
+{
+  "error": {
+    "code": "limit_reached",
+    "message": "the limit runs_per_repository is 2 and 2 runs are active in /srv/repos/demo; nothing was queued",
+    "retryable": true,
+    "limit": {
+      "name": "runs_per_repository",
+      "value": 2,
+      "active": 2,
+      "repo": "/srv/repos/demo"
+    }
+  }
+}

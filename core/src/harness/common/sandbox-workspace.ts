@@ -130,7 +130,12 @@ export class SandboxWorkspace implements Workspace {
   private async commitCount(): Promise<number> {
     const count = `cd ${shq(this.workdir)} && git rev-list --count ${shq(this.prepared.baseCommit)}..HEAD`;
     const res = await withTimeout("counting the run's commits in the sandbox", COMMIT_TIMEOUT_MS, (signal) => this.sandbox.exec(count, { signal }));
-    return res.exitCode === 0 ? Number(text(res.stdout).trim()) : 0;
+    // A count that fails is not zero commits: read as zero, the run would succeed without its work.
+    const value = Number(text(res.stdout).trim());
+    if (res.exitCode !== 0 || text(res.stdout).trim() === "" || !Number.isInteger(value)) {
+      throw new Error(`could not count the run's commits in the sandbox (exit ${res.exitCode}): ${text(res.stderr).trim()}`);
+    }
+    return value;
   }
 
   retention(): { sandbox: string; recover: string } {
@@ -169,6 +174,8 @@ export class SandboxWorkspaceFactory implements WorkspaceFactory<SandboxWorkspac
     private readonly hostRepo: string,
     private readonly settings: SandboxSettings,
     private readonly deps: SandboxDeps = realSandboxDeps,
+    /** The commit recorded when the submit was accepted; the sandbox is built from it, not from `settings.ref`. */
+    private readonly baseCommit?: string,
   ) {}
 
   async open(signal: AbortSignal): Promise<SandboxWorkspace> {
@@ -179,7 +186,7 @@ export class SandboxWorkspaceFactory implements WorkspaceFactory<SandboxWorkspac
     try {
       const prepared = await this.deps.prepare(sandbox, {
         hostRepo: this.hostRepo,
-        ref: s.ref,
+        ref: this.baseCommit ?? s.ref,
         runId: this.runId,
         identity: s.identity,
         signal,

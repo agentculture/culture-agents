@@ -4,16 +4,18 @@
  * `spawnWorker` resolves only after the durability condition holds: the worker's identity
  * (pid), its event log with event 1 (`null` -> `queued`) and its cursor are on disk, owner-only,
  * and its control socket answers. Only then may the daemon acknowledge the submit (README,
- * order of checks for runs.submit, step 7).
+ * order of checks for runs.submit, step 8).
  *
  * `reconnectWorker` finds a surviving worker after a daemon restart and reports whether its
  * control socket answers. It never signals or terminates the worker.
  */
+import { scrubSecrets } from "../daemon/secrets.js";
 import { spawn } from "node:child_process";
+import { workerEnv } from "../trace/config.js";
 import { closeSync, openSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import type { ActionRecord, Run, RunId } from "../contract/index.js";
+import type { ActionRecord, AnswerRequest, Run, RunId } from "../contract/index.js";
 import { readCursorFile, readLog } from "../store/event-log.js";
 import { FILE_MODE, runDir, runFile, type RunFile } from "../store/files.js";
 import { checkLiveness, readWorkerIdentity, type Liveness } from "../store/liveness.js";
@@ -48,13 +50,17 @@ export class WorkerControl {
     const req = reason === undefined ? { op: "cancel" as const, action } : { op: "cancel" as const, action, reason };
     return this.deliver(req, "run.control");
   }
+  /** An answer is accepted only once the harness took it, like a steer. */
+  answer(action: ActionRecord, request: AnswerRequest): Promise<ControlReply> {
+    return this.deliver({ op: "answer", action, request }, "run.answer", this.steerTimeoutMs);
+  }
   /** Have the worker record a refusal the core decided (`run.refused`). */
   refuse(action: ActionRecord): Promise<ControlReply> {
     return this.deliver({ op: "refuse", action }, "run.refused");
   }
 
   /** Send an action; with no reply, settle its outcome from the run's log (see `settleFromLog`). */
-  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused", timeoutMs = this.timeoutMs): Promise<ControlReply> {
+  private async deliver(request: ControlRequest & { action: ActionRecord }, recordedAs: "run.control" | "run.refused" | "run.answer", timeoutMs = this.timeoutMs): Promise<ControlReply> {
     try {
       return await controlRequest(this.runDir, request, timeoutMs);
     } catch (err) {
@@ -73,8 +79,14 @@ export interface SpawnWorkerOptions {
   readyTimeoutMs?: number;
   heartbeatMs?: number;
   cancelGraceMs?: number;
+  /** The time limit of each question the run asks, in ms; the worker caps it at 12 hours. Default 12 hours. */
+  questionLimitMs?: number;
   /** Environment of the worker process. Default: this process's environment. */
   env?: NodeJS.ProcessEnv;
+  /** How long a steer or answer waits for the worker's reply. Default 8000 ms (tests set it shorter). */
+  steerTimeoutMs?: number;
+  /** Called once the run directory and record exist, before the worker is started (a fault injection point). */
+  onCreated?: (dir: string) => void;
 }
 
 export interface SpawnedWorker {
@@ -122,6 +134,7 @@ function workerArgs(options: SpawnWorkerOptions): string[] {
   const args = [WORKER_ENTRY, "--state-dir", options.stateDir, "--run-id", options.run.id];
   if (options.heartbeatMs !== undefined) args.push("--heartbeat-ms", String(options.heartbeatMs));
   if (options.cancelGraceMs !== undefined) args.push("--cancel-grace-ms", String(options.cancelGraceMs));
+  if (options.questionLimitMs !== undefined) args.push("--question-limit-ms", String(options.questionLimitMs));
   return args;
 }
 
@@ -155,6 +168,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
   if (run.state !== "queued" || run.worker_pid !== null) throw new RangeError("a new run must be queued with no worker");
   const dir = createRun(stateDir, run);
   writeFileSync(runFile(dir, "driver"), `${JSON.stringify(options.driver)}\n`, { mode: FILE_MODE, flag: "wx" });
+  options.onCreated?.(dir);
   const args = workerArgs(options);
   const logFd = openSync(runFile(dir, "log"), "a", FILE_MODE);
   let exited: string | null = null;
@@ -165,7 +179,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
         cwd: dir,
         detached: true,
         stdio: ["ignore", logFd, logFd],
-        env: options.env ?? process.env,
+        env: workerEnv(scrubSecrets(options.env ?? process.env)),
       });
     } finally {
       closeSync(logFd);
@@ -186,7 +200,7 @@ export async function spawnWorker(options: SpawnWorkerOptions): Promise<SpawnedW
   } finally {
     child.off("exit", onExit);
   }
-  return { runId: run.id, runDir: dir, pid, control: new WorkerControl(dir) };
+  return { runId: run.id, runDir: dir, pid, control: new WorkerControl(dir, undefined, options.steerTimeoutMs) };
 }
 
 export type Reconnect =

@@ -43,6 +43,15 @@ The daemon listens on `$CULTURE_AGENTS_SOCKET`, else
 is `${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/allowlist.json` and ships
 empty.
 
+Run events can also go to the workspace's events broker (events-cli: Mosquitto
+on loopback). Publishing is off unless `CULTURE_AGENTS_BROKER_URL` names a
+loopback broker, for example `mqtt://127.0.0.1:1883`. Each event is published
+after it is appended to the run's log, under a type `agents.run.<what>` and
+with the id `<run id>:<cursor>`. A message holds the run id, the event kind,
+the run's state, the cursor and the time, never the run's content. A broker
+that is down never blocks or fails a run: the events stay in the log and are
+published when the broker is back.
+
 Then, with the Python client:
 
 ```bash
@@ -54,6 +63,19 @@ agents runs attach <run-id>
 The contract (JSON Schemas, routes, error table, state machine) is in the
 repository's [`contract/`](https://github.com/agentculture/culture-agents/tree/main/contract)
 directory and ships in this package under `dist/contract-schemas/`.
+
+## Injected secrets
+
+The core is started with credentials in its environment. It reads each one once at start, keeps it in
+memory and deletes it from `process.env` before any worker, host command (`git`, `openshell`) or
+sandbox exists, so none of them inherits it. That is all it does: the kernel keeps the core's initial
+environment in `/proc/<pid>/environ`, which any process of the same user can read, so the secrets
+stay readable there for the life of the core. The way to avoid that is to give the core its secrets
+by file or descriptor instead of the environment (planned, not built). The list is declared in one place,
+`INJECTED_SECRETS` in `src/daemon/secrets.ts`: `GH_TOKEN`, `GITHUB_TOKEN`, `SSH_AUTH_SOCK`,
+`CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY` and `LOBES_GATEWAY_KEY`. The worker spawner, the host
+command runner and the sandbox environment filter also drop these names from any environment they
+are given.
 
 ## License
 

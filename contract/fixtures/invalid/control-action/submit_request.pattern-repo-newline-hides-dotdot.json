@@ -1,11 +1,11 @@
 {
-  "agent_id": "spark-culture-agents",
+  "agent_id": "thor-culture-agents",
   "harness": "claude-code",
   "repo": "/srv/repo\n/../other",
   "task": "Add a unit test for the parser's empty-input case.",
   "caller": {
     "kind": "operator",
-    "id": "spark-operator"
+    "id": "thor-operator"
   },
-  "parent_run_id": "spark-reviewer.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6"
+  "parent_run_id": "thor-reviewer.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D6"
 }

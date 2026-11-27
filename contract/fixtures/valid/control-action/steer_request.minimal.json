@@ -1,7 +1,7 @@
 {
   "caller": {
     "kind": "operator",
-    "id": "spark-operator"
+    "id": "thor-operator"
   },
   "message": "Stop writing files; write STEERED.txt."
 }

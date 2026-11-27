@@ -12,7 +12,7 @@ API = cs.api_index()
 SCHEMAS = cs.load_schemas()
 REG = cs.registry()
 COMMON = SCHEMAS["common.json"]["$defs"]
-TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "unknown"}
+TERMINAL = {"succeeded", "failed", "cancelled", "timed_out", "unanswered", "unknown"}
 D1_ROUTES = {
     "version",
     "agents.list",
@@ -27,18 +27,20 @@ D1_ROUTES = {
     "runs.cancel",
     "runs.logs",
     "runs.result",
+    "branches.list",
+    "branches.remove",
 }
 DEFERRED_ROUTES = {"runs.pause", "runs.resume", "runs.answer"}
+#: Pinned to unsupported by the schema in 3.0.
 DEFERRED_CAPABILITIES = {
     "pause",
     "resume",
-    "answer",
     "delegate",
-    "placement",
     "continue_session",
-    "reconnect",
-    "worktree_isolation",
 }
+#: Deferred in 2.0; in 3.0 a harness may report them supported (README: changes from 2.0).
+#: ``placement`` joined them in t30 so that part two needs no MAJOR bump; no harness reports it yet.
+SUPPORTABLE_SINCE_3_0 = {"answer", "reconnect", "worktree_isolation", "placement"}
 ENVIRONMENT_ERRORS = {"incompatible_version", "unavailable", "internal"}
 
 
@@ -125,7 +127,8 @@ def test_route_errors_and_streaming_are_consistent(route):
 def test_error_table_matches_error_schema_and_exit_codes():
     codes = set(SCHEMAS["error.json"]["$defs"]["code"]["enum"])
     assert codes == set(API["errors"])
-    assert {"unsupported", "busy", "denied", "not_found", "invalid"} <= codes
+    assert {"unsupported", "limit_reached", "denied", "not_found", "invalid"} <= codes
+    assert "busy" not in codes  # removed in 3.0 by t8
     assert {"incompatible_version", "unavailable"} <= codes
     for code, row in API["errors"].items():
         assert row["exit_code"] == (2 if code in ENVIRONMENT_ERRORS else 1), code
@@ -147,9 +150,12 @@ def test_state_machine_matches_run_schema():
 def test_deferred_capabilities_are_declared_unsupported():
     caps = SCHEMAS["capabilities.json"]["$defs"]["capability_set"]
     assert set(caps["required"]) == set(caps["properties"])
-    assert DEFERRED_CAPABILITIES | {"submit", "stream", "steer", "cancel"} == set(caps["required"])
+    core = {"submit", "stream", "steer", "cancel"}
+    assert DEFERRED_CAPABILITIES | SUPPORTABLE_SINCE_3_0 | core == set(caps["required"])
     for name in DEFERRED_CAPABILITIES:
         assert caps["properties"][name]["$ref"].endswith("#/$defs/deferred"), name
+    for name in SUPPORTABLE_SINCE_3_0 | core:
+        assert caps["properties"][name]["$ref"].endswith("#/$defs/capability"), name
     deferred = SCHEMAS["capabilities.json"]["$defs"]["deferred"]
     assert deferred["properties"]["supported"] == {"const": False}
 
@@ -162,12 +168,12 @@ def test_capability_names_used_by_errors_are_known():
 # --- identifiers ----------------------------------------------------------------
 
 
-@pytest.mark.parametrize("good", ["spark-culture-agents", "thor-claude", "n1-reachy_nova"])
+@pytest.mark.parametrize("good", ["thor-culture-agents", "thor-claude", "n1-reachy_nova"])
 def test_mesh_id_accepts_node_agent_form(good):
     assert re.fullmatch(COMMON["mesh_id"]["pattern"], good)
 
 
-@pytest.mark.parametrize("bad", ["spark", "Spark-x", "spark-", "-x", "spark--x", "sp.ark-x"])
+@pytest.mark.parametrize("bad", ["thor", "Thor-x", "thor-", "-x", "thor--x", "th.or-x"])
 def test_mesh_id_rejects_other_forms(bad):
     assert not re.fullmatch(COMMON["mesh_id"]["pattern"], bad)
 
@@ -176,9 +182,9 @@ def test_run_session_and_action_ids_embed_the_agent_id():
     ulid = "01JDQ5V7M2K8X9Y0Z1A2B3C4D5"
     for kind, tag in (("run_id", "run"), ("session_id", "ses"), ("action_id", "act")):
         pattern = COMMON[kind]["pattern"]
-        assert re.fullmatch(pattern, f"spark-culture-agents.{tag}.{ulid}"), kind
+        assert re.fullmatch(pattern, f"thor-culture-agents.{tag}.{ulid}"), kind
         assert not re.fullmatch(pattern, f"culture.{tag}.{ulid}"), kind
-        assert not re.fullmatch(pattern, f"spark-culture-agents.{tag}.{ulid.lower()}"), kind
+        assert not re.fullmatch(pattern, f"thor-culture-agents.{tag}.{ulid.lower()}"), kind
 
 
 def test_inlined_patterns_do_not_drift_from_their_sources():
@@ -191,7 +197,6 @@ ID_PROPS = {
     "agent_id": "mesh_id",
     "run_id": "run_id",
     "session_id": "session_id",
-    "active_run_id": "run_id",
     "parent_run_id": "run_id",
 }
 

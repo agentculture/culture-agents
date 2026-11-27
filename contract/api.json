@@ -1,5 +1,5 @@
 {
-  "api_version": "2.0",
+  "api_version": "3.0",
   "schema_base": "https://culture.dev/contract/agents/",
   "description": "Index of the culture-agents control-plane API. Semantics live in contract/README.md; payload shapes in the schema files named here, resolved against schema_base.",
   "transport": {
@@ -23,7 +23,8 @@
       "failed",
       "cancelled",
       "timed_out",
-      "unknown"
+      "unknown",
+      "unanswered"
     ],
     "transitions": {
       "queued": [
@@ -41,6 +42,7 @@
       "cancelling": [
         "cancelled",
         "timed_out",
+        "unanswered",
         "succeeded",
         "failed",
         "unknown"
@@ -49,7 +51,8 @@
       "failed": [],
       "cancelled": [],
       "timed_out": [],
-      "unknown": []
+      "unknown": [],
+      "unanswered": []
     }
   },
   "errors": {
@@ -68,15 +71,20 @@
       "exit_code": 1,
       "retryable": false
     },
-    "busy": {
-      "http_status": 409,
-      "exit_code": 1,
-      "retryable": true
-    },
     "conflict": {
       "http_status": 409,
       "exit_code": 1,
       "retryable": null
+    },
+    "limit_reached": {
+      "http_status": 429,
+      "exit_code": 1,
+      "retryable": true
+    },
+    "admission_held": {
+      "http_status": 429,
+      "exit_code": 1,
+      "retryable": true
     },
     "unsupported": {
       "http_status": 422,
@@ -208,7 +216,7 @@
       "id": "runs.submit",
       "method": "POST",
       "path": "/v1/runs",
-      "summary": "Create a run; returns once the worker's PID, event log and cursor are on disk.",
+      "summary": "Create a run; returns once the worker's PID, event log and cursor are on disk. A repeat of an idempotency key returns the first run.",
       "cli": "agents runs submit",
       "d1": "supported",
       "request": "control-action.json#/$defs/submit_request",
@@ -225,8 +233,10 @@
         "denied",
         "not_found",
         "unsupported",
-        "busy",
-        "unavailable"
+        "unavailable",
+        "conflict",
+        "limit_reached",
+        "admission_held"
       ]
     },
     {
@@ -430,7 +440,7 @@
       "method": "POST",
       "path": "/v1/runs/{run_id}/pause",
       "summary": "Deferred: always refused with unsupported, capability pause, after validation and not_found checks.",
-      "cli": "(none in D1)",
+      "cli": "(none)",
       "d1": "unsupported",
       "request": "control-action.json#/$defs/pause_request",
       "response": "control-action.json#/$defs/accepted_response",
@@ -454,7 +464,7 @@
       "method": "POST",
       "path": "/v1/runs/{run_id}/resume",
       "summary": "Deferred: always refused with unsupported, capability resume, after validation and not_found checks.",
-      "cli": "(none in D1)",
+      "cli": "(none)",
       "d1": "unsupported",
       "request": "control-action.json#/$defs/resume_request",
       "response": "control-action.json#/$defs/accepted_response",
@@ -477,8 +487,8 @@
       "id": "runs.answer",
       "method": "POST",
       "path": "/v1/runs/{run_id}/answer",
-      "summary": "Deferred: always refused with unsupported, capability answer, after validation and not_found checks.",
-      "cli": "(none in D1)",
+      "summary": "Answer one pending question of a run. Refused with unsupported, capability answer, when the run's harness cannot ask.",
+      "cli": "agents runs answer",
       "d1": "unsupported",
       "request": "control-action.json#/$defs/answer_request",
       "response": "control-action.json#/$defs/accepted_response",
@@ -494,7 +504,55 @@
         "incompatible_version",
         "internal",
         "not_found",
-        "unsupported"
+        "unsupported",
+        "conflict",
+        "unavailable"
+      ]
+    },
+    {
+      "id": "branches.list",
+      "method": "GET",
+      "path": "/v1/branches",
+      "summary": "Every runs branch of one repository with its run's state and the git evidence of whether its commits are reachable from another ref.",
+      "cli": "agents branches list",
+      "d1": "supported",
+      "request": null,
+      "response": "branches.json",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {
+        "repo": {
+          "$ref": "common.json#/$defs/repo_path"
+        }
+      },
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied"
+      ]
+    },
+    {
+      "id": "branches.remove",
+      "method": "POST",
+      "path": "/v1/branches/remove",
+      "summary": "Delete the finished runs branches of one repository that git shows reachable from another ref, with git branch -d only; skip and report the rest.",
+      "cli": "agents branches remove",
+      "d1": "supported",
+      "request": "branches.json#/$defs/remove_request",
+      "response": "branches.json#/$defs/remove_response",
+      "status": 200,
+      "stream": false,
+      "content_type": "application/json",
+      "params": {},
+      "query": {},
+      "errors": [
+        "invalid",
+        "incompatible_version",
+        "internal",
+        "denied"
       ]
     }
   ]

@@ -177,6 +177,7 @@ def stream_problems(lines: list[dict], api: dict, reg: Registry) -> list[str]:
     if len(run_ids) != 1:
         problems.append(f"stream mixes run ids: {sorted(map(str, run_ids))}")
     state = None
+    pending: set[str] = set()
     for index, event in enumerate(lines, start=1):
         errors = list(validator.iter_errors(event))
         if errors:
@@ -197,6 +198,13 @@ def stream_problems(lines: list[dict], api: dict, reg: Registry) -> list[str]:
             state = data["to"]
         elif index == 1:
             problems.append("first event must be run.state to the initial state")
+        elif event["kind"] == "run.question":
+            pending.add(event["data"]["question"]["id"])
+        elif event["kind"] == "run.answer":
+            asked = event["data"]["question_id"]
+            if asked not in pending:
+                problems.append(f"event {index} answers {asked}, which is not a pending question")
+            pending.discard(asked)
     return problems
 
 

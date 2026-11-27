@@ -9,10 +9,10 @@ import { buildRunId, buildSessionId, newUlid, type Run } from "../../src/contrac
 import { hostEnv } from "../../src/sandbox/host-command.js";
 import type { DriverEvent } from "../../src/worker/driver.js";
 
-export const AGENT = "spark-culture-agents";
+export const AGENT = "thor-culture-agents";
 
 /** git by absolute path, from fixed system directories only: never whatever a writable PATH entry offers. */
-const GIT = ["/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git", "/bin/git"].find((path) => existsSync(path)) ?? "/usr/bin/git";
+export const GIT = ["/usr/bin/git", "/usr/local/bin/git", "/opt/homebrew/bin/git", "/bin/git"].find((path) => existsSync(path)) ?? "/usr/bin/git";
 
 /** A temp host repo on `main` with one commit and an uncommitted operator file. */
 export function hostRepo(t: TestContext): { dir: string; git: (...args: string[]) => string } {
@@ -38,7 +38,7 @@ export function newRun(repo: string, task: string, harness = "stub"): Run {
     harness,
     repo,
     task,
-    owner: { kind: "operator", id: "spark-operator" },
+    owner: { kind: "operator", id: "thor-operator" },
     idempotency_key: null,
     deadline: null,
     state: "queued",

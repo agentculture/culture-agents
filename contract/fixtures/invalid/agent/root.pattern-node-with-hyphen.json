@@ -1,6 +1,6 @@
 {
-  "id": "spark-culture-agents",
-  "node": "spark-1",
+  "id": "thor-culture-agents",
+  "node": "thor-1",
   "suffix": "culture-agents",
   "harnesses": [
     "claude-code",

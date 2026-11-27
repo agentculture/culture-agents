@@ -22,6 +22,7 @@ from agentfront import App, Flag
 
 from culture_agents import __version__
 from culture_agents.cli._commands import agents as agents_cmd
+from culture_agents.cli._commands import branches as branches_cmd
 from culture_agents.cli._commands import cli as cli_cmd
 from culture_agents.cli._commands import runs as runs_cmd
 from culture_agents.cli._commands import whoami as whoami_cmd
@@ -49,8 +50,11 @@ _TOOLS: tuple[tuple[tuple[str, ...], str, Callable[..., Any], tuple[Flag, ...]],
     (("runs",), "attach", runs_cmd.runs_attach, runs_cmd.ATTACH_FLAGS),
     (("runs",), "steer", runs_cmd.runs_steer, runs_cmd.CALLER_FLAGS),
     (("runs",), "cancel", runs_cmd.runs_cancel, runs_cmd.CANCEL_FLAGS),
+    (("runs",), "answer", runs_cmd.runs_answer, runs_cmd.ANSWER_FLAGS),
     (("runs",), "logs", runs_cmd.runs_logs, runs_cmd.LOGS_FLAGS),
     (("runs",), "result", runs_cmd.runs_result, ()),
+    (("branches",), "list", branches_cmd.branches_list, branches_cmd.LIST_FLAGS),
+    (("branches",), "remove", branches_cmd.branches_remove, branches_cmd.REMOVE_FLAGS),
 )
 
 _META_HANDLERS = {

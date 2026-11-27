@@ -1,16 +1,16 @@
 {
-  "run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+  "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
   "cursor": 6,
   "time": "2026-11-25T10:00:06Z",
   "kind": "run.control",
   "data": {
     "action": {
-      "id": "spark-culture-agents.act.01JDQ5W0000000000000000001",
-      "run_id": "spark-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
+      "id": "thor-culture-agents.act.01JDQ5W0000000000000000001",
+      "run_id": "thor-culture-agents.run.01JDQ5V7M2K8X9Y0Z1A2B3C4D5",
       "kind": "steer",
       "caller": {
         "kind": "operator",
-        "id": "spark-operator"
+        "id": "thor-operator"
       },
       "requested_at": "2026-11-25T10:00:10Z",
       "idempotency_key": null,

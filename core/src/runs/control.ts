@@ -4,7 +4,7 @@
  *
  * 5. the run's harness capability document supports the action, else `unsupported` naming it;
  * 6. the state allows it, else `conflict` (`steer` needs `running`; `cancel` needs an active state);
- * 7. live control (false after a core restart), else `unsupported`, capability `reconnect`;
+ * 7. live control (rebuilt by reattach after a core restart), else `unavailable` with `retry_after_ms`;
  * 8. delivery over the worker's control channel, else `unavailable`;
  * 9. the accepted action record (the worker appends it to the log as `run.control`).
  *
@@ -92,16 +92,28 @@ export async function recordDeferredRefusal(kind: DeferredKind, target: Pick<Con
   await recordRefusal(target, record(target.run, kind, request, target.now), error);
 }
 
+/** The worker answered that it did not take the action: it did not take effect (the run service releases its key). */
+export class WorkerRefusedError extends ControlError {}
+
 function replyError(run: Run, reply: ControlReply): ControlError | null {
   if (reply.ok) return null;
   const body: ErrorBody = reply.error;
   // The worker re-checks state; a race (the run moved on) comes back as its own `conflict`.
-  if (body.code === "conflict") return new ControlError("conflict", body.message, { run_id: run.id, retryable: body.retryable });
-  return unavailable(`The worker of run ${run.id} did not accept the action: ${body.message}`);
+  if (body.code === "conflict") return new WorkerRefusedError("conflict", body.message, { run_id: run.id, retryable: body.retryable });
+  return new WorkerRefusedError("unavailable", `The worker of run ${run.id} did not accept the action: ${body.message}`);
 }
 
-/** Run steps 5 to 9 for one action and return the accepted record, or throw the typed refusal. */
-export async function control(kind: ControlKind, target: ControlTarget, request: SteerRequest | CancelRequest): Promise<AcceptedResponse["action"]> {
+/**
+ * Run steps 5 to 9 for one action and return the accepted record, or throw the typed refusal.
+ * `beforeDeliver` runs once the action passed every check, just before it is sent to the worker
+ * (the run service writes the action's idempotency key there).
+ */
+export async function control(
+  kind: ControlKind,
+  target: ControlTarget,
+  request: SteerRequest | CancelRequest,
+  beforeDeliver?: (action: ActionRecord) => void,
+): Promise<AcceptedResponse["action"]> {
   const { run } = target;
   const action = record(run, kind, request, target.now);
   const refusal = capabilityRefusal(kind, target) ?? stateRefusal(kind, run);
@@ -110,8 +122,9 @@ export async function control(kind: ControlKind, target: ControlTarget, request:
     throw refusal;
   }
   if (!run.live_control || target.worker === null) {
-    throw unsupported("reconnect", `Run ${run.id} survived a core restart; this core cannot reconnect to its worker, so live control is unavailable.`);
+    throw new ControlError("unavailable", `This core holds no control channel to the worker of run ${run.id} yet; retry shortly.`, { run_id: run.id, retry_after_ms: 500 });
   }
+  beforeDeliver?.(action);
   let reply: ControlReply;
   try {
     reply =

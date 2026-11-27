@@ -77,6 +77,27 @@ def capability_lines(doc: Any) -> list[str]:
             lines.append(f"  {_val(name)}: supported{note}")
         else:
             lines.append(f"  {_val(name)}: UNSUPPORTED - {_val(_get(cap, 'reason'))}")
+    return lines + host_lines(doc)
+
+
+def host_lines(doc: Any) -> list[str]:
+    """Limits, active runs and admission per signal, when the core reports them."""
+    lines: list[str] = []
+    limits = _get(doc, "limits")
+    if isinstance(limits, dict):
+        for name, value in limits.items():
+            text = "none set" if value is None else _val(value)
+            lines.append(f"  limit {_val(name)}: {text}")
+    if _get(doc, "active_runs") is not None:
+        lines.append(f"  active runs: {_val(_get(doc, 'active_runs'))}")
+    admission = _get(doc, "admission")
+    for name, sig in admission.items() if isinstance(admission, dict) else ():
+        note = "" if _get(sig, "consulted") is True else " (not consulted)"
+        reason = _get(sig, "reason")
+        why = f" - {_val(reason)}" if reason else ""
+        seen = _get(sig, "observed_at")
+        at = f" [observed {_val(seen)}]" if seen else ""
+        lines.append(f"  admission {_val(name)}: {_val(_get(sig, 'state'))}{note}{why}{at}")
     return lines
 
 
@@ -127,7 +148,47 @@ def run_detail(run: Any) -> Rendered:
         ("branch", _val(_get(run, "branch"))),
         ("task", _val(_get(run, "task"))),
     ]
-    return Rendered(run, "\n".join(f"{k}: {v}" for k, v in rows))
+    if _get(run, "base_commit"):  # absent on a run recorded before the core set it
+        rows.insert(-1, ("base commit", _val(_get(run, "base_commit"))))
+    if _get(run, "submitter"):
+        rows.insert(-1, ("submitter", _submitter(_get(run, "submitter"))))
+    lines = [f"{k}: {v}" for k, v in rows]
+    for question in _items(_get(run, "pending_questions")):
+        lines.extend(question_lines(question, "pending question"))
+    return Rendered(run, "\n".join(lines))
+
+
+def _submitter(sub: Any) -> str:
+    """``local_user operator (uid 1000)`` or ``member thor``; ``-`` when not reported."""
+    if not isinstance(sub, dict):
+        return "-"
+    kind = _val(_get(sub, "kind"))
+    if _get(sub, "kind") == "member":
+        return f"{kind} {_val(_get(sub, 'node'))}"
+    name = _get(sub, "user")
+    return (
+        f"{kind} {_val(name)} (uid {_val(_get(sub, 'uid'))})"
+        if name
+        else (f"{kind} (uid {_val(_get(sub, 'uid'))})")
+    )
+
+
+def _choice(choice: Any) -> str:
+    text = f"{_val(_get(choice, 'id'))} = {_val(_get(choice, 'label'))}"
+    note = _get(choice, "description")
+    return f"{text} ({_val(note)})" if note else text
+
+
+def question_lines(question: Any, label: str) -> list[str]:
+    """A question as the operator needs it to answer: id, kind, text, choices, time limit."""
+    head = (
+        f"{label}: {_val(_get(question, 'id'))} [{_val(_get(question, 'kind'))}] "
+        f"{_val(_get(question, 'text'))}"
+    )
+    lines = [head]
+    lines.extend(f"  choice: {_choice(c)}" for c in _items(_get(question, "choices")))
+    lines.append(f"  answer by: {_val(_get(question, 'answer_by'))}")
+    return lines
 
 
 def run_list(payload: Any) -> Rendered:
@@ -138,7 +199,16 @@ def run_list(payload: Any) -> Rendered:
 
 def submitted(payload: Any) -> Rendered:
     run = _get(payload, "run")
-    return Rendered(payload, f"submitted {_val(_get(run, 'id'))} ({_val(_get(run, 'state'))})")
+    head = f"submitted {_val(_get(run, 'id'))} ({_val(_get(run, 'state'))})"
+    lines = [head]
+    if _get(payload, "replayed") is True:
+        lines.append("replayed: this key matched an earlier submit; nothing new was created")
+    for warning in _items(_get(payload, "warnings")):
+        lines.append(
+            f"warning: {_val(_get(warning, 'code'))} ({_val(_get(warning, 'signal'))}): "
+            f"{_val(_get(warning, 'message'))}"
+        )
+    return Rendered(payload, "\n".join(lines))
 
 
 def _action(action: Any) -> str:
@@ -189,10 +259,25 @@ def event_line(event: Any) -> str:
     elif kind == "run.error":
         fatal = " (fatal)" if _get(data, "fatal") is True else ""
         detail = f"{_error(_get(data, 'error'))}{fatal}"
+    elif kind == "run.question":
+        detail = " / ".join(question_lines(_get(data, "question"), "question"))
+    elif kind == "run.answer":
+        detail = _answer_detail(data)
     else:
         detail = ""
     head = f"#{_val(_get(event, 'cursor'))} {_val(_get(event, 'time'))} {_val(kind)}"
     return f"{head} {detail}".rstrip()
+
+
+def _answer_detail(data: Any) -> str:
+    parts = [f"answer to {_val(_get(data, 'question_id'))}"]
+    if _get(data, "decision") is not None:
+        parts.append(f"decision {_val(_get(data, 'decision'))}")
+    if _get(data, "choice_ids"):
+        parts.append(f"choices {_flat(_get(data, 'choice_ids'))}")
+    if _get(data, "answer") is not None:
+        parts.append(f"text: {_val(_get(data, 'answer'))}")
+    return ", ".join(parts)
 
 
 def event_page(payload: Any) -> Rendered:

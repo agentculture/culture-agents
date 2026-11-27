@@ -1,7 +1,8 @@
 /**
  * The worker's run loop: one process per run. It records its identity, writes event 1
  * (`null` -> `queued`) durably, opens its control socket, then drives the harness through a
- * `Driver`, appending every event to the run's log, enforcing the deadline and writing the
+ * `Driver`, appending every event to the run's log, enforcing the deadline and the question
+ * limits (worker/questions.ts: the deadline pauses while a question is pending) and writing the
  * terminal event. It is the log's only writer while it lives, and it does not depend on the
  * daemon: the daemon disappearing changes nothing here.
  */
@@ -13,6 +14,7 @@ import {
   ContractValidationError,
   isTerminal,
   type ActionRecord,
+  type AnswerRequest,
   type ErrorBody,
   type Run,
   type RunEvent,
@@ -22,9 +24,13 @@ import {
 import { EventLogWriter, type EventInput } from "../store/event-log.js";
 import { atomicWriteJson, runDir, runFile } from "../store/files.js";
 import { identityOf, writeHeartbeat, writeWorkerIdentity } from "../store/liveness.js";
+import { questionLimitMs } from "../store/questions.js";
 import { readRecord, writeRecord } from "../store/run-store.js";
+import { withdrawQuestion, raiseQuestion, type AskingHost } from "./asking.js";
+import { ANSWER_TIMEOUT_MS, deliverAnswer, type AnswerHost } from "./answer.js";
 import { closeControl, listenControl, type ControlReply, type ControlRequest } from "./control.js";
 import type { Driver, DriverEvent, DriverFactory, DriverSelection } from "./driver.js";
+import { QuestionDesk, type Due } from "./questions.js";
 import { writeRetained } from "./retained.js";
 
 export interface WorkerOptions {
@@ -34,6 +40,11 @@ export interface WorkerOptions {
   heartbeatMs?: number;
   /** How long a stop may take before the worker forces the harness down. Default 30 000 ms. */
   cancelGraceMs?: number;
+  /** The time limit of each question, in ms; capped at (and by default) 12 hours. */
+  questionLimitMs?: number;
+  /** How long delivering one answer to the harness may take before it counts as failed. Default 30 000 ms. */
+  answerTimeoutMs?: number;
+  /** The worker's clock. Deadlines, question limits and the paused time are all read from it. */
   clock?: () => number;
 }
 
@@ -54,7 +65,9 @@ export class RunWorker {
   private writer!: EventLogWriter;
   private driver: Driver | null = null;
   private server: Server | null = null;
-  private stopOrigin: "cancel" | "deadline" | null = null;
+  private stopOrigin: "cancel" | Exclude<Due, null> | null = null;
+  private desk!: QuestionDesk;
+  private clockTimer: NodeJS.Timeout | null = null;
   private forcing: Promise<void> | null = null;
   private timers: NodeJS.Timeout[] = [];
   private resolveDone!: (state: RunState) => void;
@@ -76,6 +89,8 @@ export class RunWorker {
   async open(): Promise<void> {
     this.record = readRecord(this.dir);
     if (this.record.id !== this.options.runId) throw new Error("run record id does not match the run directory");
+    const deadline = this.record.deadline === null ? null : Date.parse(this.record.deadline);
+    this.desk = new QuestionDesk({ agentId: this.record.agent_id, deadline, limitMs: questionLimitMs(this.options.questionLimitMs) });
     this.writer = EventLogWriter.open(this.dir, this.options.runId, this.clock);
     if (this.writer.cursor !== 0) {
       this.writer.close();
@@ -86,13 +101,17 @@ export class RunWorker {
     this.record = { ...this.record, worker_pid: process.pid };
     this.apply(this.writer.transition("queued", null, true), true);
     this.server = await listenControl(this.dir, (req) => this.control(req));
-    const beat = setInterval(() => writeHeartbeat(this.dir, this.clock), this.options.heartbeatMs ?? 1000);
+    // The heartbeat also re-reads the clock rule, so a clock that jumps is noticed within one beat.
+    const beat = setInterval(() => {
+      writeHeartbeat(this.dir, this.clock);
+      this.checkClock();
+    }, this.options.heartbeatMs ?? 1000);
     this.timers.push(beat);
   }
 
   /** Drive the run to a terminal state; resolves with it. */
   async run(): Promise<RunState> {
-    this.armDeadline();
+    this.checkClock();
     try {
       this.driver = await this.loadDriver();
       // A stop that arrived before the harness started: it never ran, so it has stopped.
@@ -123,8 +142,7 @@ export class RunWorker {
 
   /** Release the driver, timers and socket. The log and record stay. */
   async close(): Promise<void> {
-    for (const t of this.timers) clearTimeout(t);
-    this.timers = [];
+    this.stopTimers();
     await this.driver?.dispose().catch(() => undefined);
     if (this.server) await closeControl(this.dir, this.server);
     this.server = null;
@@ -135,8 +153,15 @@ export class RunWorker {
     return this.writer.state !== null && isTerminal(this.writer.state);
   }
 
-  private append(input: EventInput): RunEvent | null {
-    return this.terminal() ? null : this.writer.append(input);
+  private append(input: EventInput, durable = false): RunEvent | null {
+    return this.terminal() ? null : this.writer.append(input, durable);
+  }
+
+  private stopTimers(): void {
+    for (const t of this.timers) clearTimeout(t);
+    this.timers = [];
+    if (this.clockTimer) clearTimeout(this.clockTimer);
+    this.clockTimer = null;
   }
 
   private transition(to: RunState, reason: string | null): void {
@@ -144,8 +169,7 @@ export class RunWorker {
     const event = this.writer.transition(to, reason === null ? null : clip(reason));
     this.apply(event, isTerminal(to));
     if (isTerminal(to)) {
-      for (const t of this.timers) clearTimeout(t);
-      this.timers = [];
+      this.stopTimers();
       this.resolveDone(to);
     }
   }
@@ -185,6 +209,12 @@ export class RunWorker {
       case "output":
         this.append({ kind: "run.output", data: event.data });
         return;
+      case "question":
+        raiseQuestion(this.askingHost(), event.question);
+        return;
+      case "withdraw":
+        withdrawQuestion(this.askingHost(), event.ref);
+        return;
       case "error":
         this.append({ kind: "run.error", data: { error: { ...event.error, message: clip(event.error.message) }, fatal: false } });
         return;
@@ -214,11 +244,12 @@ export class RunWorker {
 
   private finishStop(note: string | null): void {
     if (this.stopOrigin === "deadline") this.transition("timed_out", note ?? "deadline reached");
+    else if (this.stopOrigin === "question_limit") this.transition("unanswered", note ?? "question_limit");
     else this.transition("cancelled", note);
   }
 
   /** queued/running -> cancelling, ask the driver to stop, and force it down after the grace period. */
-  private requestStop(origin: "cancel" | "deadline", reason: string): void {
+  private requestStop(origin: "cancel" | Exclude<Due, null>, reason: string): void {
     const state = this.writer.state;
     if (state !== "queued" && state !== "running") return;
     this.stopOrigin = origin;
@@ -230,26 +261,48 @@ export class RunWorker {
         const note = `the harness did not confirm the stop within ${grace} ms; the worker forced it down`;
         this.forcing = (this.driver?.dispose() ?? Promise.resolve())
           .catch(() => undefined)
-          .then(() => this.finishStop(note));
+          .then(() => {
+            // A driver still in its retention cleanup has kept the sandbox but not yet said so; the record goes before the terminal event.
+            const kept = this.driver?.retained?.() ?? null;
+            if (kept) writeRetained(this.dir, kept);
+            this.finishStop(note);
+          });
       }, grace),
     );
-    void this.driver?.cancel(origin === "deadline" ? "deadline" : reason).catch((err: unknown) => {
+    void this.driver?.cancel(origin === "cancel" ? reason : origin).catch((err: unknown) => {
       this.append({ kind: "run.error", data: { error: internal(clip(`cancel failed: ${String(err)}`)), fatal: false } });
     });
   }
 
-  private armDeadline(): void {
-    if (this.record.deadline === null) return;
-    const at = Date.parse(this.record.deadline);
-    const arm = () => {
-      const left = at - this.clock();
-      if (left <= 0) {
-        this.requestStop("deadline", "deadline");
-        return;
-      }
-      this.timers.push(setTimeout(arm, Math.min(left, MAX_TIMER)));
-    };
-    arm();
+  /**
+   * Apply the clock rule now: a question past its limit stops the run (it ends `unanswered`), then a
+   * passed deadline (it ends `timed_out`); while a question is pending the deadline has no due time.
+   * Then wait for the next due time. Called on start, on every question and answer, and every beat.
+   */
+  private checkClock(): void {
+    if (this.clockTimer) clearTimeout(this.clockTimer);
+    this.clockTimer = null;
+    const state = this.writer.state;
+    if (state !== "queued" && state !== "running") return;
+    const now = this.clock();
+    const due = this.desk.due(now);
+    if (due !== null) return this.requestStop(due, due);
+    const at = this.desk.nextDueAt();
+    if (at !== null) this.clockTimer = setTimeout(() => this.checkClock(), Math.min(Math.max(at - now, 50), MAX_TIMER));
+  }
+
+  private askingHost(): AskingHost {
+    return { desk: this.desk, clock: this.clock, state: () => this.writer.state, start: (r) => this.transition("running", r), append: (i, d) => this.append(i, d), checkClock: () => this.checkClock() };
+  }
+
+  /** The run reports its deadline moved by the time it spent waiting for answers. */
+  private writeMovedDeadline(): void {
+    const moved = this.desk.deadline.movedAt(this.clock());
+    if (moved === null || this.terminal()) return;
+    const deadline = new Date(moved).toISOString();
+    if (deadline === this.record.deadline) return;
+    this.record = { ...this.record, deadline };
+    writeRecord(this.dir, this.record, true);
   }
 
   private checkAction(action: ActionRecord, kind: ActionRecord["kind"]): string | null {
@@ -281,6 +334,10 @@ export class RunWorker {
     if (req.op === "refuse") return this.refuse(req.action, ok);
     const bad = this.checkAction(req.action, req.op);
     if (bad !== null) return invalid(bad);
+    if (req.op === "answer") {
+      if (state !== "running") return conflict(id, `An answer needs a running run; this run is ${state}.`, false);
+      return this.answer(req.action, req.request, ok);
+    }
     if (req.op === "steer") {
       if (state !== "running") return conflict(id, `A steer needs a running run; this run is ${state}.`, state === "queued");
       return this.steer(req.action, req.message, ok);
@@ -291,6 +348,16 @@ export class RunWorker {
     this.append({ kind: "run.control", data: { action: req.action } });
     const by = `cancel requested by ${req.action.caller.id}`;
     this.requestStop("cancel", req.reason ? `${by}: ${req.reason}` : by);
+    return ok();
+  }
+
+  /** Deliver an answer, then record it (worker/answer.ts); the deadline then reports the time spent waiting. */
+  private async answer(action: ActionRecord, request: AnswerRequest, ok: () => ControlReply): Promise<ControlReply> {
+    const host: AnswerHost = { runId: this.record.id, desk: this.desk, driver: this.driver, clock: this.clock, timeoutMs: this.options.answerTimeoutMs ?? ANSWER_TIMEOUT_MS, state: () => this.writer.state, append: (input, durable) => this.append(input, durable) };
+    const refused = await deliverAnswer(host, action, request);
+    if (refused !== null) return refused;
+    this.writeMovedDeadline();
+    this.checkClock();
     return ok();
   }
 

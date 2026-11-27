@@ -67,11 +67,12 @@ test("compatibility: unparseable versions are never compatible", () => {
 const TABLE: Record<string, RunState[]> = {
   queued: ["running", "cancelling", "failed", "unknown"],
   running: ["cancelling", "succeeded", "failed", "unknown"],
-  cancelling: ["cancelled", "timed_out", "succeeded", "failed", "unknown"],
+  cancelling: ["cancelled", "timed_out", "unanswered", "succeeded", "failed", "unknown"],
   succeeded: [],
   failed: [],
   cancelled: [],
   timed_out: [],
+  unanswered: [],
   unknown: [],
 };
 
@@ -89,7 +90,7 @@ test("the first state is queued and nothing else", () => {
 });
 
 test("terminal and active states", () => {
-  const terminal: RunState[] = ["succeeded", "failed", "cancelled", "timed_out", "unknown"];
+  const terminal: RunState[] = ["succeeded", "failed", "cancelled", "timed_out", "unanswered", "unknown"];
   const active: RunState[] = ["queued", "running", "cancelling"];
   for (const s of terminal) {
     assert.equal(isTerminal(s), true, s);
@@ -101,9 +102,9 @@ test("terminal and active states", () => {
   }
 });
 
-test("cancelled and timed_out are reachable only through cancelling", () => {
+test("cancelled, timed_out and unanswered are reachable only through cancelling", () => {
   for (const from of runStates) {
-    for (const to of ["cancelled", "timed_out"] as const) {
+    for (const to of ["cancelled", "timed_out", "unanswered"] as const) {
       assert.equal(canTransition(from, to), from === "cancelling", `${from} -> ${to}`);
     }
   }
@@ -112,23 +113,23 @@ test("cancelled and timed_out are reachable only through cancelling", () => {
 // --- ids ------------------------------------------------------------------------------
 
 test("mesh ids split at the first hyphen", () => {
-  assert.deepEqual(parseMeshId("spark-culture-agents"), { node: "spark", agent: "culture-agents" });
-  assert.equal(buildMeshId("spark", "culture-agents"), "spark-culture-agents");
+  assert.deepEqual(parseMeshId("thor-culture-agents"), { node: "thor", agent: "culture-agents" });
+  assert.equal(buildMeshId("thor", "culture-agents"), "thor-culture-agents");
   assert.equal(parseMeshId("nohyphen"), null);
   assert.equal(parseMeshId("-agent"), null);
-  assert.equal(parseMeshId("Spark-agent"), null);
+  assert.equal(parseMeshId("Thor-agent"), null);
   assert.equal(parseMeshId("sp_ark-agent"), null, "node has no underscore or hyphen");
   assert.throws(() => buildMeshId("sp-ark", "a"), RangeError);
-  assert.throws(() => buildMeshId("spark", "Bad"), RangeError);
+  assert.throws(() => buildMeshId("thor", "Bad"), RangeError);
 });
 
 test("run, session and action ids use the executing agent's mesh id", () => {
-  const agent = "spark-culture-agents";
+  const agent = "thor-culture-agents";
   assert.equal(buildRunId(agent, ULID), `${agent}.run.${ULID}`);
   assert.equal(buildSessionId(agent, ULID), `${agent}.ses.${ULID}`);
   assert.equal(buildActionId(agent, ULID), `${agent}.act.${ULID}`);
   const parsed = parseScopedId(buildRunId(agent, ULID));
-  assert.deepEqual(parsed, { kind: "run", agentId: agent, node: "spark", agent: "culture-agents", ulid: ULID });
+  assert.deepEqual(parsed, { kind: "run", agentId: agent, node: "thor", agent: "culture-agents", ulid: ULID });
   assert.equal(isRunId(`${agent}.run.${ULID}`), true);
   assert.equal(isRunId(`${agent}.ses.${ULID}`), false);
   assert.equal(isSessionId(`${agent}.ses.${ULID}`), true);
@@ -141,7 +142,7 @@ test("run, session and action ids use the executing agent's mesh id", () => {
 });
 
 test("built ids validate against the schemas", () => {
-  const agent = "spark-culture-agents";
+  const agent = "thor-culture-agents";
   assert.ok(validate("common#run_id", buildRunId(agent, ULID)).ok);
   assert.ok(validate("common#session_id", buildSessionId(agent, ULID)).ok);
   assert.ok(validate("common#action_id", buildActionId(agent, ULID)).ok);
@@ -154,7 +155,7 @@ test("the id helpers and the schemas agree on the length bounds: node 32, mesh i
   const cases: [id: string, ok: boolean][] = [
     [longest, true],
     [`${"n".repeat(33)}-culture-agents`, false], // node of 33
-    [`spark-${"a".repeat(91)}`, false], // 97 characters
+    [`thor-${"a".repeat(92)}`, false], // 97 characters
   ];
   for (const [mesh, ok] of cases) {
     assert.equal(parseMeshId(mesh) !== null, ok, `parseMeshId ${mesh}`);
@@ -170,7 +171,7 @@ test("the id helpers and the schemas agree on the length bounds: node 32, mesh i
 });
 
 test("a run's host branch is runs/<run_id>", () => {
-  const id = buildRunId("spark-culture-agents", ULID);
+  const id = buildRunId("thor-culture-agents", ULID);
   assert.equal(runBranch(id), `runs/${id}`);
 });
 
@@ -190,8 +191,9 @@ const ERRORS: Record<ErrorCode, [number, number, boolean | null]> = {
   invalid: [400, 1, false],
   denied: [403, 1, false],
   not_found: [404, 1, false],
-  busy: [409, 1, true],
   conflict: [409, 1, null],
+  limit_reached: [429, 1, true],
+  admission_held: [429, 1, true],
   unsupported: [422, 1, false],
   incompatible_version: [412, 2, false],
   unavailable: [503, 2, true],
@@ -224,7 +226,7 @@ test("assertValid throws a typed error with code invalid and the failing path", 
 
 test("a missing required property is reported at that property, and toBody is a valid error body", () => {
   try {
-    assertValid("version", { api_version: "1.0", node: "spark" });
+    assertValid("version", { api_version: "1.0", node: "thor" });
     assert.fail("expected a throw");
   } catch (err) {
     assert.ok(err instanceof ContractValidationError);
@@ -236,6 +238,6 @@ test("a missing required property is reported at that property, and toBody is a 
 });
 
 test("assertValid returns the value when valid", () => {
-  const v = { api_version: "1.0", core_version: "0.0.0", node: "spark" };
+  const v = { api_version: "1.0", core_version: "0.0.0", node: "thor" };
   assert.deepEqual(assertValid("version", v), v);
 });

@@ -1,0 +1,83 @@
+{
+  "harness": "claude-code",
+  "available": true,
+  "version": "2.1.323",
+  "transport": "interactive session over a local bridge inside the run sandbox",
+  "capabilities": {
+    "submit": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "stream": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "steer": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "cancel": {
+      "supported": true,
+      "reason": null,
+      "caveats": []
+    },
+    "pause": {
+      "supported": false,
+      "reason": "pause is deferred beyond D1",
+      "caveats": []
+    },
+    "resume": {
+      "supported": false,
+      "reason": "resume is deferred beyond D1",
+      "caveats": []
+    },
+    "answer": {
+      "supported": false,
+      "reason": "operator questions are deferred beyond D1",
+      "caveats": []
+    },
+    "continue_session": {
+      "supported": false,
+      "reason": "each submit opens a new session in D1",
+      "caveats": []
+    },
+    "delegate": {
+      "supported": false,
+      "reason": "agent-to-agent delegation is deferred beyond D1",
+      "caveats": []
+    },
+    "placement": {
+      "supported": false,
+      "reason": "D1 runs only on the core's own node",
+      "caveats": []
+    },
+    "reconnect": {
+      "supported": false,
+      "reason": "after a core restart D1 reports surviving runs from disk only",
+      "caveats": []
+    },
+    "worktree_isolation": {
+      "supported": true,
+      "reason": null,
+      "caveats": [
+        "Each run works in its own clone of the repository inside its own sandbox, made from a git bundle of the commit recorded at submit, and its commits return only to its own runs/<run_id> branch. This is a sandbox clone per run, not a host worktree: no git worktree is created on the host, and the host checkout and index are never written."
+      ]
+    }
+  },
+  "limits": {
+    "runs_per_repository": null,
+    "runs_per_host": null
+  },
+  "active_runs": 0,
+  "admission": {
+    "heat": {
+      "state": "admit",
+      "consulted": true,
+      "reason": null,
+      "observed_at": "2026-11-25T10:00:00Z"
+    }
+  }
+}

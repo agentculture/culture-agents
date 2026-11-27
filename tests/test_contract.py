@@ -32,6 +32,7 @@ REQUIRED_SCHEMAS = {
     "common.json",
     "version.json",
     "allowlist.json",
+    "branches.json",
 }
 
 

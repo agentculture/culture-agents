@@ -1,0 +1,21 @@
+[0.1s] creating sandbox for run ocd-mwxtuqb4 (image culture-agents-run:dev, providers lobes)
+[1.0s] sandbox t1q-b261335983ed552 ready, working tree /sandbox/work
+[1.2s] opencode serve is listening in the sandbox; model gateway/worker
+[1.3s] session ses_de718395fffeDCbwmA7SrDgTgI created with permissions [{"action":"*","resource":"*","effect":"ask"}]
+[1.9s] prompt accepted; waiting for the model (no timeout)
+[6.3s] tool called: {"path":"/sandbox/work/approved.txt","content":"yes"}
+[6.3s] permission raised: {"id":"per_218e7da39001uQe5GYhunIlguH","sessionID":"ses_de718395fffeDCbwmA7SrDgTgI","action":"edit","resources":["approved.txt"],"save":["*"],"metadata":{"files":[{"file":"approved.txt","patch":"Index: approved.txt\n===================================================================\n--- approved.txt\n+++ approved.txt\n@@ -0,0 +1,1 @@\n+yes\n\\ No newline at end of file\n","status":"added","additions":1,"deletions":0}]},"source":{"type":"tool","messageID":"msg_218e7c94b001TTt5NEaaVAhoKr","id":"chatcmpl-tool-a61e477ee7f92461"}}
+[6.3s] held, before the answer: files [README], session active true, pending permissions 1, pending forms 0
+[6.3s] holding the turn for 20000 ms with no answer
+[26.3s] held, after the wait: files [README], session active true, pending permissions 1, pending forms 0
+[26.3s] answering into the same turn: POST /api/session/{id}/permission/per_218e7da39001uQe5GYhunIlguH/reply {"decision":"reject","message":"The operator said no: probe-denial-7341."}
+[26.3s] permission.replied: {"sessionID":"ses_de718395fffeDCbwmA7SrDgTgI","requestID":"per_218e7da39001uQe5GYhunIlguH","reply":"reject"}
+[26.3s] session.tool.failed: {"type":"permission.rejected","message":"The operator said no: probe-denial-7341."}
+[29.9s] after the turn: files [README], session active false, pending permissions 0, pending forms 0
+[29.9s] execution ended with session.execution.succeeded; session outcome "succeeded"
+[29.9s] tools the model called: write
+[29.9s] final text: "The operator said no: probe-denial-7341."
+[29.9s] approved.txt: ""; colour.txt: ""
+[29.9s] checks: raised 1, answered 1, held with nothing written true
+[35.3s] sandbox t1q-b261335983ed552 deleted
+[35.3s] RESULT opencode deny: PASS

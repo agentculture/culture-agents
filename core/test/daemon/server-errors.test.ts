@@ -34,7 +34,7 @@ test("an error event on either listening server is logged in one line and never 
     servers.push(this);
     return real.apply(this, args);
   });
-  const daemon = await startDaemon({ service: new FakeRunService(), node: "spark", env: env.vars });
+  const daemon = await startDaemon({ service: new FakeRunService(), node: "thor", env: env.vars });
   t.after(() => daemon.stop());
   assert.equal(servers.length, 2, "the instance lock socket and the control socket server");
 
@@ -57,7 +57,7 @@ test("a socket path over the limit is refused with a clear error and the umask i
   const before = currentUmask();
   const socket = join(env.root, "run", `${"s".repeat(120)}.sock`);
   await assert.rejects(
-    startDaemon({ service: new FakeRunService(), node: "spark", env: { ...env.vars, CULTURE_AGENTS_SOCKET: socket } }),
+    startDaemon({ service: new FakeRunService(), node: "thor", env: { ...env.vars, CULTURE_AGENTS_SOCKET: socket } }),
     (e: Error) => /at most 107 bytes/.test(e.message) && e.message.includes("CULTURE_AGENTS_SOCKET") && e.message.includes(socket),
   );
   assert.equal(currentUmask(), before);
@@ -73,9 +73,9 @@ test("a listen that throws instead of emitting an error still restores the umask
     if (fail && typeof args[0] === "string") throw Object.assign(new Error("listen EINVAL: invalid argument"), { code: "EINVAL" });
     return real.apply(this, args);
   });
-  await assert.rejects(startDaemon({ service: new FakeRunService(), node: "spark", env: env.vars }), /EINVAL/);
+  await assert.rejects(startDaemon({ service: new FakeRunService(), node: "thor", env: env.vars }), /EINVAL/);
   assert.equal(currentUmask(), before, "the umask is not left at 0177");
   fail = false;
-  const daemon = await startDaemon({ service: new FakeRunService(), node: "spark", env: env.vars });
+  const daemon = await startDaemon({ service: new FakeRunService(), node: "thor", env: env.vars });
   await daemon.stop();
 });

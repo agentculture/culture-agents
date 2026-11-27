@@ -1,9 +1,9 @@
 {
-  "node": "spark",
+  "node": "thor",
   "agents": [
     {
-      "id": "spark-culture-agents",
-      "node": "spark",
+      "id": "thor-culture-agents",
+      "node": "thor",
       "suffix": "culture-agents",
       "harnesses": [
         "claude-code",
@@ -16,8 +16,8 @@
       "active_run_ids": []
     },
     {
-      "id": "spark-reviewer",
-      "node": "spark",
+      "id": "thor-reviewer",
+      "node": "thor",
       "suffix": "reviewer",
       "harnesses": [
         "claude-code"
@@ -92,9 +92,11 @@
           "caveats": []
         },
         "worktree_isolation": {
-          "supported": false,
-          "reason": "one active run per repository path; a second submit is refused with busy",
-          "caveats": []
+          "supported": true,
+          "reason": null,
+          "caveats": [
+            "Each run works in its own clone of the repository inside its own sandbox, made from a git bundle of the commit recorded at submit, and its commits return only to its own runs/<run_id> branch. This is a sandbox clone per run, not a host worktree: no git worktree is created on the host, and the host checkout and index are never written."
+          ]
         }
       }
     },
@@ -162,9 +164,11 @@
           "caveats": []
         },
         "worktree_isolation": {
-          "supported": false,
-          "reason": "one active run per repository path; a second submit is refused with busy",
-          "caveats": []
+          "supported": true,
+          "reason": null,
+          "caveats": [
+            "Each run works in its own clone of the repository inside its own sandbox, made from a git bundle of the commit recorded at submit, and its commits return only to its own runs/<run_id> branch. This is a sandbox clone per run, not a host worktree: no git worktree is created on the host, and the host checkout and index are never written."
+          ]
         }
       }
     }

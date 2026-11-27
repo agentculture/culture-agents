@@ -7,7 +7,7 @@
 #     --credential CLAUDE_CODE_OAUTH_TOKEN
 # `--credential VAR` reads the value from the operator's environment at
 # provider creation; this file names the variable only. Inside the sandbox
-# the variable holds an `openshell:resolve:env:` placeholder; the proxy puts the
+# the variable holds an OpenShell credential placeholder (a reference that names the variable, never its value); the proxy puts the
 # real token on the `authorization` header at egress, for the endpoint below
 # and nowhere else. Take the token from `claude setup-token` (durable), stored
 # behind `grant`.

@@ -25,9 +25,11 @@ export { canTransition, initialState, isActive, isTerminal, nextStates, runState
 export {
   buildActionId,
   buildMeshId,
+  buildQuestionId,
   buildRunId,
   buildSessionId,
   isActionId,
+  isQuestionId,
   isRunId,
   isSessionId,
   newUlid,
