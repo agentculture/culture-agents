@@ -66,8 +66,8 @@ export interface RunService {
   /** Outcome of a terminal run; throws `conflict` (retryable) while the run is active. */
   getResult(runId: string): Promise<RunResult>;
   /** The accepted action; a repeated idempotency key resolves to the first action with `replayed: true`. */
-  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse>;
-  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse>;
+  steer(runId: string, request: SteerRequest, options?: ControlOptions): Promise<AcceptedResponse>;
+  cancel(runId: string, request: CancelRequest, options?: ControlOptions): Promise<AcceptedResponse>;
   /**
    * Answer one pending question (steps 5 to 9: capability `answer`, a running run and a pending
    * question that the answer fits, live control, delivery). A question takes one answer.
@@ -95,6 +95,12 @@ export interface SubmitOptions {
   digestOf?: object;
   /** The submit came from another member of the fleet: an unknown admission signal refuses it (a local submit is admitted with a warning). */
   remote?: boolean;
+}
+
+/** What a steer or cancel from another fleet member adds; a local one passes none. */
+export interface ControlOptions {
+  /** The action's idempotency key lives in this namespace (one per member), as a remote submit's does. */
+  keyNamespace?: string;
 }
 
 export interface RunListQuery {

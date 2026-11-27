@@ -29,6 +29,7 @@ import {
   parseApiVersion,
   parseMeshId,
   validate,
+  type EventPage,
   type RemoteRun,
   type RemoteSubmitRequest,
   type Run,
@@ -42,6 +43,7 @@ import type { RunService } from "../daemon/ports.js";
 import { hostEnv, runCommand } from "../sandbox/host-command.js";
 import { aliasList, resolveAlias, type AliasState } from "./aliases.js";
 import { BUNDLE_TIMEOUT_MS, markUnredacted, serveRunBundle } from "./bundle.js";
+import { MAX_PAGE_BYTES } from "./remote-attach.js";
 import { allowReplyFor, FLEET_TIMEOUT_MS } from "./transport.js";
 import type { TrustEntry } from "./trust.js";
 
@@ -101,7 +103,10 @@ async function ownRun(c: Call): Promise<Run> {
   const run = await c.d.service.getRun(c.runId);
   if (!run) throw notFound(`No run ${c.runId} on ${c.d.node}.`, { run_id: c.runId });
   const by = run.submitter;
-  if (by?.kind !== "member" || by.node !== c.member.node) {
+  // A member is its key: a run recorded with one is matched by it, so a node name moved to another key
+  // inherits nothing. A run recorded before the key was kept is matched by node.
+  const sameKey = by?.key === undefined || by.key === c.member.fingerprint;
+  if (by?.kind !== "member" || by.node !== c.member.node || !sameKey) {
     throw new ControlError("denied", `Run ${c.runId} on ${c.d.node} was not submitted by ${c.member.node}; a member acts only on the runs it submitted, and the operator of ${c.d.node} keeps control of every run.`);
   }
   return run;
@@ -134,7 +139,7 @@ async function submit({ d, member, req, res }: Call): Promise<void> {
   checkBody("remote#submit_request", body);
   const r = body as RemoteSubmitRequest;
   const request = await localRequest(d, r);
-  const submitter: Submitter = { kind: "member", node: member.node };
+  const submitter: Submitter = { kind: "member", node: member.node, key: member.fingerprint };
   const sent = await d.service.submit(request, submitter, { keyNamespace: `member:${member.node}`, digestOf: r, remote: true, ...(r.base_commit !== undefined && { baseRef: r.base_commit }) });
   return sendJson(res, 201, "remote#submit_response", { run: remoteView(sent.run), ...(sent.replayed === true && { replayed: true }), ...(sent.warnings && { warnings: sent.warnings }) });
 }
@@ -146,6 +151,25 @@ function intParam(url: URL, name: string, max: number, fallback: number): number
   return Number(raw);
 }
 
+/** The most one events page may hold, well under the caller's `MAX_PAGE_BYTES` read cap. */
+export const PAGE_BUDGET_BYTES = MAX_PAGE_BYTES / 2;
+
+/**
+ * `page` cut to the first events that fit `PAGE_BUDGET_BYTES`, with `more` set when any were left
+ * out. At least one event stays: one event's text is at most 100 000 characters, far under it.
+ */
+export function fitPage(page: EventPage): EventPage {
+  let bytes = Buffer.byteLength(JSON.stringify({ ...page, events: [] }));
+  let kept = 0;
+  for (const event of page.events) {
+    const size = Buffer.byteLength(JSON.stringify(event)) + 1;
+    if (kept > 0 && bytes + size > PAGE_BUDGET_BYTES) break;
+    bytes += size;
+    kept += 1;
+  }
+  return kept === page.events.length ? page : { ...page, events: page.events.slice(0, kept), more: true };
+}
+
 async function events(c: Call): Promise<void> {
   const run = await ownRun(c);
   const after = intParam(c.url, "after", Number.MAX_SAFE_INTEGER, 0);
@@ -154,14 +178,15 @@ async function events(c: Call): Promise<void> {
   const page = await c.d.service.readEvents(run.id, after, limit);
   if (!page) throw notFound(`No run ${run.id} on ${c.d.node}.`, { run_id: run.id });
   markUnredacted(c.res);
-  return sendJson(c.res, 200, "event#event_page", page);
+  return sendJson(c.res, 200, "event#event_page", fitPage(page));
 }
 
 async function control(c: Call, kind: "steer" | "cancel"): Promise<void> {
   await ownRun(c);
   const body = await readJsonBody(c.req);
   checkBody(`control-action#${kind}_request`, body);
-  const accepted = kind === "steer" ? await c.d.service.steer(c.runId, body as never) : await c.d.service.cancel(c.runId, body as never);
+  const options = { keyNamespace: `member:${c.member.node}` }; // as a remote submit's key: one namespace per member
+  const accepted = kind === "steer" ? await c.d.service.steer(c.runId, body as never, options) : await c.d.service.cancel(c.runId, body as never, options);
   return sendJson(c.res, 202, "control-action#accepted_response", accepted);
 }
 

@@ -377,3 +377,17 @@ def test_submit_deadline_in_on_this_host_becomes_an_absolute_deadline(core, caps
     body = core.seen("POST", "/v1/runs")[0]["body"]
     sent = datetime.strptime(body["deadline"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
     assert before + timedelta(seconds=599) <= sent <= before + timedelta(seconds=602)
+
+
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--deadline", "2026-11-25T11:00:00Z", "--deadline-in", "600"],
+        ["--deadline-in", "600", "--deadline", "2026-11-25T11:00:00Z"],
+    ],
+)
+def test_submit_refuses_both_deadline_flags_in_either_order(core, capsys, flags) -> None:
+    r = run(capsys, *SUBMIT, *flags)
+    assert r.rc != 0
+    assert "not both" in r.err
+    assert core.seen("POST", "/v1/runs") == []

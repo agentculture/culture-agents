@@ -55,6 +55,29 @@ export interface FleetServerOptions {
   handshakeTimeoutMs?: number;
   requestTimeoutMs?: number;
   maxConnections?: number;
+  /** The most connections one remote address may hold at once, before or after authentication (default 8). */
+  maxPerAddress?: number;
+  /** Refused and failed handshakes are logged at most once per address in this window (default 60 s). */
+  logEveryMs?: number;
+}
+
+/**
+ * A log that writes at most one line per key in each `everyMs` window; the rest are counted and the
+ * count is reported with the next line written. Keys older than a window are dropped as it grows.
+ */
+function windowedLog(log: (line: string) => void, everyMs: number): (key: string, line: string) => void {
+  const seen = new Map<string, { at: number; dropped: number }>();
+  return (key, line) => {
+    const now = Date.now();
+    const last = seen.get(key);
+    if (last && now - last.at < everyMs) {
+      last.dropped += 1;
+      return;
+    }
+    if (seen.size > 1000) for (const [k, v] of seen) if (now - v.at >= everyMs) seen.delete(k);
+    seen.set(key, { at: now, dropped: 0 });
+    log(last && last.dropped > 0 ? `${line} (and ${last.dropped} more from this address in the last window)` : line);
+  };
 }
 
 export interface FleetServer {
@@ -99,18 +122,35 @@ export async function startFleetServer(o: FleetServerOptions): Promise<FleetServ
     else res.destroy(); // unreachable: only checked sockets reach this server
   });
   http.maxRequestsPerSocket = 1;
+  const maxPerAddress = o.maxPerAddress ?? 8;
+  const perAddress = new Map<string, number>();
+  const limited = windowedLog(o.log, o.logEveryMs ?? 60_000);
   const tls = createTlsServer({ ...serverContext(o.key, current), requestCert: true, rejectUnauthorized: false, handshakeTimeout: o.handshakeTimeoutMs ?? FLEET_TIMEOUT_MS });
   tls.maxConnections = o.maxConnections ?? 64;
   // Before the TLS layer sees the connection: the trust list this handshake is checked against.
   tls.prependListener("connection", (raw: Socket) => {
+    const address = raw.remoteAddress ?? "";
+    const held = perAddress.get(address) ?? 0;
+    if (held >= maxPerAddress) {
+      // Before any read: one address may not take the slots every member needs.
+      limited(address, `culture-agents core: fleet: refused a connection from ${address}: it already holds ${held}, the most one address may`);
+      raw.destroy();
+      return;
+    }
+    perAddress.set(address, held + 1);
     live.add(raw);
-    raw.once("close", () => live.delete(raw));
+    raw.once("close", () => {
+      live.delete(raw);
+      const left = (perAddress.get(address) ?? 1) - 1;
+      if (left > 0) perAddress.set(address, left);
+      else perAddress.delete(address);
+    });
     const { list, changed } = source();
     current = list;
     if (changed) tls.setSecureContext(serverContext(o.key, list));
   });
   tls.on("secureConnection", (socket: TLSSocket) => {
-    const member = admit(socket, current, o.log);
+    const member = admit(socket, current, (line) => limited(socket.remoteAddress ?? "", line));
     if (!member) {
       socket.destroy();
       return;
@@ -121,7 +161,7 @@ export async function startFleetServer(o: FleetServerOptions): Promise<FleetServ
   });
   // With a listener here Node leaves the socket open (a handshake timeout included): close it.
   tls.on("tlsClientError", (e: Error, socket: TLSSocket) => {
-    o.log(`culture-agents core: fleet: a handshake failed (${(e as NodeJS.ErrnoException).code ?? e.message})`);
+    limited(socket.remoteAddress ?? "", `culture-agents core: fleet: a handshake failed (${(e as NodeJS.ErrnoException).code ?? e.message})`);
     socket.destroy();
   });
   const port = await listenOn(tls, o.host, o.port);

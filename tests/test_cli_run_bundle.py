@@ -179,3 +179,11 @@ def test_a_result_naming_another_runs_branch_is_refused_before_any_fetch(
     assert r.rc == 2
     assert "not this run's branch" in r.err
     assert remote.seen("GET", f"/v1/fleet/runs/{RUN_ID}/bundle") == []
+
+
+def test_a_bundle_git_cannot_read_is_named_as_such(remote, capsys, project) -> None:
+    remote.respond("GET /v1/fleet/runs/{id}/bundle", 200, b"# v2 git bundle\nnot a bundle\n")
+    r = run(capsys, "runs", "result", RUN_ID, "--into", str(project["mine"]))
+    assert r.rc == 2
+    assert "git cannot read" in r.err
+    assert "other refs" not in r.err

@@ -27,7 +27,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `agents runs result` refuses to fetch when the member's result names a branch other than `runs/<run id>` of the requested run (found by review).
 - A member certificate's serial is now a minimal DER integer. About 1 key in 256 used to give a certificate OpenSSL could not parse (found by CI on this pull request). Certificates that parsed before keep the same bytes.
 - A housekeeping test retries removing a run directory the exiting worker may still write to.
-- `agents runs submit`: `--deadline` and `--deadline-in` set one parameter. Giving both is no longer refused; the later one on the line wins (SonarCloud S107: at most 13 parameters).
+- `agents runs submit`: `--deadline` and `--deadline-in` set one parameter (SonarCloud S107: at most 13 parameters); giving both is still refused, now at parse time.
+- Found by review, all fixed here:
+  - A member is its key: a run records the submitting member's key fingerprint (`submitter.key`, contract 3.3), and a node name moved to another key inherits none of its runs.
+  - A member's steer and cancel idempotency keys are held in its own namespace, as its submit keys are.
+  - One remote address may hold at most 8 fleet connections; refused and failed handshakes are logged at most once per address a minute.
+  - A remote result is read under 8 MiB, not 1 MiB, and a member cuts an events page to 4 MiB, so neither fails on every read.
+  - A member that answers more than the cap, or with a key its trust entry does not hold, is `unavailable` saying so, not "did not answer" and not unreachable.
+  - A member whose key leaves the trust list leaves the member list at once.
+  - `agents runs submit --alias` in a SHA-256 checkout is refused, instead of silently sending no base commit.
+  - `agents runs result` names a bundle git cannot read as such; `runs logs --limit` says 1-50 for a remote run.
+- Found during acceptance, fixed here: the missing-heat refusal no longer carries the member's heat-file path; the stub harness ends each text line with a newline, so a result summary reads as lines.
 - Remote attach follows a run's pages by scheduling each step from the last one's callback, with no `await` in a loop (SonarCloud S9382); new unit tests cover the poll wait, a client that leaves and a terminal event.
 
 ## [0.16.2] - 2026-11-27

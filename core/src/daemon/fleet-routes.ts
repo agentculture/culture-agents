@@ -131,7 +131,7 @@ export async function fleetRunsLogs(c: FleetRouteCall): Promise<void> {
 
 export async function fleetRunsResult(c: FleetRouteCall): Promise<void> {
   const remote = remoteOf(c);
-  const result = await remote.request(memberOfRun(c), { method: "GET", path: runPath(c.runId, "/result"), status: 200, schema: "run#run_result", ...since33 });
+  const result = await remote.request(memberOfRun(c), { method: "GET", path: runPath(c.runId, "/result"), status: 200, schema: "run#run_result", maxBytes: MAX_PAGE_BYTES, ...since33 }); // a summary may pass 1 MiB
   return sendJson(c.res, 200, "run#run_result", result);
 }
 

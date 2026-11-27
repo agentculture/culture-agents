@@ -31,7 +31,7 @@ def remote(core):
     return core
 
 
-def _checkout(path) -> str:
+def _checkout(path, *init: str) -> str:
     git = shutil.which("git")
     assert git is not None
     env = {"GIT_CONFIG_NOSYSTEM": "1", "HOME": str(path), "PATH": "/usr/bin:/bin"}
@@ -42,7 +42,7 @@ def _checkout(path) -> str:
         )
         return done.stdout.strip()
 
-    call("init", "-q", "-b", "main")
+    call("init", "-q", "-b", "main", *init)
     call(
         "-c",
         "user.name=t",
@@ -187,3 +187,15 @@ def test_agents_aliases_reads_a_members_aliases(remote, capsys) -> None:
     assert run(capsys, "agents", "aliases", "--member", "thor", "--json").json() == fixture(
         "remote", "alias_list.two"
     )
+
+
+def test_submit_from_a_sha256_checkout_is_refused_rather_than_sent_without_a_base(
+    remote, capsys, tmp_path, monkeypatch
+) -> None:
+    head = _checkout(tmp_path, "--object-format=sha256")
+    assert len(head) == 64
+    monkeypatch.chdir(tmp_path)
+    r = run(capsys, *SUBMIT)
+    assert r.rc == 1
+    assert "SHA-256" in r.err
+    assert remote.seen("POST", "/v1/fleet/runs") == []

@@ -20,12 +20,14 @@ test("two real cores: a submit from the caller runs on thor and is attached, ste
   const reply = await call(caller.socket, "POST", "/v1/fleet/runs", { body });
   assert.equal(reply.status, 201, reply.text);
   const { run } = reply.json as RemoteSubmitResponse;
-  assert.deepEqual(run.submitter, { kind: "member", node: CALLER_NODE });
+  const { key, ...named } = run.submitter ?? {};
+  assert.deepEqual(named, { kind: "member", node: CALLER_NODE });
+  assert.match(String(key), /^[0-9a-f]{64}$/, "the key the member authenticated with");
 
   // thor's own view: a real run in its store, on the aliased checkout, submitted by the member.
   const onThor = await ok<Run>(thor, "GET", `/v1/runs/${run.id}`, 200, "run");
   assert.equal(onThor.repo, thor.repoA);
-  assert.deepEqual(onThor.submitter, { kind: "member", node: CALLER_NODE });
+  assert.deepEqual(onThor.submitter, run.submitter);
   assert.equal(onThor.base_commit, run.base_commit, "the commit returned to the caller is the one thor recorded");
   await waitRun(thor, run.id, (r) => r.state === "running", "the run to start on thor");
 

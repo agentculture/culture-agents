@@ -10,17 +10,20 @@ import { join } from "node:path";
 import {
   buildRunId,
   newUlid,
+  type AcceptedResponse,
   type Allowlist,
+  type CancelRequest,
   type Run,
   type RunEvent,
   type RunResult,
+  type SteerRequest,
   type SubmitRequest,
   type SubmitResponse,
   type Submitter,
 } from "../../src/contract/index.js";
 import { loadAllowlist } from "../../src/daemon/allowlist.js";
 import { startDaemon, type Daemon } from "../../src/daemon/daemon.js";
-import type { SubmitOptions } from "../../src/daemon/ports.js";
+import type { ControlOptions, SubmitOptions } from "../../src/daemon/ports.js";
 import { certificateFor, newFleetKey } from "../../src/fleet/cert.js";
 import type { FleetConfig } from "../../src/fleet/config.js";
 import { createFleet, type Fleet, type FleetTiming } from "../../src/fleet/index.js";
@@ -49,8 +52,21 @@ export class MemberService extends FakeRunService {
   /** The branch and commits `getResult` reports for a run (t26); the fixture's otherwise. */
   readonly results = new Map<string, Pick<RunResult, "branch" | "commits">>();
 
+  /** The key namespace each steer and cancel arrived with, in order. */
+  readonly controlNamespaces: (string | undefined)[] = [];
+
   constructor(private readonly clock: () => Date) {
     super();
+  }
+
+  override steer(runId: string, request: SteerRequest, options?: ControlOptions): Promise<AcceptedResponse> {
+    this.controlNamespaces.push(options?.keyNamespace);
+    return super.steer(runId, request);
+  }
+
+  override cancel(runId: string, request: CancelRequest, options?: ControlOptions): Promise<AcceptedResponse> {
+    this.controlNamespaces.push(options?.keyNamespace);
+    return super.cancel(runId, request);
   }
 
   override async getResult(runId: string): Promise<RunResult> {

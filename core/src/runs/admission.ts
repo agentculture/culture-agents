@@ -65,7 +65,9 @@ export function readHeat(env: Env, now: Date, read: (path: string) => string = (
   try {
     text = read(path);
   } catch {
-    return unknownHeat(`the heat-governor state file ${path} is missing or unreadable`);
+    // No path in the reason: it reaches the caller of a remote submit, which is another host.
+    const where = env["HEAT_GOVERNOR_STATE"] ? "named by HEAT_GOVERNOR_STATE" : "under XDG_RUNTIME_DIR";
+    return unknownHeat(`the heat-governor state file (${where}) is missing or unreadable`);
   }
   return heatFromPayload(text, now);
 }

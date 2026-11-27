@@ -172,3 +172,18 @@ test("an announcement from this core's own key is refused and reported: a core i
   assert.deepEqual(members.view().members, []);
   assert.equal(members.view().refused.length, 1);
 });
+
+test("a member whose key leaves the trust list leaves the list at once, without waiting for its silence", () => {
+  let now = 1_000_000;
+  const peer = trusted(OTHER_NODE);
+  let list: TrustEntry[] = [peer];
+  const logs: string[] = [];
+  const members = createMemberList({ node: "thor", fingerprint: fingerprint(newFleetKey()), now: () => now, log: (l) => logs.push(l), trust: () => list });
+  assert.equal(members.receive(peer, up(OTHER_NODE)).ok, true);
+  assert.deepEqual(members.view().members.map((m) => m.node), [OTHER_NODE]);
+  list = []; // the operator removed the key
+  now += 1;
+  assert.deepEqual(members.view().members, [], "not listed one moment later");
+  members.sweep();
+  assert.ok(logs.some((l) => /no longer in this core's trust list/.test(l)), logs.join("\n"));
+});

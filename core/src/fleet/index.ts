@@ -122,8 +122,8 @@ export type FleetRuns = Omit<RunsDeps, "node" | "apiVersion" | "aliases"> & { al
  */
 export function createFleet(config: FleetConfig, node: string, err: Log, timing: FleetTiming = {}, runs?: FleetRuns): Fleet {
   const reported = timing.apiVersion ?? buildVersion;
-  const members = createMemberList({ node, fingerprint: fingerprint(config.key), log: err, ...timing });
   const trust = trustSource(config.trustPath, (m) => err(`culture-agents core: fleet: ${m}`));
+  const members = createMemberList({ node, fingerprint: fingerprint(config.key), log: err, trust: () => trust().list, ...timing });
   const announcer = createAnnouncer({
     key: config.key,
     trust: () => trust().list,

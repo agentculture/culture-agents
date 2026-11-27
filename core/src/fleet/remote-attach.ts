@@ -93,7 +93,7 @@ function follow(a: RemoteAttach, first: EventPage, signal: AbortSignal, log: (li
   return new Promise<number>((resolve) => {
     let cursor = a.after;
     const end = (e?: unknown): void => {
-      if (e !== undefined) log(`culture-agents core: the stream of remote run ${a.runId} ended after cursor ${cursor}: ${e instanceof Error ? e.message : String(e)}`);
+      if (e !== undefined) log(`culture-agents core: the stream of remote run ${a.runId} ended after cursor ${cursor}: ${e instanceof Error ? e.message : "an unknown error"}`);
       resolve(cursor);
     };
     const step = (current: EventPage): void => {

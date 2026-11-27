@@ -48,22 +48,26 @@ and commits as a git bundle are API 3.3 (t26, `docs/d2/run-bundles.md`).
   the submit. No timestamp from one host is compared with a clock on another.
   An absolute `--deadline` is refused for a remote run.
 - **Submitter and authority.** The run's submitter on the executing core is
-  `{ "kind": "member", "node": "<the caller's trust-list name>" }`. A member
+  `{ "kind": "member", "node": "<the caller's trust-list name>", "key": "<its fingerprint>" }`. A member
   may show, read the events of, attach to, steer and cancel only the runs it
   submitted. Any other run is `denied`, and no setting widens this. The
   executing host's operator keeps full control of every run through the
-  control socket. A member's submit keys live in that member's own namespace.
+  control socket. A member's submit, steer and cancel keys live in that
+  member's own namespace. The run records the member's key fingerprint
+  (`submitter.key`), and a member acts on the run only with that key.
 - **Version rule between cores.** A member serves a call from any core of the
   same MAJOR, whatever the two MINORs. The caller sends a remote-run route only
   to a member that announced 3.2 or later, and otherwise answers `unsupported`
   (`placement`) without sending anything. A core of another MAJOR is refused
   `incompatible_version` both ways. So a fleet upgrades one host at a time.
 - **Bounded.** Every call to a member has a 5 second timeout and a read cap:
-  1 MiB for an answer, 8 MiB for one page of events. Attach on the calling
+  1 MiB for an answer, 8 MiB for a result or one page of events (the member
+  cuts a page to 4 MiB). Attach on the calling
   core reads the member's events a page at a time (at most 10 a call, every
   250 ms while there is nothing new) and streams them to the operator as SSE,
   so no read from the network is unbounded and no call can hang. A request
-  body on the member is capped at 1 MiB. A member that does not answer is
+  body on the member is capped at 1 MiB. A member that answers more than the
+  cap is `unavailable` saying so. A member that does not answer is
   `unavailable` (`runs show` reads the unreachable view instead,
   `docs/d2/unreachable-view.md`). Nothing about a remote run is stored on the
   calling core.

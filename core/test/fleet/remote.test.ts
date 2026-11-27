@@ -10,7 +10,7 @@ import { test } from "node:test";
 
 import { validate, type ErrorBody, type RemoteRun, type RemoteSubmitResponse, type SubmitRequest } from "../../src/contract/index.js";
 import { loadAliases } from "../../src/fleet/aliases.js";
-import { certificateFor, newFleetKey } from "../../src/fleet/cert.js";
+import { certificateFor, fingerprint, newFleetKey } from "../../src/fleet/cert.js";
 import { startDaemon } from "../../src/daemon/daemon.js";
 import { hostEnv } from "../../src/sandbox/host-command.js";
 import { FakeRunService } from "../daemon/fake-service.js";
@@ -35,15 +35,16 @@ test("a submit from the calling core runs on thor and is shown, attached, steere
   const { exec, caller, repo } = await pair();
   try {
     const { run } = await submitRemote(caller);
+    const member = { kind: "member", node: CALLER_NODE, key: fingerprint(caller.key) };
     assert.ok(run.id.startsWith(`${AGENT}.run.`), "the run id names the executing core");
-    assert.deepEqual(run.submitter, { kind: "member", node: CALLER_NODE }, "the authenticated member, not a request field");
+    assert.deepEqual(run.submitter, member, "the authenticated member and its key, not a request field");
     assert.equal(JSON.stringify(run).includes(repo), false, "no path of the executing host reaches the caller");
     const got = exec.service.received[0];
     assert.equal(got?.request.repo, repo, "the alias resolved to the allow-listed path on thor");
-    assert.deepEqual(got?.submitter, { kind: "member", node: CALLER_NODE });
+    assert.deepEqual(got?.submitter, member);
     assert.equal(got?.options?.keyNamespace, `member:${CALLER_NODE}`, "a member's keys never meet another submitter's");
     const local = await call(exec.env.socket, "GET", `/v1/runs/${run.id}`);
-    assert.deepEqual((local.json as { submitter: unknown }).submitter, { kind: "member", node: CALLER_NODE }, "thor's own view agrees");
+    assert.deepEqual((local.json as { submitter: unknown }).submitter, member, "thor's own view agrees");
 
     const shown = await call(caller.env.socket, "GET", `/v1/fleet/runs/${run.id}`);
     assert.equal(shown.status, 200, shown.text);
@@ -55,6 +56,7 @@ test("a submit from the calling core runs on thor and is shown, attached, steere
     const cancel = await call(caller.env.socket, "POST", `/v1/fleet/runs/${run.id}/cancel`, { body: { caller: { kind: "operator", id: `${CALLER_NODE}-operator` }, reason: "enough" } });
     assert.equal(cancel.status, 202, cancel.text);
     assert.deepEqual(exec.service.calls.filter((c) => c === "steer" || c === "cancel"), ["steer", "cancel"], "both reached thor's run service");
+    assert.deepEqual(exec.service.controlNamespaces, [`member:${CALLER_NODE}`, `member:${CALLER_NODE}`], "a member's steer and cancel keys never meet another submitter's");
 
     // Attach: the events already on thor, then live ones, each once, closing after the terminal one.
     const attached = call(caller.env.socket, "GET", `/v1/fleet/runs/${run.id}/attach?after=0`);

@@ -22,7 +22,7 @@ import { API_VERSION_HEADER, apiVersion, isPeerCompatible, servesSince, validate
 import { ControlError, unavailable, unsupported } from "../daemon/errors.js";
 import type { Members } from "./members.js";
 import type { PeerAddress } from "./peers.js";
-import { FLEET_TIMEOUT_MS, MAX_RESPONSE_BYTES, fleetCall, type FleetCallOptions, type FleetResponse } from "./transport.js";
+import { FLEET_TIMEOUT_MS, FleetCallError, MAX_RESPONSE_BYTES, fleetCall, type FleetCallOptions, type FleetResponse } from "./transport.js";
 import type { TrustList } from "./trust.js";
 
 /** The MINOR that added remote runs: a member that announced less does not serve them. */
@@ -109,6 +109,18 @@ function relayed(node: string, error: ErrorBody): ControlError {
   return new ControlError(code, `${node}: ${message}`.slice(0, 2000), { ...extras, retryable });
 }
 
+/**
+ * A failed call to `node`. A member that answered more than `cap` bytes, or with a key its trust entry
+ * does not hold, did answer: a typed `unavailable` saying so. Anything else (a timeout, a closed or
+ * refused connection) is a member that did not answer, which the unreachable view reads.
+ */
+function callFailure(node: string, e: unknown, cap: number): ControlError {
+  const message = e instanceof Error ? e.message : "an unknown error";
+  if (e instanceof FleetCallError && e.code === "ETOOLARGE") return unavailable(`${node} answered more than ${cap} bytes; nothing of the answer was kept.`);
+  if (e instanceof FleetCallError && e.code === "EUNTRUSTED") return unavailable(`${node} answered with a key its entry in this core's trust list does not hold: ${message}`.slice(0, 2000));
+  return new Unreached("no_answer", `${node} did not answer: ${message}`.slice(0, 2000));
+}
+
 /** The member's typed error relayed, or `internal` for an answer outside the contract. */
 function refusal(node: string, res: FleetResponse): ControlError {
   const error = validate("error", parsed(res.body));
@@ -157,7 +169,7 @@ export function createRemote(o: RemoteOptions): Remote {
         maxResponseBytes: r.maxBytes ?? MAX_RESPONSE_BYTES,
       });
     } catch (e) {
-      throw new Unreached("no_answer", `${node} did not answer: ${(e as Error).message}`.slice(0, 2000));
+      throw callFailure(node, e, r.maxBytes ?? MAX_RESPONSE_BYTES);
     }
   }
 

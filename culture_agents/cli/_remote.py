@@ -9,6 +9,7 @@ refuses a named commit its checkout lacks, and fetches nothing.
 
 from __future__ import annotations
 
+import argparse
 import re
 import shutil
 import subprocess  # nosec B404 - one fixed git invocation, no shell
@@ -39,6 +40,11 @@ def checkout_head() -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     sha = done.stdout.strip()
+    if done.returncode == 0 and re.fullmatch(r"[0-9a-f]{64}", sha):
+        raise usage(
+            "this checkout uses SHA-256 object names; a run's base commit is a SHA-1 name: "
+            "give --no-base (the member's HEAD) or --base <sha-1 commit>"
+        )
     return sha if done.returncode == 0 and re.fullmatch(r"[0-9a-f]{40}", sha) else None
 
 
@@ -58,3 +64,18 @@ def check_submit(repo: str | None, alias: str | None, remote_only: dict[str, Any
     given = [flag for flag, value in remote_only.items() if value]
     if alias is None and given:
         raise usage(f"{given[0]} goes with --alias (a run on another member)")
+
+
+class OneDeadline(argparse.Action):
+    """--deadline and --deadline-in share one destination; the second of them is refused."""
+
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,
+    ) -> None:
+        if getattr(namespace, self.dest, None) is not None:
+            raise argparse.ArgumentError(self, "give --deadline or --deadline-in, not both")
+        setattr(namespace, self.dest, values)

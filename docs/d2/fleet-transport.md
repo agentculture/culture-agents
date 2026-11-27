@@ -38,7 +38,10 @@ socket's existing routes and their behaviour are unchanged.
 - **Bounded.** Every handshake times out after 5 seconds, and so does every
   request on the server side. Every call made by the client times out after
   5 seconds, and the client reads at most 1 MiB of a response. Request
-  headers are capped at 16 KiB, and the server accepts at most 64 connections
+  headers are capped at 16 KiB, one remote address may hold at most 8
+  connections at once (a further one is closed before anything is read), a
+  refused or failed handshake is logged at most once per address a minute, and
+  the server accepts at most 64 connections
   at once. There is one connection per call, with no keep-alive.
 - **Routes.** The transport serves an authenticated member
   `GET /v1/version`, `POST /v1/fleet/announce` and `GET /v1/fleet/members`

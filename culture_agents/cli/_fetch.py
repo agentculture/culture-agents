@@ -67,7 +67,10 @@ def _fetch(bundle: bytes, branch: str, checkout: Path) -> str:
     with tempfile.TemporaryDirectory(prefix="agents-bundle-") as tmp:
         path = Path(tmp) / "run.bundle"
         path.write_bytes(bundle)
-        heads = _git(checkout, "bundle", "list-heads", str(path)).stdout.split()
+        listed = _git(checkout, "bundle", "list-heads", str(path))
+        if listed.returncode != 0:
+            raise _bad_bundle(f"a bundle git cannot read: {visible(listed.stderr.strip()[:300])}")
+        heads = listed.stdout.split()
         if len(heads) != 2 or heads[1] != ref:
             raise _bad_bundle(f"a bundle that holds other refs than {ref}")
         done = _git(checkout, "fetch", "--quiet", "--no-tags", str(path), f"{ref}:{ref}")

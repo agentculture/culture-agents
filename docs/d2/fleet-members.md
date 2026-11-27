@@ -35,6 +35,8 @@ bundles are not built (tasks t24 to t26).
   a core does on a clean stop (SIGTERM or SIGINT) to every address in its own
   list, waiting at most 1 second. A member silent for more than 15 seconds is
   dropped: a read never shows it, and a sweep every second logs the drop. A
+  member whose key leaves this core's trust list is not listed from the next
+  read on, and the next sweep logs the drop. A
   core that knew a stopping core only from its replies drops it by silence.
 - **Clocks.** Silence is measured on the reading core's monotonic clock. The
   sender's clock is never read, and no timestamp from one host is compared with

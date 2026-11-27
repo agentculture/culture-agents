@@ -61,7 +61,9 @@ class StubTurn {
     private readonly stepMs: number,
   ) {}
 
-  private out(channel: "text" | "tool_call" | "tool_result" | "diagnostic", text: string, tool?: string): void {
+  private out(channel: "text" | "tool_call" | "tool_result" | "diagnostic", raw: string, tool?: string): void {
+    // A stub text output is a whole line: it ends with a newline, so a result summary reads as lines.
+    const text = channel === "text" && !raw.endsWith("\n") ? `${raw}\n` : raw;
     this.queue.push({ type: "output", data: tool ? { channel, text, tool } : { channel, text } });
   }
 

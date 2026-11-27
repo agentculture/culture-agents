@@ -38,7 +38,7 @@ import { existsSync } from "node:fs";
 import type { AllowlistState } from "../daemon/allowlist.js";
 import { resolveBaseCommit, startRef } from "./base-commit.js";
 import { ControlError, notFound } from "../daemon/errors.js";
-import type { DeferredKind, DeferredRequest, RunListQuery, RunService, SubmitOptions } from "../daemon/ports.js";
+import type { DeferredKind, DeferredRequest, ControlOptions, RunListQuery, RunService, SubmitOptions } from "../daemon/ports.js";
 import { deriveRun } from "../store/derive.js";
 import { readLog } from "../store/event-log.js";
 import { runDir } from "../store/files.js";
@@ -259,12 +259,12 @@ export class StoreRunService implements RunService {
     return resultOf(this.scan, run);
   }
 
-  steer(runId: string, request: SteerRequest): Promise<AcceptedResponse> {
-    return this.keyed("steer", runId, request);
+  steer(runId: string, request: SteerRequest, options: ControlOptions = {}): Promise<AcceptedResponse> {
+    return this.keyed("steer", runId, request, options.keyNamespace);
   }
 
-  cancel(runId: string, request: CancelRequest): Promise<AcceptedResponse> {
-    return this.keyed("cancel", runId, request);
+  cancel(runId: string, request: CancelRequest, options: ControlOptions = {}): Promise<AcceptedResponse> {
+    return this.keyed("cancel", runId, request, options.keyNamespace);
   }
 
   /**
@@ -273,8 +273,8 @@ export class StoreRunService implements RunService {
    * once the worker accepted, and released when the worker refused it. With no answer (a timeout)
    * the key is settled from the log, and stays reserved while the outcome is not known yet.
    */
-  private async keyed(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest): Promise<AcceptedResponse> {
-    const key = request.idempotency_key;
+  private async keyed(kind: ControlKind, runId: string, request: SteerRequest | CancelRequest, namespace?: string): Promise<AcceptedResponse> {
+    const key = indexKey(request.idempotency_key, namespace);
     if (key === undefined) return { action: await this.act(kind, runId, request) };
     return this.keys.exclusive(kind, key, async () => {
       const digest = requestDigest(kind, request, runId);

@@ -10,7 +10,7 @@ import { test } from "node:test";
 
 import { validate, type ErrorBody, type EventPage, type RemoteSubmitResponse, type RunResult } from "../../src/contract/index.js";
 import { BUNDLE_CONTENT_TYPE, SENSITIVITY_HEADER } from "../../src/fleet/bundle.js";
-import { certificateFor, newFleetKey } from "../../src/fleet/cert.js";
+import { certificateFor, fingerprint as fingerprintOf, newFleetKey } from "../../src/fleet/cert.js";
 import { fleetCall } from "../../src/fleet/transport.js";
 import { loadTrust } from "../../src/fleet/trust.js";
 import { hostEnv } from "../../src/sandbox/host-command.js";
@@ -178,5 +178,22 @@ test("a bundle of an active run is a conflict, of a run with no commits not_foun
     assert.ok(replies.every((r) => /3\.3/.test(errorOf(r.json).message)));
   } finally {
     await stopAll(old.caller, old.exec);
+  }
+});
+
+test("a member is its key: the node name moved to a new key does not inherit the runs the old key submitted", async () => {
+  const f = await finishedRun();
+  const newKey = newFleetKey();
+  try {
+    const submitter = (await f.exec.service.getRun(f.runId))?.submitter;
+    assert.deepEqual(submitter, { kind: "member", node: CALLER_NODE, key: fingerprintOf(f.caller.key) });
+    // thor's operator points the caller's node name at another key (a reinstalled host, say).
+    writeFileSync(join(f.exec.fleetDir, "trust.json"), JSON.stringify([{ node: CALLER_NODE, cert: certificateFor(newKey).text }]));
+    const trustThor = join(f.caller.fleetDir, "trust.json");
+    const asNewKey = await fleetCall({ key: newKey, trust: loadTrust(trustThor), host: LOOPBACK, port: f.exec.port(), method: "GET", path: `/v1/fleet/runs/${f.runId}/result`, headers: { "Agents-Api-Version": "3.3" }, expectNode: "thor" });
+    assert.equal(asNewKey.status, 403, asNewKey.body.toString());
+    assert.equal(errorOf(JSON.parse(asNewKey.body.toString())).code, "denied");
+  } finally {
+    await stopAll(f.caller, f.exec);
   }
 });

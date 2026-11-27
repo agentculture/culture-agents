@@ -55,12 +55,14 @@ partition was not tested.
 | A network partition, as against a halted process | not run |
 | More than 2 hosts | not run |
 
-## Found during the run (follow-up)
+## Found during the run (fixed in the same pull request)
 
-- The refusal for a missing heat file carries host B's absolute path to the
-  heat file in its message, which host A then shows. It names no host, but it
-  is a path on another machine.
-- The text of `agents runs result` joins a run's text lines with no separator.
+- The refusal for a missing heat file carried host B's absolute path to the
+  heat file in its message, which host A then showed. The reason now names the
+  variable, never the path.
+- The text of `agents runs result` joined the stub harness's text lines with no
+  separator. The stub now ends each text line with a newline; a real harness's
+  text deltas are still joined as they came.
 - A run's collected commit could include a `core/node_modules` symlink. The
   ignore pattern was fixed in this repository (`core/node_modules`, no trailing
   slash), so runs started from it no longer collect it.

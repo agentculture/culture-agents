@@ -16,6 +16,7 @@ thor's events unredacted. No SSH or shell on thor is involved: ssh is disabled f
 from __future__ import annotations
 
 import json
+import re
 import subprocess  # nosec B404 - fixed git invocations on test repositories
 import time
 from collections.abc import Iterator
@@ -70,9 +71,11 @@ def test_a_run_submitted_from_the_caller_runs_on_thor_and_is_steered_from_the_ca
     sent = _submit(caller, MANY, "--no-base", "--deadline-in", "600")
     assert sent.rc == 0, sent.err
     run = sent.json()["run"]
-    assert run["submitter"] == {"kind": "member", "node": OTHER_NODE}
+    named = {k: v for k, v in run["submitter"].items() if k != "key"}
+    assert named == {"kind": "member", "node": OTHER_NODE}
+    assert re.fullmatch(r"[0-9a-f]{64}", run["submitter"]["key"]), "the key it authenticated with"
     on_thor = thor.core.show(run["id"])
-    assert on_thor["submitter"] == {"kind": "member", "node": OTHER_NODE}
+    assert on_thor["submitter"] == run["submitter"]
     assert on_thor["repo"] == str(thor.core.repos[0])
     assert on_thor["base_commit"] == run["base_commit"]
     created, deadline = on_thor["created_at"], on_thor["deadline"]

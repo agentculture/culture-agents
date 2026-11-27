@@ -301,20 +301,26 @@ Spec c42, c48, h31, h37; `docs/d2/part-two-design.md`, Decisions 4 and 5;
   compared with a clock on another (c42). Every timestamp in `remote.json` is
   the executing core's clock.
 - **Submitter and authority.** The run's `submitter` on the executing core is
-  `member` with the node name its trust list gives the caller's key. A member
-  may show, read the events of, attach to, steer and cancel only the runs it
-  submitted; any other run is `denied`. No setting widens this. The executing
+  `member` with the node name its trust list gives the caller's key, and (3.3)
+  `key`, the fingerprint of that key. A member may show, read the events of,
+  attach to, steer and cancel only the runs it submitted, and only with the key
+  it submitted them with: a node name moved to another key inherits none of
+  them. A run recorded without `key` is matched by node. Any other run is
+  `denied`. No setting widens this. The executing
   core's local operator keeps full control of every run on it through the
   control socket.
 - **Idempotency.** A remote submit's key is held in the submitting member's
   own namespace, so a member's key never matches a local submit's or another
   member's. A repeat with the same key and the same request returns the first
-  run with `replayed: true`. Steer and cancel keys work as on one core.
+  run with `replayed: true`. A member's steer and cancel keys are held in the
+  same namespace (3.3), so they never match a local operator's or another
+  member's either.
 - **Attach** on the calling core is an SSE stream like `runs.attach`. The
   calling core reads the run's events from the member a page at a time
   (`GET /v1/fleet/runs/{run_id}/events?after=&limit=` over the fleet
   transport, at most 50 events and 8 MiB a page), so every read from the
-  network is capped and has a timeout. A refusal before the stream starts is
+  network is capped and has a timeout. The member cuts a page to 4 MiB,
+  keeping at least one event, and then says `more`. A refusal before the stream starts is
   an ordinary JSON error. When the member stops answering mid-stream, the
   stream ends without a terminal event, and the client attaches again from its
   last cursor.
@@ -322,7 +328,10 @@ Spec c42, c48, h31, h37; `docs/d2/part-two-design.md`, Decisions 4 and 5;
   cap on what it reads (1 MiB, 8 MiB for an event page). A member that does not
   answer, or is not listed, or has no address that answered as it, is
   `unavailable` (retryable): never a hang, and never a stored state on the
-  caller. The unreachable view of a run is 3.3 (t25, built).
+  caller. A member that answers more than the cap, or with a key its trust
+  entry does not hold, did answer: that is `unavailable` with a message saying
+  so, not "did not answer", and the unreachable view does not read it as
+  unreachable. The unreachable view of a run is 3.3 (t25, built).
 - **Over the fleet transport** the member serves, besides the routes of 3.1:
   `POST /v1/fleet/runs`, `GET /v1/fleet/runs/{run_id}`,
   `GET /v1/fleet/runs/{run_id}/events`, `POST /v1/fleet/runs/{run_id}/steer`,
@@ -419,8 +428,9 @@ core, which has none of these routes (the client rule above).
 - **Version rule.** The calling core sends these three routes only to a member
   that announced 3.3 or later, and otherwise answers `unsupported`
   (`placement`) without sending anything. The bundle call has a 60 second
-  timeout and a 64 MiB read cap; the others keep 5 seconds, and 1 MiB (result)
-  or 8 MiB (an event page, at most 50 events).
+  timeout and a 64 MiB read cap; the others keep 5 seconds and 8 MiB (a
+  result, whose summary may pass 1 MiB, or an event page, at most 50 events and
+  cut to 4 MiB by the member).
 - **The CLI.** `agents runs result` on a remote run fetches the branch into the
   checkout it runs in, or `--into <checkout>`, after checking that the bundle
   holds only that run's ref; `--no-fetch` fetches nothing.

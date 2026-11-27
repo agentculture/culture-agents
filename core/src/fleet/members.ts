@@ -49,6 +49,8 @@ export interface MemberListOptions {
   /** The API version this core announces. Default: this build's (api.json); tests announce an older MINOR. */
   apiVersion?: string;
   log: Log;
+  /** This core's trust list, read again on each view and sweep: a member whose key left it is not listed. */
+  trust?: () => readonly TrustEntry[];
 }
 
 export interface Members {
@@ -83,6 +85,9 @@ export function createMemberList(o: MemberListOptions): Members {
   let seq = 0;
 
   const silent = (h: Heard, t: number): boolean => t - h.at > silenceMs;
+  /** Whether the member's name and key are still a pair in the trust list (always, with no list given). */
+  const stillTrusted = (h: Heard, list: readonly TrustEntry[] | null): boolean => list === null || list.some((e) => e.node === h.member.node && e.fingerprint === h.member.fingerprint);
+  const trustNow = (): readonly TrustEntry[] | null => (o.trust ? o.trust() : null);
 
   function conflict(from: TrustEntry, a: Announcement, t: number): Receipt {
     if (from.fingerprint === o.fingerprint) return { ok: false, reason: "the key is this core's own; a core is not its own member (its own address is in its address list and its own key in its trust list)", retryable: false };
@@ -124,7 +129,13 @@ export function createMemberList(o: MemberListOptions): Members {
 
   function sweep(): void {
     const t = now();
+    const list = trustNow();
     for (const [node, h] of heard) {
+      if (!stillTrusted(h, list)) {
+        heard.delete(node);
+        o.log(`culture-agents core: fleet: member ${node} dropped: its key (${short(h.member.fingerprint)}) is no longer in this core's trust list`);
+        continue;
+      }
       if (!silent(h, t)) continue;
       heard.delete(node);
       o.log(`culture-agents core: fleet: member ${node} dropped: silent for ${Math.round(t - h.at)} ms (limit ${silenceMs} ms)`);
@@ -144,7 +155,8 @@ export function createMemberList(o: MemberListOptions): Members {
     view() {
       const t = now();
       const ago = (at: number): number => Math.max(0, Math.round(t - at));
-      const members = [...heard.values()].filter((h) => !silent(h, t)).map((h) => ({ ...h.member, heard_ms_ago: ago(h.at) }));
+      const list = trustNow();
+      const members = [...heard.values()].filter((h) => !silent(h, t) && stillTrusted(h, list)).map((h) => ({ ...h.member, heard_ms_ago: ago(h.at) }));
       members.sort((a, b) => (a.node < b.node ? -1 : 1));
       const refusals = [...refused.values()].reverse().map((r) => ({ ...r.refusal, heard_ms_ago: ago(r.at) }));
       return { node: o.node, transport: "on", announce_interval_ms: o.intervalMs ?? ANNOUNCE_INTERVAL_MS, silence_ms: silenceMs, members, refused: refusals };
