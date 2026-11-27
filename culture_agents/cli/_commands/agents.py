@@ -1,8 +1,10 @@
 """``agents agents list|status`` — the registry of agents the core knows.
 
 Talks to the core's control socket (stdlib client in
-:mod:`culture_agents.cli._client`). ``list`` is one call: the core returns every
-agent together with every harness capability document.
+:mod:`culture_agents.cli._client`). ``list`` is two calls: the core returns every
+agent together with every harness capability document, and then the fleet
+members it heard announce themselves (API 3.1), which ``--json`` prints under
+``fleet``. The member list comes from announcements only; no host list is kept.
 """
 
 from __future__ import annotations
@@ -15,8 +17,10 @@ from culture_agents.cli._render import Rendered
 
 
 def agents_list() -> Rendered:
-    """List the agents the core knows, with every harness's capabilities."""
-    return _render.agent_list(CoreClient().get("/v1/agents", "agent_list"))
+    """List the agents the core knows, every harness's capabilities and the fleet members."""
+    client = CoreClient()
+    agents = client.get("/v1/agents", "agent_list")
+    return _render.agent_list(agents, client.get("/v1/fleet/members", "member_list"))
 
 
 def agents_status(agent_id: str) -> Rendered:

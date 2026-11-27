@@ -103,11 +103,12 @@ def _dig(value: Any, path: tuple[Any, ...]) -> Any:
 # --- the version --------------------------------------------------------------
 
 
-def test_the_contract_is_version_3_0():
-    assert API["api_version"] == "3.0"
-    assert cs.load_json(_fixture("version/root.current"))["api_version"] == "3.0"
-    assert "3.0" in SCHEMAS["version.json"]["description"]
-    assert "API version **3.0**" in README
+def test_the_contract_is_version_3_1():
+    # 3.0 plus one MINOR addition, the fleet member list (t22); every 3.0 shape is unchanged.
+    assert API["api_version"] == "3.1"
+    assert cs.load_json(_fixture("version/root.current"))["api_version"] == "3.1"
+    assert "3.1" in SCHEMAS["version.json"]["description"]
+    assert "API version **3.1**" in README
 
 
 def test_the_incompatible_version_fixture_is_a_2_0_client_against_this_core():

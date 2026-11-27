@@ -1,0 +1,8 @@
+{
+  "node": "thor",
+  "transport": "off",
+  "announce_interval_ms": 5000,
+  "silence_ms": 15000,
+  "members": [],
+  "refused": []
+}

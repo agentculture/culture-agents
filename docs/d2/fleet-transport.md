@@ -3,8 +3,9 @@
 Status: built in `core/src/fleet/`, **off by default**. This is the network
 transport between cores that `docs/d2/part-two-design.md` chose (Decision 1)
 with the key handling it chose (Decision 2). It is the first piece of part
-two. The member list, remote calls and everything else in part two are not
-built (tasks t22 to t26). The Unix socket and its behaviour are unchanged.
+two. The member list runs on it (task t22, `docs/d2/fleet-members.md`). Remote
+calls and everything else in part two are not built (tasks t23 to t26). The
+Unix socket and its behaviour are unchanged.
 
 ## What it does
 
@@ -38,10 +39,11 @@ built (tasks t22 to t26). The Unix socket and its behaviour are unchanged.
   5 seconds, and the client reads at most 1 MiB of a response. Request
   headers are capped at 16 KiB, and the server accepts at most 64 connections
   at once. There is one connection per call, with no keep-alive.
-- **Routes.** In this task the transport serves an authenticated member only
-  `GET /v1/version`. Every other path answers `not_found`. No local control
-  route can be reached over the network. The member routes come in t22 and
-  t23. The contract is unchanged: this task adds no route.
+- **Routes.** The transport serves an authenticated member
+  `GET /v1/version`, `POST /v1/fleet/announce` and `GET /v1/fleet/members`
+  (t22, `docs/d2/fleet-members.md`). Every other path answers `not_found`. No
+  local control route can be reached over the network. Remote calls come in
+  t23.
 
 ## The trust list
 

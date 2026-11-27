@@ -75,22 +75,22 @@ test("an incompatible client version is refused with the typed error before anyt
   assert.equal(service.calls.includes("submit"), false);
 });
 
-test("a 2.0 client is refused by this 3.0 core: exit code 2 and a message naming both versions", async () => {
-  assert.equal(apiVersion, "3.0");
+test("a 2.0 client is refused by this 3.1 core: exit code 2 and a message naming both versions", async () => {
+  assert.equal(apiVersion, "3.1");
   for (const [method, path] of [["GET", "/v1/runs"], ["POST", "/v1/runs"], ["POST", `/v1/runs/${RUN}/answer`]] as const) {
     const reply = await call(env.socket, method, path, { version: "2.0", body: method === "POST" ? {} : undefined });
     const body = expectError(reply, "incompatible_version");
     assert.equal(reply.status, 412);
-    assert.deepEqual([body.client_api_version, body.server_api_version], ["2.0", "3.0"]);
+    assert.deepEqual([body.client_api_version, body.server_api_version], ["2.0", "3.1"]);
     assert.match(body.message, /2\.0/);
-    assert.match(body.message, /3\.0/);
+    assert.match(body.message, /3\.1/);
     assert.equal(exitCodeFor(body.code), 2, "the contract maps the refusal to CLI exit code 2");
     assert.equal(body.retryable, false);
   }
   // The version route still answers, so the 2.0 client can read which version the core speaks.
   const version = await call(env.socket, "GET", "/v1/version", { version: "2.0" });
   expectOk(version, 200, "version");
-  assert.equal((version.json as { api_version: string }).api_version, "3.0");
+  assert.equal((version.json as { api_version: string }).api_version, "3.1");
   assert.equal(service.calls.includes("submit"), false);
 });
 

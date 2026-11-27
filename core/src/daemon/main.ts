@@ -4,7 +4,7 @@ import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { prepareFleet, startFleet } from "../fleet/index.js";
+import { createFleet, prepareFleet } from "../fleet/index.js";
 import { startPublishing } from "../publish/index.js";
 import { prepareTrace, startTracing } from "../trace/index.js";
 import { createRunService, emptyCatalog, type HarnessCatalog } from "../runs/index.js";
@@ -282,10 +282,11 @@ async function serveUntilStopped(
     if (stateLock === null) return 2;
   }
   const runs = service ? null : builtInRuns(options, { stateDir, node, allowlistPath, env, limits, questionLimitMs });
-  const daemon = await startOrReport(options, service ?? (runs as RunService), node, stateLock, err);
+  // The member list exists before the socket listens, so the local route reads it; nothing is announced or heard until `start`.
+  const fleet = fleetConfig ? createFleet(fleetConfig, node, err) : null;
+  const daemon = await startOrReport({ ...options, ...(fleet && { members: () => fleet.members.view() }) }, service ?? (runs as RunService), node, stateLock, err);
   if (daemon === null) return 2;
-  const fleet = fleetConfig ? await startFleet(fleetConfig, node, err) : null;
-  if (fleetConfig && !fleet) {
+  if (fleet && !(await fleet.start())) {
     await daemon.stop();
     await stateLock?.release();
     return 2;

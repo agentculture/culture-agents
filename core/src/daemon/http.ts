@@ -5,14 +5,16 @@ import { ControlError, invalid } from "./errors.js";
 
 const MAX_BODY_BYTES = 1024 * 1024;
 
-/** Read and parse a JSON request body; an empty, oversized or malformed body is `invalid`. */
-export async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+const sizeText = (bytes: number): string => (bytes === MAX_BODY_BYTES ? "1 MiB" : String(bytes) + " bytes");
+
+/** Read and parse a JSON request body; an empty, oversized (over `maxBytes`) or malformed body is `invalid`. */
+export async function readJsonBody(req: IncomingMessage, maxBytes = MAX_BODY_BYTES): Promise<unknown> {
   const chunks: Buffer[] = [];
   let size = 0;
   for await (const chunk of req) {
     const buf = chunk as Buffer;
     size += buf.length;
-    if (size > MAX_BODY_BYTES) throw invalid("Request body is larger than 1 MiB.");
+    if (size > maxBytes) throw invalid(`Request body is larger than ${sizeText(maxBytes)}.`);
     chunks.push(buf);
   }
   const text = Buffer.concat(chunks).toString("utf8");

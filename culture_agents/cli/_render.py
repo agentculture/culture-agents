@@ -110,14 +110,49 @@ def agent_lines(agent: Any) -> list[str]:
     ]
 
 
-def agent_list(payload: Any) -> Rendered:
+def _seconds(ms: Any) -> str:
+    return f"{ms / 1000:.1f} s" if isinstance(ms, int) else "-"
+
+
+def fleet_lines(fleet: Any) -> list[str]:
+    """The member list: who announced themselves, and which announcements were refused."""
+    if _get(fleet, "transport") != "on":
+        return ["fleet: transport off (no members; set CULTURE_AGENTS_FLEET_LISTEN to join)"]
+    interval, silence = _get(fleet, "announce_interval_ms"), _get(fleet, "silence_ms")
+    members, refused = _items(_get(fleet, "members")), _items(_get(fleet, "refused"))
+    lines = [
+        f"fleet: transport on, announcing every {_seconds(interval)}, "
+        f"a member silent for {_seconds(silence)} is dropped",
+        f"members ({len(members)}):",
+    ]
+    for m in members:
+        key = _val(_get(m, "fingerprint"))[:16]
+        heard = _seconds(_get(m, "heard_ms_ago"))
+        api = _val(_get(m, "api_version"))
+        lines.append(f"  {_val(_get(m, 'node'))}  key {key}  api {api}  heard {heard} ago")
+    if refused:
+        lines.append(f"refused announcements ({len(refused)}):")
+    for r in refused:
+        lines.append(
+            f"  claimed {_val(_get(r, 'node'))} by key {_val(_get(r, 'fingerprint'))[:16]} "
+            f"(trusted as {_val(_get(r, 'trusted_as'))}), {_val(_get(r, 'count'))} time(s), "
+            f"last {_seconds(_get(r, 'heard_ms_ago'))} ago: {_val(_get(r, 'reason'))}"
+        )
+    return lines
+
+
+def agent_list(payload: Any, fleet: Any = None) -> Rendered:
     agents = _items(_get(payload, "agents"))
     lines = [f"node: {_val(_get(payload, 'node'))}", f"agents ({len(agents)}):"]
     for agent in agents:
         lines.extend(agent_lines(agent))
     for doc in _items(_get(payload, "harnesses")):
         lines.extend(capability_lines(doc))
-    return Rendered(payload, "\n".join(lines))
+    if fleet is None:
+        return Rendered(payload, "\n".join(lines))
+    lines.extend(fleet_lines(fleet))
+    data = {**payload, "fleet": fleet} if isinstance(payload, dict) else {"fleet": fleet}
+    return Rendered(data, "\n".join(lines))
 
 
 def agent_status(agent: Any, harnesses: Any) -> Rendered:

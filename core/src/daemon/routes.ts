@@ -7,10 +7,12 @@ import {
   parseApiVersion,
   validate,
   type RunState,
+  type MemberList,
   type SchemaName,
   type SubmitRequest,
   type Submitter,
 } from "../contract/index.js";
+import { memberListOff } from "../fleet/members.js";
 import { matchAllowlist, type AllowlistState } from "./allowlist.js";
 import { branchesList, branchesRemove } from "./branch-routes.js";
 import { ControlError, invalid, notFound, unsupported } from "./errors.js";
@@ -29,6 +31,8 @@ export interface RouteContext {
   shutdown: AbortSignal;
   /** Who the core established for requests on its control socket; set once the socket is bound. */
   submitter: Submitter | null;
+  /** The fleet member list; null when the fleet transport is off. */
+  members: (() => MemberList) | null;
 }
 
 interface Match {
@@ -59,6 +63,7 @@ const PATTERNS: readonly Pattern[] = [
   ["runs.answer", "POST", "v1", "runs", ":run_id", "answer"],
   ["branches.list", "GET", "v1", "branches"],
   ["branches.remove", "POST", "v1", "branches", "remove"],
+  ["fleet.members", "GET", "v1", "fleet", "members"],
 ];
 
 /** Deferred control routes: always `unsupported`, naming the capability. Value is the request schema. */
@@ -311,6 +316,8 @@ export async function handle(ctx: RouteContext, req: IncomingMessage, res: Serve
       return branchesList({ service: svc, allowlist: ctx.allowlist, req, res, url });
     case "branches.remove":
       return branchesRemove({ service: svc, allowlist: ctx.allowlist, req, res, url });
+    case "fleet.members":
+      return sendJson(res, 200, "fleet", ctx.members ? ctx.members() : memberListOff(ctx.node));
     default:
       return refuseDeferred(call, match.id);
   }

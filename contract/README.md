@@ -1,6 +1,6 @@
 # culture-agents control-plane contract
 
-API version **3.0** (single source: `api.json` → `api_version`).
+API version **3.1** (single source: `api.json` → `api_version`).
 
 This directory is the contract between the TypeScript core daemon and every
 client of it, starting with the Python `agents` CLI. The JSON Schemas
@@ -9,9 +9,11 @@ schemas cannot express. Both sides validate against these same files and
 reuse the same fixtures. Generate types and validators from the schemas; never
 copy them by hand.
 
-Scope: one host, no chat. Version 3.0 carries the shapes of D2 part one:
+Scope: no chat. Version 3.0 carries the shapes of D2 part one:
 recovery after a core restart, concurrent runs in one repository, idempotent
-requests, operator questions, limits and admission. The shapes are fixed here.
+requests, operator questions, limits and admission. Version 3.1 adds one D2
+part two shape, the fleet member list, as a MINOR addition (see
+[Changes in 3.1](#changes-in-31)). The shapes are fixed here.
 Some of the behaviour behind them is not built yet. Every such rule below is
 marked **(planned)** with the task of the D2 plan
 (`docs/plans/2026-11-26-d2-fleet-and-recovery.md`) that builds it, and
@@ -37,6 +39,7 @@ Key words: **must**, **must not** and **may** are normative.
 | `error.json` | error response `{"error": {...}}` | `error`, `code`, `limit`, `held_signal` |
 | `branches.json` | `branches.list` response | `remove_request`, `remove_response` |
 | `version.json` | `GET /v1/version` response | none |
+| `fleet.json` | `fleet.members` response (3.1) | `member`, `refusal`, `fingerprint`, `announcement`, `announce_refusal` (the fleet transport's announce route) |
 | `allowlist.json` | the local allow-list file (not an API payload) | none |
 | `api.json` | not a schema: the index of version, transport, routes, error table and state machine | |
 | `fixtures/` | example payloads, see [Fixtures](#fixtures) | |
@@ -167,7 +170,7 @@ gapless and never reset. A terminal state is still final. `unknown` is still
 never reported as a success, and neither is `unanswered`.
 
 **Part two is not in 3.0.** Its own shapes come with their tasks as 3.x MINOR
-additions: the list of fleet members, the unreachable view of a run on a host
+additions: the list of fleet members (3.1, t22, built), the unreachable view of a run on a host
 that does not answer, and fetching a run's commits as a git bundle. A MINOR
 addition is a new route with its own response shape, or a new optional request
 field. It must not add a field, an enum value or an event kind to a shape that
@@ -179,6 +182,56 @@ time it was observed (t30). They are shapes only: every harness of this core
 reports `placement` unsupported, and no route returns `admission_held`, until
 part two builds them **(planned, part two)**. Part two can then add both as
 behaviour inside 3.0, without a MAJOR bump.
+
+## Changes in 3.1
+
+Version 3.1 is one MINOR addition to 3.0, built by plan task t22. No 3.0 shape
+changed: no field, enum value, error code or event kind was added to a shape
+that exists in 3.0. A 3.0 client works with a 3.1 core. A 3.1 client refuses
+a 3.0 core, which has no member list (the compatibility rule above).
+
+| Change | Where | Required in 3.1 | Built by |
+| --- | --- | --- | --- |
+| `fleet.members`: the fleet members this core heard announce themselves, and the announcements it refused | new route `GET /v1/fleet/members`, new file `fleet.json` | new in 3.1; with the fleet transport off it answers `transport: off` and two empty lists | t22 (built) |
+
+### Fleet members (3.1)
+
+The member list is built from announcements only (spec c29, c40;
+`docs/d2/part-two-design.md`, Decision 3). No list of hosts is kept in this
+repository or in any tracked file.
+
+- **Announcing.** A core whose fleet transport is on (`docs/d2/fleet-transport.md`)
+  sends `POST /v1/fleet/announce` with an `announcement` every 5 seconds to each
+  address in its local, untracked address list,
+  `${XDG_CONFIG_HOME:-$HOME/.config}/culture-agents/fleet/peers.json` (a JSON
+  array of `"<ip>:<port>"` strings; IP addresses only, at most 64). The route is
+  served over the fleet transport only, never on the control socket. The reply
+  is the answering core's own announcement, so two cores list each other when
+  only one knows the other's address. Every call times out after 5 seconds and
+  reads at most 16 KiB.
+- **Listing.** A member is listed only after an announcement arrives from a key
+  in the trust list, and only under the node name the trust list gives that
+  key. The announcement carries no key material: the sender is the key the
+  transport authenticated. An address with no live core behind it is never
+  listed. This core itself is not an entry of `members`.
+- **Unique node names.** An announcement is refused with HTTP 409 and an
+  `announce_refusal` body (`code: conflict`) when the node name it claims is
+  not the one the trust list gives its key, is this core's own node name, or is
+  held by another listed key. The refusal is reported to the operator in the
+  core's log (at most once a minute per claim) and in `refused`. `error.json`'s
+  `conflict` names a run, so the fleet transport has this shape of its own.
+- **Dropping.** A member is dropped when nothing was heard from it for more
+  than 15 seconds (`silence_ms`), or at once when it announces `leaving` on a
+  clean stop. A read never shows a member past its silence, and a sweep every
+  second logs the drop, so a silent member leaves the list within 16 seconds
+  of its last announcement. A core that stops cleanly tells only the addresses
+  in its own list that it leaves. A core that knew it only from its replies
+  drops it by silence.
+- **Clocks.** `heard_ms_ago` is measured on the reading core's monotonic clock.
+  No timestamp from another host is read or compared (c42).
+- **Who can read it.** The local socket owner (`fleet.members`) and
+  authenticated members (`GET /v1/fleet/members` over the fleet transport).
+  It is published nowhere else.
 
 ## Routes
 
@@ -204,6 +257,7 @@ possible errors and CLI verb.
 | `runs.answer` | `POST /v1/runs/{run_id}/answer` | 202 `accepted_response` | `agents runs answer` |
 | `branches.list` | `GET /v1/branches?repo=` | 200 `branches.json` | `agents branches list` |
 | `branches.remove` | `POST /v1/branches/remove` | 200 `remove_response` | `agents branches remove` |
+| `fleet.members` | `GET /v1/fleet/members` | 200 `fleet.json` | `agents agents list` (3.1) |
 | `runs.pause`, `runs.resume` | `POST /v1/runs/{run_id}/<verb>` | never: always `unsupported` | none |
 
 Notes:

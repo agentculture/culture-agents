@@ -27,7 +27,7 @@ const pascal = (s) =>
     .join("");
 
 // Names that would collide with a global or another type if derived mechanically.
-const ROOT_NAMES = { "error.json": "ErrorResponse", "event.json": "RunEvent" };
+const ROOT_NAMES = { "error.json": "ErrorResponse", "event.json": "RunEvent", "fleet.json": "MemberList" };
 const DEF_NAMES = {
   "common.json#node": "MeshNode",
   "common.json#text": "CallerText",
