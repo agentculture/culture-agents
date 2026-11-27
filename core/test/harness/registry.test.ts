@@ -128,6 +128,8 @@ test("capability documents validate against the contract, available or not", asy
       for (const c of ["pause", "resume", "continue_session", "delegate", "placement"] as const) {
         assert.equal(doc.capabilities[c].supported, false, `${entry.id}: ${c} is deferred`);
       }
+      // t30: the schema lets placement be supported; no harness of this core supports it until part two.
+      assert.match(doc.capabilities.placement.reason ?? "", /\S/, `${entry.id}: placement has a reason`);
       // t13: answer is what the driver does. The stub asks; the real drivers have no ask path yet, and
       // say so with what the probe measured (5 minute holds) and did not (12 hours).
       const answer = doc.capabilities.answer;

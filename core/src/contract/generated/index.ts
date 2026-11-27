@@ -6,7 +6,7 @@ import type { Branches, Branch, RemoveRequest, RemoveResponse, Skipped } from ".
 import type { Capabilities, CapabilityName, Capability, Deferred, CapabilitySet, LimitName, Limits, SignalName, SignalState, Signal, Admission, CapabilitiesList } from "./capabilities.js";
 import type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId, QuestionId, HarnessId, Timestamp, NullableTimestamp, RepoPath, IdempotencyKey, Cursor, ApiVersion, CallerText, GitSha, Principal, Extension } from "./common.js";
 import type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
-import type { ErrorResponse, ErrorCode, ErrorBody, Limit } from "./error.js";
+import type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 import type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
 import type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 import type { Session } from "./session.js";
@@ -18,7 +18,7 @@ export type { Branches, Branch, RemoveRequest, RemoveResponse, Skipped } from ".
 export type { Capabilities, CapabilityName, Capability, Deferred, CapabilitySet, LimitName, Limits, SignalName, SignalState, Signal, Admission, CapabilitiesList } from "./capabilities.js";
 export type { Common, MeshNode, Suffix, MeshId, Ulid, RunId, SessionId, ActionId, QuestionId, HarnessId, Timestamp, NullableTimestamp, RepoPath, IdempotencyKey, Cursor, ApiVersion, CallerText, GitSha, Principal, Extension } from "./common.js";
 export type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResponse, Warning, SteerRequest, CancelRequest, PauseRequest, ResumeRequest, AnswerRequest, Decision, ChoiceIds, AcceptedResponse } from "./control-action.js";
-export type { ErrorResponse, ErrorCode, ErrorBody, Limit } from "./error.js";
+export type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 export type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
 export type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 export type { Session } from "./session.js";
@@ -84,6 +84,7 @@ export interface SchemaTypes {
   "error#code": ErrorCode;
   "error#error": ErrorBody;
   "error#limit": Limit;
+  "error#held_signal": HeldSignal;
   "event": RunEvent;
   "event#kind": EventKind;
   "event#state_data": StateData;

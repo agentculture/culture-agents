@@ -42,6 +42,7 @@ EXIT_FOR_CODE = {
     "not_found": EXIT_USER_ERROR,
     "conflict": EXIT_USER_ERROR,
     "limit_reached": EXIT_USER_ERROR,
+    "admission_held": EXIT_USER_ERROR,
     "unsupported": EXIT_USER_ERROR,
     "incompatible_version": EXIT_ENV_ERROR,
     "unavailable": EXIT_ENV_ERROR,
@@ -59,6 +60,10 @@ _HINTS = {
     "limit_reached": (
         "the operator configured this limit on the core and nothing was queued: wait for an "
         "active run to end, then submit again"
+    ),
+    "admission_held": (
+        "an admission signal on that host (named in the error) holds new work and nothing was "
+        "queued: submit again later, or to another host whose capability report admits it"
     ),
     "unsupported": (
         "the core refuses this capability on purpose; see which ones a harness supports with "

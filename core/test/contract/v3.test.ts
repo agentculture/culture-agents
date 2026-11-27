@@ -121,8 +121,9 @@ test("the capability report states limits, active runs and admission per signal"
   assert.equal(doc.active_runs, 1);
   assert.deepEqual([doc.admission?.heat.state, doc.admission?.gateway.consulted], ["hold", false]);
   for (const name of ["answer", "reconnect", "worktree_isolation"] as const) assert.equal(doc.capabilities[name].supported, true, name);
-  // The capabilities D2 does not build stay pinned to unsupported by the schema.
-  for (const name of ["pause", "resume", "continue_session", "delegate", "placement"] as const) {
+  // The capabilities D2 does not build stay pinned to unsupported by the schema. placement left this
+  // list in t30 (part two builds it); contract/part-two-ready.test.ts covers it.
+  for (const name of ["pause", "resume", "continue_session", "delegate"] as const) {
     const flipped = { ...doc, capabilities: { ...doc.capabilities, [name]: { supported: true, reason: null, caveats: [] } } };
     assert.equal(validate("capabilities", flipped).ok, false, name);
   }

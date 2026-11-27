@@ -25,7 +25,7 @@ export type ActionRecord = {
   error: ErrorBody | null;
 };
 
-/** Body of POST /v1/runs. Optional fields are omitted, never null. Setting `session_id` asks for `continue_session` and setting `parent_run_id` asks for `delegate`; both are refused with `unsupported` in this API version, as is an `agent_id` whose node is not the core's node (`placement`). No field of this request sets the run's `submitter` or `base_commit`. */
+/** Body of POST /v1/runs. Optional fields are omitted, never null. Setting `session_id` asks for `continue_session` and setting `parent_run_id` asks for `delegate`; both are refused with `unsupported` in this API version. An `agent_id` whose node is not the core's node asks for `placement`, which is refused with `unsupported` until part two builds it (planned). No field of this request sets the run's `submitter` or `base_commit`. */
 export type SubmitRequest = {
   agent_id: MeshId;
   harness: HarnessId;

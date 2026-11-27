@@ -33,13 +33,15 @@ export function deferredCapabilities(): Pick<
   CapabilitySet,
   "pause" | "resume" | "answer" | "continue_session" | "delegate" | "placement" | "worktree_isolation"
 > & { reconnect: Capability } {
+  // placement is supportable in the 3.0 schema (t30) but not built: every harness reports it
+  // unsupported, with its reason, until D2 part two (planned).
   return {
     pause: deferred("Pausing a run is deferred beyond D1 for every harness."),
     resume: deferred("Resuming a paused run is deferred beyond D1 for every harness."),
     answer: unsupported(NO_ASK_PATH),
     continue_session: deferred("Continuing an earlier session is deferred beyond D1; every run starts a new session."),
     delegate: deferred("Agent-to-agent delegation is deferred beyond D1."),
-    placement: deferred("D1 runs on a single host; placement on another node is deferred."),
+    placement: unsupported("This core runs work only on its own node; placement on another node is not built yet (planned, D2 part two)."),
     reconnect: supported("Live control is rebuilt over the worker's own control socket; a worker that does not answer is reported unknown."),
     worktree_isolation: supported(SANDBOX_ISOLATION),
   };

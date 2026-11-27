@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "admission_held",
+    "message": "the heat signal on thor says hold (level hot, observed at 2026-11-27T09:14:05Z); nothing was queued",
+    "retryable": true
+  }
+}

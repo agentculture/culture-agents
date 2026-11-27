@@ -32,7 +32,7 @@ export type Capability = {
   caveats: string[];
 };
 
-/** A capability no harness supports in this API version: pause, resume, continue_session, delegate and placement. Changing one to supportable is a schema change (README: versioning). */
+/** A capability no harness supports in this API version: pause, resume, continue_session and delegate. Changing one to supportable is a schema change (README: versioning). */
 export type Deferred = {
   supported: false;
   reason: string;
@@ -49,7 +49,7 @@ export type CapabilitySet = {
   answer: Capability;
   continue_session: Deferred;
   delegate: Deferred;
-  placement: Deferred;
+  placement: Capability;
   reconnect: Capability;
   worktree_isolation: Capability;
 };

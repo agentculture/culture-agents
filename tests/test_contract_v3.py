@@ -257,9 +257,9 @@ def test_a_stream_that_breaks_a_question_rule_is_caught(name):
 
 def test_capabilities_that_d2_part_one_builds_are_no_longer_pinned_to_unsupported():
     props = SCHEMAS["capabilities.json"]["$defs"]["capability_set"]["properties"]
-    for name in ("answer", "reconnect", "worktree_isolation"):
+    for name in ("answer", "reconnect", "worktree_isolation", "placement"):
         assert props[name]["$ref"].endswith("#/$defs/capability"), name
-    for name in ("pause", "resume", "continue_session", "delegate", "placement"):
+    for name in ("pause", "resume", "continue_session", "delegate"):
         assert props[name]["$ref"].endswith("#/$defs/deferred"), name
 
 
