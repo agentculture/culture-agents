@@ -221,6 +221,8 @@ test("broker stopped in the middle of a run: the run ends the same, and the miss
   for (const m of all) assert.equal(m.payload, byId.get((JSON.parse(m.payload) as { id: string }).id), "an event seen twice is the same bytes");
   for (const sub of [before, after]) assertLifecycleOnly(sub);
   assert.equal(readPosition(dir).cursor, EVENTS);
-  assert.match(daemon.stderr(), /the broker takes run events again/);
+  // The outage is announced only when a publish was tried while the broker was down. On a slow host the
+  // run can end and the broker return between two publish rounds, and then nothing was refused.
+  if (/broker is not taking run events/.test(daemon.stderr())) assert.match(daemon.stderr(), /the broker takes run events again/);
   assert.equal(JSON.parse(readFileSync(join(dir, POSITION_FILE), "utf8")).state, "succeeded");
 });

@@ -9,7 +9,7 @@ from culture_agents.explain.catalog import ENTRIES
 from tests.cli_support import assert_valid, run
 from tests.fake_core import fixture
 
-REPO = "/home/thor/work/culture-agents"
+REPO = "/srv/repos/demo"
 
 
 def test_list_text_shows_state_and_evidence(core, capsys: pytest.CaptureFixture[str]) -> None:
