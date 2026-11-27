@@ -61,8 +61,8 @@ which is a client of the core over a Unix socket.
   run's question waits on disk and is answered once with `agents runs answer`
   (stub harness only: Claude Code and OpenCode have no ask path and report
   `answer` unsupported); run branches can be listed and removed; the capability
-  report shows limits, active runs and the heat signal (the model gateway is
-  reported as not consulted); tracing to a local Langfuse (endpoint path
+  report shows limits, active runs and the heat signal, and for OpenCode the
+  model gateway's admission; tracing to a local Langfuse (endpoint path
   unconfirmed). Steer is **not preemption**: it lands in the running turn.
   `succeeded` means the turn ended cleanly, not that the task was done. No
   hold of 12 hours was measured (the longest was 5 minutes). Acceptance is

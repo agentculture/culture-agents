@@ -111,3 +111,13 @@ test("through the daemon: capability and submit read the gateway; unknown warns,
   assert.equal(slow.admission?.gateway.state, "unknown");
   assert.ok(Date.now() - t0 < 2500, "the call returns within the timeout plus a margin");
 });
+
+test("the core asks the gateway on loopback when the harness is configured with the sandbox's name for the host", async () => {
+  const { hostView } = await import("../../src/daemon/harness-catalog.js");
+  assert.equal(hostView("http://host.openshell.internal:8001/v1"), "http://127.0.0.1:8001/v1");
+  assert.equal(hostView("http://HOST.openshell.internal:9000/v1"), "http://127.0.0.1:9000/v1");
+  assert.equal(hostView("http://127.0.0.1:8001/v1"), "http://127.0.0.1:8001/v1");
+  assert.equal(hostView("https://gateway.example/v1"), "https://gateway.example/v1");
+  assert.equal(hostView("not a url"), "not a url");
+});
+

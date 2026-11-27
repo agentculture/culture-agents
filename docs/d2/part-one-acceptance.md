@@ -43,7 +43,7 @@ merge host fills it in.
 
 | Check | Harness | Result | Reason |
 |-------|---------|--------|--------|
-| Third submit to another repository under 2 s; cancel under 10 s, with 2 runs active in 1 repository | Claude Code | NOT VERIFIED | live stage not run here: set `CULTURE_AGENTS_ACCEPTANCE_LIVE=1` on a host with the gateway |
+| Third submit to another repository under 2 s; cancel under 10 s, with 2 runs active in 1 repository | Claude Code | measured on the merge host | 0.464 s and 7.67 s; see "Live results" below |
 | Third submit to another repository under 2 s; cancel under 10 s, with 2 runs active in 1 repository | OpenCode v2 | NOT VERIFIED | live stage not run here: same reason |
 | Question survives a restart and is answered | Claude Code | NOT VERIFIED | `answer` is reported unsupported; only the stub harness can ask (t13) |
 | Question survives a restart and is answered | OpenCode v2 | NOT VERIFIED | `answer` is reported unsupported; only the stub harness can ask (t13) |
@@ -53,9 +53,11 @@ merge host fills it in.
 
 | Check | Harness | Result | Reason |
 |-------|---------|--------|--------|
-| Live read of the gateway's `GET /status` `admission` object through the capability report | OpenCode v2 | NOT VERIFIED | no network in the build sandbox; the main agent reads it on the merge host after the merge (use the loopback form, e.g. `http://127.0.0.1:8001/v1`, as the gateway URL) |
+| Live read of the gateway's `GET /status` `admission` object through the reader | OpenCode v2 | measured on the merge host, 2026-11-27: reads `unknown` | The gateway running on that host answered `/status` in 35 ms with no `admission` object, so the reader reported `unknown` with the reason "the gateway's status lacks an admission object". The installed lobes-cli is 0.99.0, which has the field; the running gateway process had not been restarted since the upgrade. An `admit` or `hold` from a real gateway is NOT VERIFIED |
 
 The reader is proven in `core/test/runs/gateway.test.ts` with an injected fetch and a loopback test server.
+
+The live read found a defect, fixed at the gate: the harness is configured with the sandbox's name for the host (`host.openshell.internal`), which does not resolve on the host itself, so with the default configuration the core could never reach the gateway. The core now asks loopback on the same port when the configured URL uses that name (`hostView` in `core/src/daemon/harness-catalog.ts`).
 
 The question check is NOT VERIFIED on both real harnesses even with the opt-in, by
 design: the live test always reports it so, and it is never a pass.
