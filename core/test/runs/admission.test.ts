@@ -34,11 +34,11 @@ test("the heat path follows the publisher: HEAT_GOVERNOR_STATE, else XDG_RUNTIME
   assert.equal(readHeat({ HEAT_GOVERNOR_STATE: "/x" }, NOW, () => { throw new Error("ENOENT"); }).state, "unknown");
 });
 
-test("the gateway is not consulted, and only a consulted unknown signal warns", () => {
-  const admission = readAdmission({ HEAT_GOVERNOR_STATE: "/x" }, NOW, () => payload());
+test("the gateway is not consulted without a harness that uses it, and only a consulted unknown signal warns", async () => {
+  const admission = await readAdmission({ HEAT_GOVERNOR_STATE: "/x" }, NOW, () => payload());
   assert.deepEqual([admission.gateway.consulted, admission.gateway.state], [false, "unknown"]);
   assert.deepEqual(submitWarnings(admission), []);
-  const unknown = readAdmission({}, NOW);
+  const unknown = await readAdmission({}, NOW);
   assert.deepEqual(submitWarnings(unknown).map((w) => [w.code, w.signal]), [["signal_unknown", "heat"]]);
 });
 

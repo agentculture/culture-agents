@@ -49,6 +49,14 @@ merge host fills it in.
 | Question survives a restart and is answered | OpenCode v2 | NOT VERIFIED | `answer` is reported unsupported; only the stub harness can ask (t13) |
 | Checks 1, 2, 4 and 5 on a real harness | both | NOT VERIFIED | the live stage times the third submit and the cancel only; these four are mock-stage checks |
 
+### Gateway admission signal (t31)
+
+| Check | Harness | Result | Reason |
+|-------|---------|--------|--------|
+| Live read of the gateway's `GET /status` `admission` object through the capability report | OpenCode v2 | NOT VERIFIED | no network in the build sandbox; the main agent reads it on the merge host after the merge (use the loopback form, e.g. `http://127.0.0.1:8001/v1`, as the gateway URL) |
+
+The reader is proven in `core/test/runs/gateway.test.ts` with an injected fetch and a loopback test server.
+
 The question check is NOT VERIFIED on both real harnesses even with the opt-in, by
 design: the live test always reports it so, and it is never a pass.
 

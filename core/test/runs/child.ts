@@ -46,7 +46,9 @@ function fakeCatalog(harnesses: FakeHarness[]): HarnessCatalog {
     capabilities: () => Promise.resolve(capabilitiesOf(h)),
     driver: h.stub === true ? { module: STUB_DRIVER, options: STUB_OPTIONS } : { module: FAKE_DRIVER, options: { steps: h.steps } },
   }));
-  return { list: () => entries, get: (id) => entries.find((e) => e.id === id) };
+  // FAKE_GATEWAY_URL: a loopback test server standing in for the model gateway; every fake harness uses it.
+  const url = process.env["FAKE_GATEWAY_URL"];
+  return { list: () => entries, get: (id) => entries.find((e) => e.id === id), ...(url !== undefined && { gateway: { harnesses: harnesses.map((h) => h.id), url, timeoutMs: 300 } }) };
 }
 
 process.on("SIGUSR2", () => {

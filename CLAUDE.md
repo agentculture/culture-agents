@@ -46,8 +46,8 @@ one, a single-host control plane without chat. On disk:
   active runs and the heat signal; tracing to a local Langfuse. Gaps: questions
   work end to end only with the stub harness (Claude Code and OpenCode report
   `answer` unsupported; owner decision pending); no hold of 12 hours was
-  measured (longest 5 minutes); the model gateway's admission is reported as not
-  consulted; a run directory the core cannot read is skipped by listing;
+  measured (longest 5 minutes); the model gateway's admission is read for OpenCode
+  (live read NOT VERIFIED); a run directory the core cannot read is skipped by listing;
   `succeeded` means the turn ended cleanly, not that the task was done; enabling
   broker publishing on a store with history replays it (loopback URL only); the
   Langfuse endpoint path was not confirmed live. Steer is **not preemption**: it

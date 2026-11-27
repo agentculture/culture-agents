@@ -4,6 +4,7 @@
  * The real catalog lives elsewhere and is connected by `daemon/main.ts`; nothing here imports it.
  */
 import type { Capabilities } from "../contract/index.js";
+import type { GatewaySource } from "./gateway.js";
 
 export interface HarnessEntry {
   /** The harness id as submitted (`harness` in the request), for example `opencode`. */
@@ -17,7 +18,6 @@ export interface HarnessEntry {
     options: Record<string, unknown>;
   };
 }
-
 export interface HarnessCatalog {
   list(): HarnessEntry[];
   get(id: string): HarnessEntry | undefined;
@@ -28,6 +28,8 @@ export interface HarnessCatalog {
    * a catalog without workspaces of its own has nothing to reclaim.
    */
   reclaim?(finishedRunIds: string[]): Promise<string[]>;
+  /** The model gateway some harnesses use; its admission is read for those harnesses only. */
+  gateway?: GatewaySource;
 }
 
 /** A catalog with no harness: every submit is refused with `not_found` for an unknown harness. */

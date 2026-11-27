@@ -91,7 +91,10 @@ is no `artifacts` route or verb at all (planned). A test asserts all four:
 - No hold of 12 hours was measured; the longest measured hold was 5 minutes
   (`docs/d2/probe-approvals.md`).
 - The capability report reads the heat signal (checked against a real signal file on 1
-  host) but reports the model gateway's admission as not consulted (lobes-cli issue 346).
+  host) and, for OpenCode, the model gateway's `admission` object (lobes-cli 0.99.0; 1 s
+  timeout; anything unreadable, stale or future-stamped reads unknown). The gateway read is
+  proven with injected and loopback test servers only; the live read is NOT VERIFIED until
+  filled in (`docs/d2/part-one-acceptance.md`). A hold does not refuse a submit in part one.
 - A run directory the core cannot read is skipped by listing and not shown over the API.
 - Enabling broker publishing on a store with history replays that history; the broker
   URL is loopback only.
