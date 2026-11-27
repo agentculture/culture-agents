@@ -28,6 +28,9 @@ export class TraceConfigError extends Error {
 
 type Env = Record<string, string | undefined>;
 
+/** Traces go to a Langfuse on this host only, the same rule as the events broker. */
+const LOOPBACK_V4 = /^127(?:\.(?:25[0-5]|2[0-4]\d|1?\d?\d)){3}$/;
+
 /** The trace configuration, or null when tracing is off. Removes the trace variables from `env`. */
 export function loadTraceConfig(env: Env = process.env): TraceConfig | null {
   const endpoint = env[TRACE_ENDPOINT_ENV]?.trim();
@@ -43,6 +46,10 @@ export function loadTraceConfig(env: Env = process.env): TraceConfig | null {
     throw new TraceConfigError(`${TRACE_ENDPOINT_ENV} is not a URL`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") throw new TraceConfigError(`${TRACE_ENDPOINT_ENV} must be an http or https URL`);
+  const host = url.hostname.toLowerCase();
+  if (!(host === "localhost" || host === "[::1]" || LOOPBACK_V4.test(host))) {
+    throw new TraceConfigError(`${TRACE_ENDPOINT_ENV} must name a loopback address: traces stay on this host`);
+  }
   if (url.username !== "" || url.password !== "") throw new TraceConfigError(`${TRACE_ENDPOINT_ENV} must not hold a user name or password; use the key variables`);
   if ((pub === undefined) !== (second === undefined)) throw new TraceConfigError("set both the public and the secret trace key, or neither");
   url.pathname = `${url.pathname.replace(/\/+$/, "")}/v1/traces`;

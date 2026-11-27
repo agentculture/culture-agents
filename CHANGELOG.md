@@ -18,7 +18,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The base commit is recorded when a submit is accepted and the sandbox is built from it; the submitter of each run is recorded as the core established it.
 - Run store: a schema version, reading of 2.0 run directories, retention of finished run directories (`CULTURE_AGENTS_RUN_RETENTION_DAYS`, default 30) and a summary cache so finished runs are not re-read from their logs.
 - Capability report: configured limits, active runs and admission per signal. The heat signal is read; the model gateway's admission is reported as not consulted.
-- Optional publishing of run lifecycle events to a loopback MQTT broker (`CULTURE_AGENTS_BROKER_URL`), and optional export of run traces over OTLP to a local Langfuse (`CULTURE_AGENTS_TRACE_ENDPOINT`), content off by default. New npm dependency `mqtt` 5.16.1, exact pin.
+- Optional publishing of run lifecycle events to a loopback MQTT broker (`CULTURE_AGENTS_BROKER_URL`), and optional export of run traces over OTLP to a local Langfuse (`CULTURE_AGENTS_TRACE_ENDPOINT`), content off by default; the trace endpoint must be a loopback address, as the broker's must. New npm dependency `mqtt` 5.16.1, exact pin.
 - The D2 part one acceptance suite in `tests/acceptance/d2/` and its record `docs/d2/part-one-acceptance.md`; the documents `docs/d2/part-one.md` and `docs/d2/corrections.md`; one report per task in `docs/d2/task-reports/`.
 
 ### Changed

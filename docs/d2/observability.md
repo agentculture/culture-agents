@@ -17,7 +17,7 @@ Set these in the environment of the core (not of a worker) before it starts:
 
 | Variable | Meaning |
 |---|---|
-| `CULTURE_AGENTS_TRACE_ENDPOINT` | Langfuse's OpenTelemetry base, `http://localhost:3000/api/public/otel`. The core posts to `<endpoint>/v1/traces` as OTLP over HTTP (JSON) with basic auth. Unset: tracing is off. |
+| `CULTURE_AGENTS_TRACE_ENDPOINT` | Langfuse's OpenTelemetry base, `http://localhost:3000/api/public/otel`. The core posts to `<endpoint>/v1/traces` as OTLP over HTTP (JSON) with basic auth. The host must be a loopback address (`localhost`, `127.x.x.x` or `[::1]`); any other address stops the core at start, and a redirect from the receiver is never followed, so traces stay on this host. Unset: tracing is off. |
 | `CULTURE_AGENTS_TRACE_PUBLIC_KEY`, `CULTURE_AGENTS_TRACE_SECRET_KEY` | The project's key pair. Read once at start, then removed from the core's environment and filtered from every worker's environment. |
 | `CULTURE_AGENTS_TRACE_CONTENT` | `1` puts the prompt, tool input and output and question text on spans. Default off. |
 

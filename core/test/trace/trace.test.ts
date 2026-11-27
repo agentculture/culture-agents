@@ -167,11 +167,22 @@ test("the keys are read once, removed from the environment, and absent from a wo
   const inherited = workerEnv({ PATH: "/bin", [TRACE_SECRET_KEY_ENV]: "sk", [TRACE_PUBLIC_KEY_ENV]: "pk" });
   assert.deepEqual(inherited, { PATH: "/bin" });
   assert.equal(loadTraceConfig({ PATH: "/bin" }), null);
-  assert.throws(() => loadTraceConfig({ [TRACE_ENDPOINT_ENV]: "http://x/", [TRACE_PUBLIC_KEY_ENV]: "a" }), TraceConfigError);
+  assert.throws(() => loadTraceConfig({ [TRACE_ENDPOINT_ENV]: "http://127.0.0.1:3000/", [TRACE_PUBLIC_KEY_ENV]: "a" }), TraceConfigError);
 });
 
 test("the exporter adds no dependency and uses fetch", () => {
   const pkg = JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8")) as { dependencies?: Record<string, string> };
   assert.ok(!Object.keys(pkg.dependencies ?? {}).some((d) => /opentelemetry|langfuse/i.test(d)));
   assert.match(readFileSync(new URL("../../../src/trace/otlp.ts", import.meta.url), "utf8"), /await fetch\(/);
+});
+
+test("a trace endpoint that is not on this host is refused, and a redirect is never followed", async () => {
+  for (const endpoint of ["http://203.0.113.7:3000/api/public/otel", "https://traces.example/api/public/otel", "http://127.0.0.1.example/otel", "http://[2001:db8::1]:3000/otel"]) {
+    assert.throws(() => loadTraceConfig({ [TRACE_ENDPOINT_ENV]: endpoint }), /loopback/, endpoint);
+  }
+  for (const endpoint of ["http://127.0.0.1:3000/api/public/otel", "http://localhost:3000/api/public/otel", "http://[::1]:3000/api/public/otel", "http://127.9.8.7/otel"]) {
+    assert.ok(loadTraceConfig({ [TRACE_ENDPOINT_ENV]: endpoint }) !== null, endpoint);
+  }
+  const otlp = readFileSync(new URL("../../../src/trace/otlp.ts", import.meta.url), "utf8");
+  assert.match(otlp, /redirect: "error"/);
 });

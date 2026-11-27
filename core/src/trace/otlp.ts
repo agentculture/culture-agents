@@ -54,7 +54,7 @@ export function payloadFor(spans: readonly ExportSpan[], node: string): string {
 export async function postSpans(url: string, authorization: string | null, body: string, timeoutMs = 5000): Promise<void> {
   const headers: Record<string, string> = { "content-type": "application/json", "x-langfuse-ingestion-version": "4" };
   if (authorization !== null) headers["authorization"] = authorization;
-  const response = await fetch(url, { method: "POST", headers, body, signal: AbortSignal.timeout(timeoutMs) });
+  const response = await fetch(url, { method: "POST", headers, body, redirect: "error", signal: AbortSignal.timeout(timeoutMs) });
   await response.body?.cancel().catch(() => undefined);
   if (!response.ok) throw new Error(`the trace receiver answered ${response.status}`);
 }
