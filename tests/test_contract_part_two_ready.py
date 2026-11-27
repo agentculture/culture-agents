@@ -55,7 +55,8 @@ def test_placement_uses_the_supportable_capability_shape():
 def test_a_report_with_placement_supported_and_a_caveat_validates():
     assert _errors(PLACEMENT_VALID, "valid") == []
     placement = _load(PLACEMENT_VALID)["capabilities"]["placement"]
-    assert placement["supported"] is True and placement["reason"] is None
+    assert placement["supported"] is True
+    assert placement["reason"] is None
     assert placement["caveats"]
     assert _contract.problem("capabilities", _load(PLACEMENT_VALID)) is None
 
@@ -71,7 +72,8 @@ def test_placement_unsupported_still_needs_a_reason(name):
 
 def test_admission_held_is_one_new_retryable_user_error_on_submit():
     codes = SCHEMAS["error.json"]["$defs"]["code"]["enum"]
-    assert "admission_held" in codes and set(codes) == set(API["errors"])
+    assert "admission_held" in codes
+    assert set(codes) == set(API["errors"])
     row = API["errors"]["admission_held"]
     assert (row["http_status"], row["exit_code"], row["retryable"]) == (429, 1, True)
     submit = next(r for r in API["routes"] if r["id"] == "runs.submit")
@@ -134,10 +136,14 @@ def test_readme_moves_placement_out_of_the_deferred_table():
     assert "`placement`" not in deferred
     allowed = README[README.index("### Capabilities that 3.0 allows") :]
     allowed = allowed[: allowed.index("\n### ")]
-    assert "`placement`" in allowed and "(planned, part two)" in allowed
+    assert "`placement`" in allowed
+    assert "(planned, part two)" in allowed
 
 
 def test_readme_error_table_has_the_held_refusal():
     errors = _section("## Errors and CLI exit codes")
     row = next(line for line in errors.splitlines() if line.startswith("| `admission_held`"))
-    assert "429" in row and "| 1 |" in row and "true" in row and "`signal`" in row
+    assert "429" in row
+    assert "| 1 |" in row
+    assert "true" in row
+    assert "`signal`" in row

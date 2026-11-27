@@ -17,8 +17,10 @@ def test_list_text_shows_state_and_evidence(core, capsys: pytest.CaptureFixture[
     assert r.rc == 0
     lines = r.out.strip().splitlines()
     assert len(lines) == 2
-    assert "succeeded" in lines[0] and "reachable from main" in lines[0]
-    assert "running" in lines[1] and "not reachable from another ref" in lines[1]
+    assert "succeeded" in lines[0]
+    assert "reachable from main" in lines[0]
+    assert "running" in lines[1]
+    assert "not reachable from another ref" in lines[1]
     assert core.seen("GET", "/v1/branches")[0]["query"] == {"repo": REPO}
 
 
@@ -44,7 +46,9 @@ def test_list_with_no_branches(core, capsys) -> None:
 def test_remove_reports_deleted_and_skipped(core, capsys) -> None:
     r = run(capsys, "branches", "remove", "--repo", REPO)
     assert r.rc == 0
-    assert "deleted runs/" in r.out and "skipped runs/" in r.out and "active" in r.out
+    assert "deleted runs/" in r.out
+    assert "skipped runs/" in r.out
+    assert "active" in r.out
     sent = core.seen("POST", "/v1/branches/remove")[0]["body"]
     assert sent == {"repo": REPO}
     assert_valid("branches.json#/$defs/remove_request", sent)
@@ -86,6 +90,7 @@ def test_every_branches_verb_has_an_explain_entry_and_a_json_flag(capsys) -> Non
     for verb in ("list", "remove"):
         assert ("branches", verb) in ENTRIES
         r = run(capsys, "explain", "branches", verb)
-        assert r.rc == 0 and f"agents branches {verb}" in r.out
+        assert r.rc == 0
+        assert f"agents branches {verb}" in r.out
     assert ("branches",) in ENTRIES
     assert get_app() is not None
