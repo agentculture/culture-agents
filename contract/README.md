@@ -470,11 +470,26 @@ Deduplication is built (t6) for `runs.submit`, `runs.steer` and
   replays that run; a key whose run was never established is released, so a
   repeat creates the run. A steer or cancel writes its key just before
   delivery; it is kept when the worker recorded the action (`run.control`) and
-  released when the action was refused or never recorded, so a refusal does
-  not use up the key.
-- How long a key is remembered: as long as its run is in the store, and for 7
-  days after the run ended. Keys past that are removed when the core starts.
-  A repeat after that is a new request.
+  released when the worker refused the action, so a refusal does not use up
+  the key.
+- A steer or cancel key whose outcome is not known yet stays reserved: the
+  worker did not answer in time (a steer slower than the steer timeout), or
+  the core restarted during the delivery. While the run's worker is alive and
+  the run is not terminal, a repeat gets `unavailable` with `retry_after_ms`
+  and nothing is delivered again. The key is settled from the run's event log
+  once the outcome is known: kept when the log records the action, released
+  when the log records its refusal, or the run ended or its worker is gone
+  without it. An unreadable log keeps the key. A key takes effect at most
+  once.
+- How long a key is remembered: as long as its run directory is in the store,
+  and for 7 days after the run ended. Keys past that are removed when the core
+  starts and then on the core's housekeeping interval (every 5 minutes). A run
+  the core cannot read keeps its key. A repeat after that is a new request.
+- A repeat of an accepted submit goes through the checks before step 6 again,
+  so it can be refused before its key is looked up: a `deadline` that has
+  passed since gives `invalid` (step 2), and a harness that is no longer
+  `available` gives `unavailable` (step 4). The key is kept; the same request
+  replays once those checks pass.
 
 ## Deadlines
 
