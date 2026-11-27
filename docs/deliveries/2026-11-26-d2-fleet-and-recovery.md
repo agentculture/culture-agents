@@ -93,7 +93,7 @@ Counts over the 31 plan tasks: 17 delivered, 7 partial, 7 blocked, 0 dropped.
 - The owner chose on 2026-11-27 that the trace endpoint must be a loopback address, after the spec's "not to another host" was found unenforced.
 - A code review of pull request 15 by four independent reviewers found six must-fix defects that both green suites missed; the owner chose "Fix on this branch". Seven fix runs followed, each reproducing its defect with a failing test first. The review is `docs/d2/reviews/pr-15-review.md`; the fix reports are `docs/d2/task-reports/fix-a.md` to `fix-g.md`.
 - Work was dispatched through this repository's own `agents` CLI (D1 core at API 2.0, Claude Code harness in an OpenShell sandbox), one worktree per task. One model per harness per core, so a second core ran the harder tasks on a stronger model. The owner limited local-model (OpenCode) runs to 1 at a time; of the tasks tried on OpenCode only `t27` delivered.
-- Retention removes every worker-written terminal state (`timed_out` and `unanswered` too); the documents were changed to match the code, not the code to match the documents (fix-c's choice, not confirmed by the owner).
+- Retention removes every worker-written terminal state (`timed_out` and `unanswered` too); the documents were changed to match the code, not the code to match the documents (fix-c's choice, confirmed by the owner on 2026-11-27).
 - The pre-PR second-opinion review in OpenCode ran for over 7 hours on 7 subagents and never reported; the pull request was opened and merged without it, by the owner's choice.
 
 ## Drift From Plan
@@ -174,9 +174,14 @@ Lapse ledger evidence:
 - `t31` — restart the model gateway on the build host and reread its admit field; an `admit` or `hold` from a real gateway is not verified.
 - `t18` — the OpenCode live acceptance check, if the owner allows 3 concurrent local-model runs; the question check on real harnesses waits for `d3`'s follow-up.
 - `t4` (`c55`) — decide whether an unreadable run should be shown over the API; the 3.0 contract has no shape for it.
-- `c30` — decide whether to redact the two older records that name the build host's chat server (`docs/d0/d1-acceptance.md` line 116 and one delivery record).
-- Evidence `e1` to `e22` and deltas `b1` to `b9` — the owner confirms or rejects each.
 - Plan risks without a task: `r14` (a failed turn returns no work; it cost one run) and `r15` (a run can end `succeeded` with its task not done).
 - A 12 hour question hold was never measured (injected clock only; longest real hold 5 minutes).
 - The coverage step of CI failed twice with a cut-off coverage file; a mitigation is in and it has not recurred, but the cause is not proven.
 - Housekeeping for the owner: reject the staged dev versions on npm, limit the `npm` and `pypi` environments to `main`, delete stale remote branches (`runs/d2-frame`, `runs/d2-part-one`, `runs/d2-part-two`) and the merged local result branches of the dispatched runs.
+
+## Adjudication (2026-11-27)
+
+- The owner approved evidence `e1` to `e22` and deltas `b1` to `b7` and `b9` (`b8` was superseded by `b9`). The two failing records stand as findings: `e21` (an unreadable run is skipped by the API listing, claim `c55`) and `e22`.
+- `e22` is resolved: the owner chose to redact, and the two records now name the chat servers by port, not by name (`docs/d0/d1-acceptance.md`, and delivery record `d5` of the issue 2 plan with its export). A new evidence record, `e23`, is filed as proposed for that.
+- The owner confirmed that retention removes `timed_out` and `unanswered` runs too.
+- `docs/current-spec.md` is regenerated from the approved records.
