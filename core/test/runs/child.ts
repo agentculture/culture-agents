@@ -60,8 +60,9 @@ const spec = process.env["FAKE_CATALOG"];
 const faultAt = process.env["SUBMIT_FAULT"];
 // RECLAIM_INTERVAL_MS=<n> runs the daemon's housekeeping every n ms.
 const housekeepMs = process.env["RECLAIM_INTERVAL_MS"];
+// TEST_NODE: the node name of this core (default thor); a second core of a fleet test needs another.
 const code = await main(undefined, {
-  node: "thor",
+  node: process.env["TEST_NODE"] ?? "thor",
   stderr: (line) => process.stderr.write(`${line}\n`),
   fatalHandlers: true,
   ...(housekeepMs !== undefined && { reclaimIntervalMs: Number(housekeepMs) }),
