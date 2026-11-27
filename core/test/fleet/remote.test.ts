@@ -72,24 +72,26 @@ test("a submit from the calling core runs on thor and is shown, attached, steere
   }
 });
 
-test("the deadline crosses as a duration: with the two clocks 1 hour apart either way the run gets the same length on thor's clock", async () => {
-  const lengths: number[] = [];
-  for (const offset of [-3_600_000, 3_600_000]) {
-    // The caller's clock is the real one; thor's is an hour behind, then an hour ahead.
-    const thorNow = new Date(Date.UTC(2026, 10, 27, 12, 0, 0) + offset);
-    const { exec, caller } = await pair({ execOptions: { now: () => thorNow } });
-    try {
-      const { run } = await submitRemote(caller, { deadline_ms: 90_000 });
-      const request = exec.service.received[0]?.request as SubmitRequest;
-      assert.equal(Date.parse(request.deadline ?? "") - thorNow.getTime(), 90_000, "deadline = thor's clock at acceptance + the duration");
-      assert.equal(Date.parse(run.deadline ?? "") - Date.parse(run.created_at), 90_000);
-      lengths.push(Date.parse(run.deadline ?? "") - Date.parse(run.created_at));
-    } finally {
-      await caller.stop();
-      await exec.stop();
-    }
+/** The run length thor records for a remote submit of `deadline_ms`, with thor's clock `offset` ms from the caller's. */
+async function runLengthWith(offset: number, deadlineMs: number): Promise<number> {
+  // The caller's clock is the real one; thor's is fixed, `offset` ms away from a fixed moment.
+  const thorNow = new Date(Date.UTC(2026, 10, 27, 12, 0, 0) + offset);
+  const { exec, caller } = await pair({ execOptions: { now: () => thorNow } });
+  try {
+    const { run } = await submitRemote(caller, { deadline_ms: deadlineMs });
+    const request = exec.service.received[0]?.request as SubmitRequest;
+    assert.equal(Date.parse(request.deadline ?? "") - thorNow.getTime(), deadlineMs, "deadline = thor's clock at acceptance + the duration");
+    return Date.parse(run.deadline ?? "") - Date.parse(run.created_at);
+  } finally {
+    await caller.stop();
+    await exec.stop();
   }
-  assert.deepEqual(lengths, [90_000, 90_000]);
+}
+
+test("the deadline crosses as a duration: with the two clocks 1 hour apart either way the run gets the same length on thor's clock", async () => {
+  const behind = await runLengthWith(-3_600_000, 90_000);
+  const ahead = await runLengthWith(3_600_000, 90_000);
+  assert.deepEqual([behind, ahead], [90_000, 90_000]);
   // No absolute time from the caller is accepted: the 3.0 `deadline` field is not part of the remote submit.
   assert.equal(validate("remote#submit_request", submitBody({ deadline: "2026-11-27T13:00:00Z" })).ok, false);
 });
@@ -159,11 +161,15 @@ test("a member acts only on the runs it submitted; thor's own operator keeps con
     const asOther = (method: "GET" | "POST", path: string, body?: unknown) =>
       fleetCall({ key: otherKey, trust: loadTrust(join(other.fleetDir, "trust.json")), host: LOOPBACK, port: exec.port(), method, path, ...(body !== undefined && { body: JSON.stringify(body) }), headers: { "Agents-Api-Version": "3.2" }, expectNode: "thor" });
     const by = { caller: { kind: "operator", id: `${OTHER_NODE}-operator` }, message: "take over" };
-    for (const [method, path, body] of [["GET", `/v1/fleet/runs/${run.id}`], ["GET", `/v1/fleet/runs/${run.id}/events`], ["POST", `/v1/fleet/runs/${run.id}/steer`, by], ["POST", `/v1/fleet/runs/${run.id}/cancel`, { caller: by.caller }]] as const) {
-      const res = await asOther(method, path, body);
-      assert.equal(res.status, 403, `${method} ${path}: ${res.body.toString()}`);
-      assert.equal(errorOf(JSON.parse(res.body.toString())).code, "denied");
-    }
+    const tries = [
+      asOther("GET", `/v1/fleet/runs/${run.id}`),
+      asOther("GET", `/v1/fleet/runs/${run.id}/events`),
+      asOther("POST", `/v1/fleet/runs/${run.id}/steer`, by),
+      asOther("POST", `/v1/fleet/runs/${run.id}/cancel`, { caller: by.caller }),
+    ];
+    const answers = await Promise.all(tries);
+    assert.deepEqual(answers.map((r) => r.status), [403, 403, 403, 403], answers.map((r) => r.body.toString()).join("; "));
+    assert.ok(answers.every((r) => errorOf(JSON.parse(r.body.toString())).code === "denied"));
     assert.equal(exec.service.calls.filter((c) => c === "steer" || c === "cancel").length, 0, "nothing reached the run");
     const local = await call(exec.env.socket, "POST", `/v1/runs/${run.id}/cancel`, { body: { caller: { kind: "operator", id: "thor-operator" } } });
     assert.equal(local.status, 202, "thor's operator cancels a member's run on the control socket");

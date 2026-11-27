@@ -44,10 +44,8 @@ test("a 3.2 core and a core that reports 3.1 call each other in both directions"
     await caller.fleet.announce();
     assert.equal(thor.fleet.members.view().members[0]?.api_version, "3.2");
     assert.equal(caller.fleet.members.view().members[0]?.api_version, "3.1");
-    for (const path of ["/v1/version", "/v1/fleet/members"]) {
-      const res = await direct(caller, thor, path, "3.2");
-      assert.equal(res.status, 200, `${path}: ${res.body.toString()}`);
-    }
+    const down = await Promise.all(["/v1/version", "/v1/fleet/members"].map((path) => direct(caller, thor, path, "3.2")));
+    assert.deepEqual(down.map((r) => r.status), [200, 200], down.map((r) => r.body.toString()).join("; "));
     assert.ok(validate("fleet", JSON.parse((await direct(caller, thor, "/v1/fleet/members", "3.2")).body.toString())).ok);
     // A route thor's 3.1 does not have is never sent to it: refused on the caller, nothing reaches thor.
     const submit = await call(caller.env.socket, "POST", "/v1/fleet/runs", { body: submitBody() });
@@ -58,10 +56,8 @@ test("a 3.2 core and a core that reports 3.1 call each other in both directions"
     // 3.1 -> 3.2: thor announces with header 3.1 and reads the caller's version and member list.
     thor.announceTo(caller);
     await thor.fleet.announce();
-    for (const path of ["/v1/version", "/v1/fleet/members"]) {
-      const res = await direct(thor, caller, path, "3.1");
-      assert.equal(res.status, 200, `${path}: ${res.body.toString()}`);
-    }
+    const up = await Promise.all(["/v1/version", "/v1/fleet/members"].map((path) => direct(thor, caller, path, "3.1")));
+    assert.deepEqual(up.map((r) => r.status), [200, 200], up.map((r) => r.body.toString()).join("; "));
     const listed = JSON.parse((await direct(thor, caller, "/v1/fleet/members", "3.1")).body.toString()) as MemberList;
     assert.equal(listed.members[0]?.api_version, "3.1", "the 3.2 core lists the 3.1 core");
     // The 3.2 core serves its 3.2 routes to a caller that sends a lower MINOR (here thor's 3.1 header).
@@ -87,13 +83,11 @@ test("a core of another MAJOR is refused both ways: never listed, and its calls 
     await next.fleet.announce();
     assert.deepEqual(thor.fleet.members.view().members, [], "an announcement from 4.0 is refused");
     assert.deepEqual(next.fleet.members.view().members, [], "and gets no reply that would list thor");
-    for (const [from, to, version] of [[next, thor, "4.0"], [thor, next, apiVersion]] as const) {
-      const res = await direct(from, to, "/v1/fleet/runs", version, submitBody());
-      assert.equal(res.status, 412, res.body.toString());
-      const error = errorOf(JSON.parse(res.body.toString()));
-      assert.equal(error.code, "incompatible_version");
-      assert.deepEqual([error.client_api_version, error.server_api_version], [version, version === "4.0" ? apiVersion : "4.0"]);
-    }
+    const both = await Promise.all([direct(next, thor, "/v1/fleet/runs", "4.0", submitBody()), direct(thor, next, "/v1/fleet/runs", apiVersion, submitBody())]);
+    assert.deepEqual(both.map((r) => r.status), [412, 412]);
+    const [intoThor, intoNext] = both.map((r) => errorOf(JSON.parse(r.body.toString())));
+    assert.deepEqual([intoThor?.code, intoThor?.client_api_version, intoThor?.server_api_version], ["incompatible_version", "4.0", apiVersion]);
+    assert.deepEqual([intoNext?.code, intoNext?.client_api_version, intoNext?.server_api_version], ["incompatible_version", apiVersion, "4.0"]);
     const noHeader = await fleetCall({ key: nextKey, trust: loadTrust(join(next.fleetDir, "trust.json")), host: LOOPBACK, port: thor.port(), method: "GET", path: "/v1/fleet/aliases" });
     assert.equal(errorOf(JSON.parse(noHeader.body.toString())).code, "invalid", "a remote-run route requires the version header");
   } finally {
