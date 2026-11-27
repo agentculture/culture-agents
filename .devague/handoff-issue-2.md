@@ -41,32 +41,34 @@ Read this section first. It supersedes "Start here", "Open items" and
 | part two (t20 to t26, t28) | not started; t20 needs the owner's approval before t21 to t26 |
 
 Pull request 15 (`runs/d2-part-one` into `main`) is open since 03:44 UTC on
-2026-11-27. At commit `2f728d6` (05:05 UTC) every CI check passes and the
-SonarCloud gate is OK with 0 open findings; the two clean-up runs are merged.
+2026-11-27. A code review at `c47d690` (four independent reviewers;
+`docs/d2/reviews/pr-15-review.md`) gave request-changes with six must-fix
+defects. The owner said "Fix on this branch". Seven fix runs were dispatched
+and all are merged (reports in `docs/d2/task-reports/fix-a.md` to
+`fix-g.md`); each defect was reproduced by a failing test first, and the
+reviewers' own probes (scratchpad, `rv/a1` to `rv/a4`; they print, they do
+not assert) no longer reproduce any of them. Finding 19 had a real cause: a
+read between the worker's final writes reported `succeeded` without its
+branch and cached it; fixed.
 
-**It must not merge yet.** A code review at `c47d690` (four independent
-reviewers; the review is `docs/d2/reviews/pr-15-review.md`, their probes are
-in the scratchpad under `rv/a1` to `rv/a4`) gave request-changes with six
-reproduced must-fix defects and eleven should-fix ones. The owner said "Fix on
-this branch" (2026-11-27). Seven fix runs were dispatched at 06:31 UTC, one
-per area, each told to reproduce its defect with a failing test first. Their
-briefs are the scratchpad files `briefs/fix/a.txt` to `g.txt`, their run ids
-are in `logs/fix-runs.txt`, and their worktrees are `agent-fix-a` to
-`agent-fix-g`: a idempotency, b reattach, c run store, g the isolation flake
-(all on the opus core); d security surfaces, e question delivery, f CLI text
-and contract README (sonnet core). Gate and merge each like a task; several
-touch `runs/service.ts`, `daemon/main.ts` and `contract/README.md`, so expect
-conflicts. After they merge: rerun the reviewers' probes in the scratchpad
-under `rv/a1` to `rv/a4`, which must now fail to reproduce; update the pull
-request description; re-read the SonarCloud gate.
-The must-fix six: a steer slower than its timeout is delivered twice
-(`runs/service.ts` `keyed`, `store/idempotency.ts` `settleKey`); start-up key
-pruning drops the key of an unreadable run (`service.ts` `pruneKeys`); one
-missed ping at reattach reads a live run as terminal `unknown` for good
-(`runs/reattach.ts`, `runs/scan.ts`); the summary cache is read before the
-store-version check (`store/run-store.ts`); start-up cleanup ignores the
-store version (`store/startup.ts`); a summary is trusted on its byte count
-alone (`store/summary.ts`).
+At `7824410` (07:35 UTC) the local gate is clean: core 708 passed and 8
+skipped, Python 1770 passed and 13 skipped. Read CI and the SonarCloud gate
+with `bash .claude/skills/cicd/scripts/workflow.sh status 15`; the project's
+CI fails on any open SonarCloud finding, and the fix merges introduced 8,
+fixed in that commit. The gate script now reruns a failed test alone before
+failing, because timing tests fail under machine load.
+
+Still open on part one, none blocking the merge: secrets stay readable in
+the core's own `/proc` environment (documented; intake by file is not
+built); the real ask paths for Claude Code and OpenCode (deviation d3); no
+live trace to a real Langfuse; the gateway on this host serves no admission
+object until it is restarted; the OpenCode live acceptance check.
+
+Part two: t20's design record is merged on branch `runs/d2-part-two`
+(pushed, worktree `../.worktrees.culture-agents/part-two`, based on the part
+one tip). `docs/d2/part-two-design.md` has `Status: pending` and 9 one-line
+questions for the owner. No part two code task starts before the owner
+approves it.
 
 The owner approved t30 and t31 on 2026-11-27 and confirmed deviations d1, d2
 and d3.
