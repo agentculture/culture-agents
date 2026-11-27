@@ -1,0 +1,10 @@
+{
+  "node": "thor",
+  "aliases": [
+    {
+      "alias": "demo",
+      "permits": [],
+      "repo": "/srv/repos/demo"
+    }
+  ]
+}

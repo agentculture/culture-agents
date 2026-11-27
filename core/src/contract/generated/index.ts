@@ -9,6 +9,7 @@ import type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResp
 import type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 import type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
 import type { MemberList, Fingerprint, Member, Refusal, AnnounceRefusal, Announcement } from "./fleet.js";
+import type { RemoteRun, RepoAlias, RemoteSubmitRequest, RemoteSubmitResponse, AliasList, AliasFile } from "./remote.js";
 import type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 import type { Session } from "./session.js";
 import type { Version } from "./version.js";
@@ -22,6 +23,7 @@ export type { ControlAction, ActionKind, ActionRecord, SubmitRequest, SubmitResp
 export type { ErrorResponse, ErrorCode, ErrorBody, Limit, HeldSignal } from "./error.js";
 export type { RunEvent, EventKind, StateData, OutputData, ControlData, RefusedData, ErrorData, Question, Choice, ChoiceId, QuestionData, AnswerData, EventPage } from "./event.js";
 export type { MemberList, Fingerprint, Member, Refusal, AnnounceRefusal, Announcement } from "./fleet.js";
+export type { RemoteRun, RepoAlias, RemoteSubmitRequest, RemoteSubmitResponse, AliasList, AliasFile } from "./remote.js";
 export type { Run, RunState, ActiveState, TerminalState, Submitter, RunList, RunResult } from "./run.js";
 export type { Session } from "./session.js";
 export type { Version } from "./version.js";
@@ -106,6 +108,12 @@ export interface SchemaTypes {
   "fleet#refusal": Refusal;
   "fleet#announce_refusal": AnnounceRefusal;
   "fleet#announcement": Announcement;
+  "remote": RemoteRun;
+  "remote#alias": RepoAlias;
+  "remote#submit_request": RemoteSubmitRequest;
+  "remote#submit_response": RemoteSubmitResponse;
+  "remote#alias_list": AliasList;
+  "remote#alias_file": AliasFile;
   "run": Run;
   "run#state": RunState;
   "run#active_state": ActiveState;
